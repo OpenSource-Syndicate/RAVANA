@@ -1,0 +1,36 @@
+2025-07-02 17:49:10,302 - AutonomousAGI - DEBUG - Starting script with arguments: Namespace(debug=True, ddebug=False, duration=0, timeout=300, skip_dependency_check=False, monitor_interval=30, continuous=True, heartbeat_timeout=600, restart_delay=60)
+2025-07-02 17:49:10,303 - AutonomousAGI - DEBUG - Performing dependency check
+2025-07-02 17:49:10,303 - AutonomousAGI - DEBUG - Starting dependency check...
+2025-07-02 17:49:10,882 - AutonomousAGI - DEBUG - [OK] requests module imported
+2025-07-02 17:49:23,553 - AutonomousAGI - DEBUG - [OK] sentence_transformers module imported (version: 5.0.0)
+2025-07-02 17:49:23,669 - AutonomousAGI - DEBUG - [OK] wikipedia module imported
+2025-07-02 17:49:23,828 - AutonomousAGI - DEBUG - [OK] uvicorn module imported
+2025-07-02 17:49:25,073 - AutonomousAGI - DEBUG - [OK] openai module imported (version: 1.93.0)
+2025-07-02 17:49:26,128 - AutonomousAGI - DEBUG - [OK] google.genai module imported
+2025-07-02 17:49:26,129 - AutonomousAGI - INFO - All required dependencies are installed.
+2025-07-02 17:49:26,129 - AutonomousAGI - INFO - ================================================================================
+2025-07-02 17:49:26,129 - AutonomousAGI - INFO - Starting AGI system in CONTINUOUS 24/7 MODE with automatic restart
+2025-07-02 17:49:26,129 - AutonomousAGI - INFO - Press Ctrl+C to stop
+2025-07-02 17:49:26,130 - AutonomousAGI - INFO - ================================================================================
+2025-07-02 17:49:26,133 - AutonomousAGI - DEBUG - Executing command: C:\Users\anony\Desktop\LIKHITH\github\AGI\.venv\Scripts\python.exe main.py --auto --debug
+2025-07-02 17:49:26,141 - AutonomousAGI - DEBUG - Process started with PID: 35184
+2025-07-02 17:49:26,143 - AutonomousAGI - DEBUG - Starting resource monitor thread with interval 30 seconds
+2025-07-02 17:49:26,143 - AutonomousAGI - DEBUG - Starting heartbeat checker with interval 60 seconds
+2025-07-02 17:49:26,143 - AutonomousAGI - DEBUG - Starting output monitoring loop
+2025-07-02 17:49:27,161 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.9MB, Children: 1
+2025-07-02 17:49:56,389 - AutonomousAGI - ERROR - Process stderr: 2025-07-02 17:49:35,457 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-07-02 17:49:58,195 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-02 17:50:26,142 - AutonomousAGI - DEBUG - Heartbeat detected: log file has grown
+2025-07-02 17:50:29,216 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-02 17:51:00,236 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-02 17:51:26,142 - AutonomousAGI - DEBUG - Heartbeat detected: log file has grown
+2025-07-02 17:51:31,256 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-02 17:52:02,282 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-02 17:52:26,141 - AutonomousAGI - DEBUG - Heartbeat detected: log file has grown
+2025-07-02 17:52:33,307 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-02 17:53:04,334 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-02 17:53:24,505 - AutonomousAGI - INFO - Received keyboard interrupt, stopping
+2025-07-02 17:53:24,505 - AutonomousAGI - INFO - ================================================================================
+2025-07-02 17:53:24,505 - AutonomousAGI - INFO - AGI system continuous operation ended
+2025-07-02 17:53:24,506 - AutonomousAGI - INFO - Total restarts: 0
+2025-07-02 17:53:24,506 - AutonomousAGI - INFO - ================================================================================

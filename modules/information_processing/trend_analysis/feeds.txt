@@ -1,0 +1,4 @@
+https://feeds.bbci.co.uk/news/rss.xml
+https://www.reddit.com/r/worldnews/.rss
+https://techcrunch.com/feed/
+https://www.npr.org/rss/rss.php?id=1001

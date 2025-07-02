@@ -1,0 +1,292 @@
+[
+  {
+    "id": 1,
+    "title": "Learn Reinforcement Learning Basics",
+    "description": "Understand the fundamental concepts and algorithms of reinforcement learning to a level where I can implement and experiment with simple RL agents.",
+    "timeframe": "month",
+    "subgoals": [
+      {
+        "id": 1,
+        "title": "Understand Core RL Concepts",
+        "description": "Grasp the foundational concepts of RL, including agents, environments, rewards, states, actions, policies, and value functions.",
+        "tasks": [
+          {
+            "id": 1,
+            "description": "Define Agent, Environment, State, Action, and Reward",
+            "completed": false
+          },
+          {
+            "id": 2,
+            "description": "Explain the concept of a Policy",
+            "completed": false
+          },
+          {
+            "id": 3,
+            "description": "Define Value Function (V) and Q-Function (Q)",
+            "completed": false
+          },
+          {
+            "id": 4,
+            "description": "Differentiate between Markov Decision Processes (MDPs) and non-MDPs",
+            "completed": false
+          },
+          {
+            "id": 5,
+            "description": "Explain the concepts of Exploration vs. Exploitation",
+            "completed": false
+          }
+        ],
+        "completed": false
+      },
+      {
+        "id": 2,
+        "title": "Learn about Key RL Algorithms",
+        "description": "Gain knowledge of fundamental RL algorithms and their underlying principles.",
+        "tasks": [
+          {
+            "id": 1,
+            "description": "Study Q-learning algorithm",
+            "completed": false
+          },
+          {
+            "id": 2,
+            "description": "Study SARSA (State-Action-Reward-State-Action) algorithm",
+            "completed": false
+          },
+          {
+            "id": 3,
+            "description": "Study Policy Gradients (e.g., REINFORCE)",
+            "completed": false
+          },
+          {
+            "id": 4,
+            "description": "Understand the difference between on-policy and off-policy learning",
+            "completed": false
+          },
+          {
+            "id": 5,
+            "description": "Explore Deep Q-Networks (DQNs) at a high level (optional)",
+            "completed": false
+          }
+        ],
+        "completed": false
+      },
+      {
+        "id": 3,
+        "title": "Implement Simple RL Agents",
+        "description": "Develop practical experience by implementing RL agents for basic environments.",
+        "tasks": [
+          {
+            "id": 1,
+            "description": "Set up a development environment with necessary libraries (e.g., Python, OpenAI Gym/Gymnasium, TensorFlow/PyTorch)",
+            "completed": false
+          },
+          {
+            "id": 2,
+            "description": "Implement a Q-learning agent for a simple environment (e.g., FrozenLake)",
+            "completed": false
+          },
+          {
+            "id": 3,
+            "description": "Implement a SARSA agent for a simple environment (e.g., FrozenLake)",
+            "completed": false
+          },
+          {
+            "id": 4,
+            "description": "Experiment with different parameters (learning rate, discount factor, exploration rate) and observe their effect on performance",
+            "completed": false
+          },
+          {
+            "id": 5,
+            "description": "Document the implementations and experiments",
+            "completed": false
+          }
+        ],
+        "completed": false
+      },
+      {
+        "id": 4,
+        "title": "Understand Evaluation Metrics",
+        "description": "Learn how to evaluate the performance of RL agents.",
+        "tasks": [
+          {
+            "id": 1,
+            "description": "Define episodic return and average return",
+            "completed": false
+          },
+          {
+            "id": 2,
+            "description": "Explain how to measure and compare the performance of different RL agents",
+            "completed": false
+          },
+          {
+            "id": 3,
+            "description": "Understand the importance of proper evaluation techniques",
+            "completed": false
+          }
+        ],
+        "completed": false
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": 2,
+    "title": "Learn Reinforcement Learning Basics",
+    "description": "Gain a foundational understanding of Reinforcement Learning concepts and principles.",
+    "timeframe": "month",
+    "subgoals": [
+      {
+        "id": 1,
+        "title": "Understand Core Reinforcement Learning Concepts",
+        "description": "Learn the fundamental building blocks of RL, including agents, environments, states, actions, rewards, and policies.",
+        "tasks": [
+          {
+            "id": 1,
+            "description": "Define and differentiate between agents, environments, states, actions, and rewards.",
+            "completed": false
+          },
+          {
+            "id": 2,
+            "description": "Explain the concept of a policy and its role in decision-making.",
+            "completed": false
+          },
+          {
+            "id": 3,
+            "description": "Describe the Markov Decision Process (MDP) and its properties.",
+            "completed": false
+          },
+          {
+            "id": 4,
+            "description": "Understand the exploration-exploitation dilemma.",
+            "completed": false
+          },
+          {
+            "id": 5,
+            "description": "Learn about value functions (V(s) and Q(s,a)) and their significance.",
+            "completed": false
+          }
+        ],
+        "completed": false
+      },
+      {
+        "id": 2,
+        "title": "Explore Different Types of Reinforcement Learning Algorithms",
+        "description": "Become familiar with common RL algorithms, including value-based, policy-based, and actor-critic methods.",
+        "tasks": [
+          {
+            "id": 1,
+            "description": "Research and compare value-based methods like Q-learning and SARSA.",
+            "completed": false
+          },
+          {
+            "id": 2,
+            "description": "Investigate policy-based methods like REINFORCE and Actor-Critic methods.",
+            "completed": false
+          },
+          {
+            "id": 3,
+            "description": "Understand the differences and trade-offs between these different types of algorithms.",
+            "completed": false
+          },
+          {
+            "id": 4,
+            "description": "Identify the appropriate algorithm for different problem types.",
+            "completed": false
+          }
+        ],
+        "completed": false
+      },
+      {
+        "id": 3,
+        "title": "Implement Basic RL Algorithms in a Simple Environment",
+        "description": "Gain practical experience by implementing simple RL algorithms in a simulated environment (e.g., Gridworld or OpenAI Gym environments).",
+        "tasks": [
+          {
+            "id": 1,
+            "description": "Choose a simple RL environment (e.g., Gridworld, CartPole).",
+            "completed": false
+          },
+          {
+            "id": 2,
+            "description": "Implement a Q-learning algorithm to solve the chosen environment.",
+            "completed": false
+          },
+          {
+            "id": 3,
+            "description": "Implement SARSA algorithm to solve the chosen environment.",
+            "completed": false
+          },
+          {
+            "id": 4,
+            "description": "Evaluate the performance of the implemented algorithms.",
+            "completed": false
+          },
+          {
+            "id": 5,
+            "description": "Experiment with different hyperparameters to optimize performance.",
+            "completed": false
+          }
+        ],
+        "completed": false
+      },
+      {
+        "id": 4,
+        "title": "Learn about Exploration Strategies",
+        "description": "Study and implement different techniques for exploring the environment effectively to improve learning.",
+        "tasks": [
+          {
+            "id": 1,
+            "description": "Understand the concept of epsilon-greedy exploration.",
+            "completed": false
+          },
+          {
+            "id": 2,
+            "description": "Learn about Boltzmann (Softmax) exploration.",
+            "completed": false
+          },
+          {
+            "id": 3,
+            "description": "Implement and compare epsilon-greedy and Boltzmann exploration strategies in a simple environment.",
+            "completed": false
+          },
+          {
+            "id": 4,
+            "description": "Research other exploration techniques, such as upper confidence bound (UCB).",
+            "completed": false
+          }
+        ],
+        "completed": false
+      },
+      {
+        "id": 5,
+        "title": "Understand Discounting and Temporal Difference Learning",
+        "description": "Learn about the concepts of discounting future rewards and how Temporal Difference (TD) learning algorithms update value estimates.",
+        "tasks": [
+          {
+            "id": 1,
+            "description": "Explain the purpose of the discount factor (gamma) and its impact on learning.",
+            "completed": false
+          },
+          {
+            "id": 2,
+            "description": "Understand how TD learning algorithms update value estimates based on observed rewards.",
+            "completed": false
+          },
+          {
+            "id": 3,
+            "description": "Differentiate between different TD learning methods, such as TD(0), TD(lambda), and Monte Carlo methods.",
+            "completed": false
+          },
+          {
+            "id": 4,
+            "description": "Explain the concept of bootstrapping in TD learning.",
+            "completed": false
+          }
+        ],
+        "completed": false
+      }
+    ],
+    "completed": false
+  }
+]

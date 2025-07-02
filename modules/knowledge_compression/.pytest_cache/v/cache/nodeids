@@ -1,0 +1,5 @@
+[
+  "test_knowledge_compression.py::test_compress_knowledge",
+  "test_knowledge_compression.py::test_compress_knowledge_real_api",
+  "test_knowledge_compression.py::test_load_summaries"
+]

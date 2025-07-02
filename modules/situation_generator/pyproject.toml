@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "situation_generator"
+version = "0.1.0"
+description = "Situation Generator Module for Ravana AGI Core v1"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[tool.black]
+line-length = 100 

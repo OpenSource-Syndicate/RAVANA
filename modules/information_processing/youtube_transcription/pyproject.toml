@@ -1,0 +1,15 @@
+[project]
+name = "others"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "langdetect>=1.0.9",
+    "openai-whisper",
+    "pytubefix>=9.2.2",
+    "youtube-transcript-api>=1.1.0",
+]
+
+[tool.uv.sources]
+openai-whisper = { git = "https://github.com/openai/whisper.git" }

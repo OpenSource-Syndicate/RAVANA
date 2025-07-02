@@ -1,0 +1,3 @@
+2025-07-02 17:49:10,179 - AGI_24_7 - INFO - AGI 24/7 continuous operation started
+2025-07-02 17:49:10,180 - AGI_24_7 - INFO - Running command: C:\Users\anony\Desktop\LIKHITH\github\AGI\.venv\Scripts\python.exe run_autonomous.py --continuous --heartbeat-timeout 600 --restart-delay 60 --monitor-interval 30 --debug
+2025-07-02 17:53:25,772 - AGI_24_7 - INFO - Received keyboard interrupt, stopping AGI system
