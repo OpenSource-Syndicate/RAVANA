@@ -1,14 +1,3 @@
-# Multi-Source Knowledge Collector (Module 1): 
-- newspaper3k
-- Playwright
-- DuckDuckGo API
-- Wikipedia
-- gnews
-
-## YouTube & Multimedia Transcripts
-- youtube-transcript-api
-- langclain YoutubeLoader
-
 # Ravana AGI Core - Development Roadmap
 
 This document outlines the strategic development plan for the Ravana AGI Core project. Our goal is to incrementally build a more capable, intelligent, and autonomous agent.

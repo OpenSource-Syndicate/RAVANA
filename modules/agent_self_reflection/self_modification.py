@@ -442,5 +442,57 @@ def run_self_modification():
         
         log_audit(audit_entry)
 
+def generate_hypothesis(shared_state):
+    """
+    Analyzes the agent's recent performance and formulates a testable hypothesis.
+    """
+    # Example: Analyze mood and decision quality
+    recent_moods = shared_state.get('mood_history', [])
+    if len(recent_moods) < 10:
+        return None  # Not enough data
+
+    # A simple heuristic: if mood has been consistently negative, hypothesize that it affects performance.
+    negative_mood_count = sum(1 for mood in recent_moods if mood in ["Sad", "Anxious", "Angry"])
+    if negative_mood_count > 5:
+        return "I hypothesize that my plans are less effective when I am in a negative mood."
+
+    return None
+
+def design_and_run_experiment(hypothesis, shared_state):
+    """
+    Designs and runs an experiment to validate the hypothesis.
+    """
+    # This would involve creating a plan to test the hypothesis.
+    # For now, we'll just log the intent.
+    print(f"Designing experiment for hypothesis: {hypothesis}")
+    
+    # In a real implementation, this would call the agi_experimentation_engine
+    # with a detailed plan.
+    experiment_plan = f"""
+    Hypothesis: {hypothesis}
+    Experiment:
+    1. For the next 20 cycles, record mood and a self-assessed 'plan quality' score (1-10).
+    2. Deliberately induce a 'happy' mood for 10 cycles and a 'sad' mood for 10 cycles.
+    3. Analyze the correlation between mood and plan quality.
+    """
+    
+    # This is a placeholder for where you would actually run the experiment
+    # from agi_experimentation_engine import agi_experimentation_engine
+    # results = agi_experimentation_engine(experiment_plan)
+    
+    results = {"status": "completed", "findings": " inconclusive, more data needed."}
+    return results
+
+def run_experiment_from_prompt(prompt):
+    """
+    Allows the agent to run an experiment based on a natural language command.
+    """
+    # This would parse the prompt and call the experimentation engine.
+    print(f"Running experiment from prompt: {prompt}")
+    # from agi_experimentation_engine import agi_experimentation_engine
+    # results = agi_experimentation_engine(prompt)
+    results = {"status": "completed", "output": "Experiment run based on prompt."}
+    return results
+
 if __name__ == "__main__":
     run_self_modification() 

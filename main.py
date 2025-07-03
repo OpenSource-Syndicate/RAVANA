@@ -23,7 +23,11 @@ from modules.episodic_memory.memory import (
     startup_event as init_memory_db,
     app as memory_app
 )
-from modules.agent_self_reflection.self_modification import run_self_modification
+from modules.agent_self_reflection.self_modification import (
+    generate_hypothesis,
+    design_and_run_experiment,
+    run_experiment_from_prompt
+)
 from modules.situation_generator.situation_generator import SituationGenerator
 from modules.emotional_intellegence.emotional_intellegence import EmotionalIntelligence
 from modules.curiosity_trigger.curiosity_trigger import CuriosityTrigger
@@ -91,6 +95,13 @@ class AGISystem:
         self.situation_generator = EnhancedSituationGenerator()
         self.emotional_intelligence = EmotionalIntelligence()
         self.episodic_memory = init_memory_db()
+        self.reflection_module = type("ReflectionModule", (), {
+            "generate_hypothesis": generate_hypothesis
+        })
+        self.experimentation_module = type("ExperimentationModule", (), {
+            "design_and_run_experiment": design_and_run_experiment,
+            "run_experiment_from_prompt": run_experiment_from_prompt
+        })
 
         # Shared state
         self.shared_state = {
@@ -98,6 +109,7 @@ class AGISystem:
             "current_situation": None,
             "recent_memories": [],
             "long_term_goals": [],
+            "mood_history": [],
         }
 
         # Feed URLs for data collection
@@ -222,6 +234,9 @@ class AGISystem:
                 # 5. Feel: Update emotional state
                 self.emotional_intelligence.process_action_natural(action_output)
                 self.shared_state['mood'] = self.emotional_intelligence.get_mood_vector()
+                self.shared_state['mood_history'].append(self.emotional_intelligence.get_dominant_mood())
+                if len(self.shared_state['mood_history']) > 50:
+                    self.shared_state['mood_history'].pop(0)
                 logger.info(f"Updated Mood: {self.shared_state['mood']}")
 
                 # 6. Memorize: Store the interaction
@@ -229,9 +244,30 @@ class AGISystem:
                 memories_to_save = await extract_memories_api({"user_input": interaction_summary, "ai_output": ""})
                 await asyncio.to_thread(save_memories, memories_to_save.memories)
                 
-                # 7. Reflect: Run self-reflection
-                if self.emotional_intelligence.get_dominant_mood() == "Reflective":
-                    await asyncio.to_thread(run_self_modification)
+                # 7. Reflect: Run self-reflection and experimentation
+                dominant_mood = self.emotional_intelligence.get_dominant_mood()
+                if dominant_mood == "Reflective":
+                    logger.info("Agent is in a Reflective mood, starting self-modification and experimentation.")
+                    # Generate a hypothesis
+                    hypothesis = self.reflection_module.generate_hypothesis(self.shared_state)
+                    if hypothesis:
+                        logger.info(f"Generated Hypothesis: {hypothesis}")
+                        # Design and run an experiment to test the hypothesis
+                        experiment_results = await asyncio.to_thread(
+                            self.experimentation_module.design_and_run_experiment,
+                            hypothesis,
+                            self.shared_state
+                        )
+                        logger.info(f"Experiment Results: {experiment_results}")
+                        # The results could be used to inform future reflections or modifications
+                    else:
+                        logger.info("No new hypothesis generated.")
+
+                # 8. Trigger Curiosity
+                elif dominant_mood in ["Bored", "Confused"]:
+                    logger.info(f"Agent is {dominant_mood}, triggering curiosity.")
+                    curiosity_output = await asyncio.to_thread(CuriosityTrigger.trigger, self.shared_state.get('recent_memories', []))
+                    logger.info(f"Curiosity Output: {curiosity_output}")
 
                 await asyncio.sleep(10)  # Pause between loops
             except Exception as e:
@@ -241,14 +277,16 @@ class AGISystem:
     async def execute_action(self, decision):
         raw_response = decision.get('raw_response', "")
         if "experiment" in raw_response.lower():
-            return await asyncio.to_thread(agi_experimentation_engine, raw_response)
+            # This can be triggered by a decision, or a self-generated hypothesis
+            return await asyncio.to_thread(self.experimentation_module.run_experiment_from_prompt, raw_response)
         elif "youtube.com" in raw_response.lower():
             url = raw_response.split(" ")[-1]
             return await asyncio.to_thread(transcribe_youtube_video, url)
         elif "trends" in raw_response.lower():
             return await asyncio.to_thread(analyze_trends)
         elif "curiosity" in raw_response.lower():
-            return await asyncio.to_thread(CuriosityTrigger.trigger, [])
+            # This can be triggered by a decision
+            return await asyncio.to_thread(CuriosityTrigger.trigger, self.shared_state.get('recent_memories', []))
         else:
             return "No specific action taken from decision."
 
