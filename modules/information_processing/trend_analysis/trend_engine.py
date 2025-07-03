@@ -5,9 +5,7 @@ from collections import Counter
 import string
 import os
 
-# Define the project root and ensure the database is always at the project root
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-DB_FILE = os.path.join(PROJECT_ROOT, 'trends.db')
+DB_FILE = 'trends.db'
 
 # --------- SETUP DATABASE -----------
 def setup_db():
@@ -77,7 +75,8 @@ def analyze_trends(last_hours=24):
 def main():
     setup_db()
 
-    with open('feeds.txt', 'r') as f:
+    feeds_path = os.path.join(os.path.dirname(__file__), 'feeds.txt')
+    with open(feeds_path, 'r') as f:
         feed_urls = [line.strip() for line in f if line.strip()]
 
     while True:

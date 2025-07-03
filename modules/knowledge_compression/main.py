@@ -1,11 +1,9 @@
 import os
-import sys
 import json
 from datetime import datetime
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../memory-3')))
-from llm import call_llm
-from compression_prompts import COMPRESSION_PROMPT
-from compressed_memory import save_summary, load_summaries
+from .llm import call_llm
+from .compression_prompts import COMPRESSION_PROMPT
+from .compressed_memory import save_summary, load_summaries
 
 def compress_knowledge(logs):
     """Summarize accumulated knowledge/logs using the LLM."""

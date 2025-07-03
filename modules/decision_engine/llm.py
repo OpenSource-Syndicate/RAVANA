@@ -5,10 +5,18 @@ from google import genai
 from openai import OpenAI
 import logging
 import random
+import tempfile
+import traceback
+import sys
+import contextlib
+import io
+import re
+import pkgutil
+import subprocess
+import importlib.util
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
 
 # Load config
@@ -304,7 +312,236 @@ def decision_maker_loop(situation, memory=None, model=None, chain_of_thought=Tru
     # Placeholder: parse response into plan/actions/reflection if possible
     return {'raw_response': response}
 
+def agi_experimentation_engine(
+    experiment_idea,
+    llm_model=None,
+    use_chain_of_thought=True,
+    online_validation=True,
+    sandbox_timeout=10,
+    verbose=False
+):
+    """
+    Unified AGI Experimentation Engine:
+    1. Analyze/refine idea (LLM)
+    2. Determine simulation type (Python, physics, physical, etc.)
+    3. Generate Python code or simulation plan (LLM)
+    4. Install required Python dependencies (if any)
+    5. Execute code safely (sandboxed) if possible
+    6. Gather results
+    7. Cross-check real-world feasibility (web scraping + Gemini)
+    8. Multi-layer reasoning (analysis, code, result, online, verdict)
+    Returns: dict with all reasoning layers and final verdict
+    """
+    result = {
+        'input_idea': experiment_idea,
+        'refined_idea': None,
+        'simulation_type': None,
+        'generated_code': None,
+        'dependency_installation': None,
+        'execution_result': None,
+        'execution_error': None,
+        'result_interpretation': None,
+        'online_validation': None,
+        'final_verdict': None,
+        'steps': []
+    }
+
+    def log_step(name, content):
+        result['steps'].append({'step': name, 'content': content})
+        if verbose:
+            print(f"[{name}]\n{content}\n")
+
+    # 1. Analyze and Refine Idea
+    refine_prompt = f"""
+    You are an advanced AGI research assistant. Given the following experiment idea, analyze it for clarity, feasibility, and suggest any refinements or clarifications needed. If the idea is about a physical or physics experiment, clarify what is to be measured, what equipment is needed, and whether it can be simulated in Python.\n\nExperiment Idea: {experiment_idea}\n\nRefined/clarified version (if needed):
+    """
+    refined_idea = call_llm(refine_prompt, model=llm_model)
+    result['refined_idea'] = refined_idea
+    log_step('refined_idea', refined_idea)
+
+    # 2. Determine Simulation Type
+    sim_type_prompt = f"""
+    Given the following experiment idea, classify it as one of: 'python', 'physics_simulation', 'physical_experiment', or 'other'. If it can be simulated in Python, say 'python'. If it requires physics simulation, say 'physics_simulation'. If it requires real-world equipment, say 'physical_experiment'.\n\nIdea: {refined_idea}\n\nSimulation type:
+    """
+    simulation_type = call_llm(sim_type_prompt, model=llm_model)
+    simulation_type = simulation_type.strip().split('\n')[0].lower()
+    result['simulation_type'] = simulation_type
+    log_step('simulation_type', simulation_type)
+
+    # 3. Generate Python Code or Simulation Plan
+    if simulation_type in ['python', 'physics_simulation']:
+        code_prompt = f"""
+        Given the following refined experiment idea, generate a single Python script that simulates or tests the idea locally. If it is a physics experiment, simulate it as best as possible in Python. If your code requires any external libraries, ensure you use only widely available packages (e.g., numpy, matplotlib, scipy) and import them at the top. Do not use obscure or unavailable packages.\n\nRefined Idea: {refined_idea}\n\nPython code (no explanation, just code):\n"""
+        generated_code = call_llm(code_prompt, model=llm_model)
+        # Strip markdown code block markers
+        code_clean = re.sub(r"^```(?:python)?", "", generated_code.strip(), flags=re.MULTILINE)
+        code_clean = re.sub(r"```$", "", code_clean, flags=re.MULTILINE)
+        result['generated_code'] = code_clean
+        log_step('generated_code', code_clean)
+    else:
+        # For physical experiments, generate a plan
+        plan_prompt = f"""
+        The following experiment idea requires real-world equipment. Generate a step-by-step plan for how a human could perform this experiment, including a list of required equipment.\n\nRefined Idea: {refined_idea}\n\nExperiment plan and equipment list:\n"""
+        plan = call_llm(plan_prompt, model=llm_model)
+        result['generated_code'] = plan
+        log_step('experiment_plan', plan)
+
+    # 4. Install required Python dependencies (if any)
+    dependency_installation_log = []
+    def install_missing_dependencies(code):
+        # Robustly scan for import statements (import x, from x import y, from x.y import z)
+        import_lines = re.findall(r'^\s*import ([a-zA-Z0-9_\.]+)', code, re.MULTILINE)
+        from_imports = re.findall(r'^\s*from ([a-zA-Z0-9_\.]+) import', code, re.MULTILINE)
+        modules = set(import_lines + from_imports)
+        # Only use top-level package (e.g., 'matplotlib' from 'matplotlib.pyplot')
+        top_level_modules = set([m.split('.')[0] for m in modules])
+        # Exclude standard library modules
+        stdlib_modules = set(sys.builtin_module_names)
+        missing = []
+        for mod in top_level_modules:
+            if mod in stdlib_modules:
+                continue
+            if importlib.util.find_spec(mod) is None:
+                missing.append(mod)
+        # Try to install missing packages (with retry and log pip output)
+        for pkg in missing:
+            for attempt in range(2):
+                try:
+                    pip_cmd = [sys.executable, '-m', 'pip', 'install', pkg]
+                    proc = subprocess.run(pip_cmd, capture_output=True, text=True)
+                    if proc.returncode == 0:
+                        dependency_installation_log.append(f"Installed: {pkg}\n{proc.stdout}")
+                        break
+                    else:
+                        dependency_installation_log.append(f"Attempt {attempt+1} failed to install {pkg}: {proc.stderr}")
+                except Exception as e:
+                    dependency_installation_log.append(f"Exception during install of {pkg}: {e}")
+            else:
+                dependency_installation_log.append(f"Failed to install {pkg} after 2 attempts. Please run: pip install {pkg} manually.")
+        return dependency_installation_log
+
+    if simulation_type in ['python', 'physics_simulation']:
+        dependency_installation_log = install_missing_dependencies(result['generated_code'])
+        result['dependency_installation'] = dependency_installation_log
+        log_step('dependency_installation', dependency_installation_log)
+    else:
+        result['dependency_installation'] = None
+
+    # 5. Execute Code Safely (Sandboxed) if possible
+    def safe_execute_python(code, timeout=sandbox_timeout):
+        """Executes code in a sandboxed environment and returns output/error."""
+        import tempfile, sys, contextlib, io, os
+        with tempfile.NamedTemporaryFile('w', suffix='.py', delete=False) as tmp:
+            tmp.write(code)
+            tmp_path = tmp.name
+        output = io.StringIO()
+        error = None
+        try:
+            with contextlib.redirect_stdout(output):
+                with contextlib.redirect_stderr(output):
+                    import subprocess
+                    proc = subprocess.run(
+                        [sys.executable, tmp_path],
+                        capture_output=True,
+                        text=True,
+                        timeout=timeout
+                    )
+                    out = proc.stdout + proc.stderr
+        except Exception as e:
+            out = output.getvalue()
+            error = f"Execution error: {e}\n{traceback.format_exc()}"
+        finally:
+            os.unlink(tmp_path)
+        return out, error
+
+    exec_out, exec_err = None, None
+    if simulation_type in ['python', 'physics_simulation']:
+        exec_out, exec_err = safe_execute_python(result['generated_code'])
+        result['execution_result'] = exec_out
+        result['execution_error'] = exec_err
+        log_step('execution_result', exec_out or exec_err)
+    else:
+        result['execution_result'] = None
+        result['execution_error'] = None
+
+    # 6. Post-execution Result Interpretation
+    interpret_prompt = f"""
+    Here is the experiment idea, the generated code or plan, and the output/result.\n\nIdea: {refined_idea}\n\nCode or Plan:\n{result['generated_code']}\n\nOutput/Error:\n{exec_out or exec_err}\n\nInterpret the result. What does it mean? Any issues or insights?\n"""
+    interpretation = call_llm(interpret_prompt, model=llm_model)
+    result['result_interpretation'] = interpretation
+    log_step('result_interpretation', interpretation)
+
+    # 7. Online Validation (Web + Gemini)
+    online_validation_result = None
+    if online_validation:
+        if simulation_type == 'physical_experiment':
+            # Search for real-world equipment and feasibility
+            web_prompt = f"""
+            Given this physical experiment idea and plan, search for the required equipment and check if it is available for purchase or use. Also, check if the experiment is feasible in real life.\n\nIdea: {refined_idea}\nPlan: {result['generated_code']}\n\nCite sources if possible.\n"""
+        else:
+            # Try web search (Gemini with search)
+            web_prompt = f"""
+            Given this experiment idea and result, check if similar experiments have been done, and whether the result matches real-world knowledge.\n\nIdea: {refined_idea}\nResult: {exec_out or exec_err}\n\nCite sources if possible.\n"""
+        try:
+            online_validation_result = call_gemini_with_search(web_prompt)
+        except Exception as e:
+            online_validation_result = f"[Online validation failed: {e}]"
+        result['online_validation'] = online_validation_result
+        log_step('online_validation', online_validation_result)
+
+    # 8. Final Verdict
+    verdict_prompt = f"""
+    Given all the above (idea, code/plan, result, online validation), provide a final verdict:\n- Success\n- Fail\n- Potential\n- Unknown\n\nJustify your verdict in 1-2 sentences.\n"""
+    verdict = call_llm(verdict_prompt, model=llm_model)
+    result['final_verdict'] = verdict
+    log_step('final_verdict', verdict)
+
+    return result
+
 # Example usage:
 if __name__ == "__main__":
     # Uncomment the line below to test all providers
-    test_all_providers()
+    # test_all_providers()
+
+    # Standalone test: test only package installation logic
+    def test_package_installation():
+        test_code = """
+import numpy
+import matplotlib.pyplot as plt
+import requests
+"""
+        print("Testing package installation for test_code imports...")
+        logs = []
+        try:
+            # Use the same install_missing_dependencies logic as in agi_experimentation_engine
+            import re, sys, importlib.util, subprocess
+            import_lines = re.findall(r'^\s*import ([a-zA-Z0-9_\.]+)', test_code, re.MULTILINE)
+            from_imports = re.findall(r'^\s*from ([a-zA-Z0-9_\.]+) import', test_code, re.MULTILINE)
+            modules = set(import_lines + from_imports)
+            top_level_modules = set([m.split('.')[0] for m in modules])
+            stdlib_modules = set(sys.builtin_module_names)
+            missing = []
+            for mod in top_level_modules:
+                if mod in stdlib_modules:
+                    continue
+                if importlib.util.find_spec(mod) is None:
+                    missing.append(mod)
+            for pkg in missing:
+                for attempt in range(2):
+                    try:
+                        pip_cmd = [sys.executable, '-m', 'pip', 'install', pkg]
+                        proc = subprocess.run(pip_cmd, capture_output=True, text=True)
+                        if proc.returncode == 0:
+                            logs.append(f"Installed: {pkg}\n{proc.stdout}")
+                            break
+                        else:
+                            logs.append(f"Attempt {attempt+1} failed to install {pkg}: {proc.stderr}")
+                    except Exception as e:
+                        logs.append(f"Exception during install of {pkg}: {e}")
+                else:
+                    logs.append(f"Failed to install {pkg} after 2 attempts. Please run: pip install {pkg} manually.")
+        except Exception as e:
+            logs.append(f"Exception in test_package_installation: {e}")
+        print("\n".join(logs))
+
+    test_package_installation()

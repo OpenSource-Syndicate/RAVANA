@@ -6,8 +6,8 @@ import difflib
 import re
 import traceback
 from datetime import datetime
-from reflection_db import load_reflections, save_reflection
-from llm import call_llm, is_lazy_llm_response, is_valid_code_patch
+from .reflection_db import load_reflections, save_reflection
+from .llm import call_llm, is_lazy_llm_response, is_valid_code_patch
 
 SELF_PATH = os.path.dirname(os.path.abspath(__file__))
 MODULE_ROOT = SELF_PATH

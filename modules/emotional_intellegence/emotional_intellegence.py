@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 import random
-from llm import call_llm
+from .llm import call_llm
 
 class EmotionalIntelligence:
     BASIC_MOODS = [

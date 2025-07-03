@@ -1,35 +1,35 @@
-import os
-import json
-import time
 import logging
+import time
 import uuid
 from typing import List, Dict, Any, Optional
-
-GOALS_DB_FILE = os.path.join(os.path.dirname(__file__), 'goals_db.json')
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# In-memory storage for goals
+# In-memory storage for goals, shared across all instances of GoalPlanner
 _goals: Dict[str, Dict[str, Any]] = {}
 
 def plan_from_context(context: str, timeframe: str = "short-term", priority: int = 5) -> str:
     """
-    Creates a new goal from a given context.
+    Creates a new, simple goal from a given context and stores it in memory.
+    This function does not call an LLM, making it fast and reliable for initial planning.
     """
     logger.info("--> [Planner] INPUT: Creating a new plan from context.")
-    logger.debug(f"Context: {context}, Timeframe: {timeframe}, Priority: {priority}")
+    logger.debug(f"Context: '{context}', Timeframe: {timeframe}, Priority: {priority}")
     
     goal_id = str(uuid.uuid4())
     goal = {
         "id": goal_id,
         "title": context,
-        "description": "",
+        "description": f"A goal to address the context: {context}",
         "timeframe": timeframe,
         "priority": priority,
+        "status": "pending",
         "sub_goals": [],
-        "context": context
+        "context": context,
+        "created_at": time.time(),
+        "updated_at": time.time()
     }
     _goals[goal_id] = goal
     
@@ -38,18 +38,48 @@ def plan_from_context(context: str, timeframe: str = "short-term", priority: int
 
 class GoalPlanner:
     def __init__(self):
+        """
+        A simple in-memory goal planner that manages goals created by plan_from_context.
+        """
         logger.info("[Planner] Initialized GoalPlanner.")
         self._goals = _goals  # Use the shared in-memory dictionary
 
-    def _load_goals(self) -> List[Dict]:
-        if not os.path.exists(self.db_file):
-            return []
-        with open(self.db_file, 'r', encoding='utf-8') as f:
-            return json.load(f)
+    def get_goal(self, goal_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves a goal by its string UUID.
+        """
+        logger.info(f"--> [Planner] INPUT: Retrieving goal with ID: {goal_id}")
+        goal = self._goals.get(goal_id)
+        if goal:
+            logger.info(f"<-- [Planner] OUTPUT: Found goal titled: '{goal.get('title')}'")
+        else:
+            logger.warning(f"<-- [Planner] OUTPUT: Goal with ID {goal_id} not found.")
+        return goal
 
-    def _save_goals(self):
-        with open(self.db_file, 'w', encoding='utf-8') as f:
-            json.dump(self.goals, f, indent=2)
+    def get_all_goals(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Retrieves all goals, optionally filtered by status.
+        """
+        logger.info(f"--> [Planner] INPUT: Retrieving all goals with status filter: {status}")
+        if status:
+            filtered_goals = [g for g in self._goals.values() if g.get('status') == status]
+            logger.info(f"<-- [Planner] OUTPUT: Found {len(filtered_goals)} goals with status '{status}'.")
+            return filtered_goals
+        logger.info(f"<-- [Planner] OUTPUT: Found {len(self._goals)} total goals.")
+        return list(self._goals.values())
+
+    def update_goal_status(self, goal_id: str, status: str) -> bool:
+        """
+        Updates the status of a goal (e.g., "pending", "in_progress", "completed").
+        """
+        logger.info(f"--> [Planner] INPUT: Updating goal {goal_id} to status: '{status}'")
+        if goal_id in self._goals:
+            self._goals[goal_id]['status'] = status
+            self._goals[goal_id]['updated_at'] = time.time()
+            logger.info(f"<-- [Planner] OUTPUT: Goal {goal_id} status updated successfully.")
+            return True
+        logger.warning(f"<-- [Planner] OUTPUT: Failed to update status for goal {goal_id} - not found.")
+        return False
 
     def add_goal(self, title: str, description: str = "", timeframe: str = "month") -> int:
         goal = {
@@ -142,18 +172,6 @@ class GoalPlanner:
                     return t
         return None
 
-    def get_goal(self, goal_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Retrieves a goal by its ID.
-        """
-        logger.info(f"--> [Planner] INPUT: Retrieving goal with ID: {goal_id}")
-        goal = self._goals.get(goal_id)
-        if goal:
-            logger.info(f"<-- [Planner] OUTPUT: Found goal: {goal.get('description')}")
-        else:
-            logger.warning(f"<-- [Planner] OUTPUT: Goal with ID {goal_id} not found.")
-        return goal
-
     def get_goals(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Retrieves all goals, optionally filtered by status.
@@ -165,19 +183,6 @@ class GoalPlanner:
             return filtered_goals
         logger.info(f"<-- [Planner] OUTPUT: Found {len(self._goals)} total goals.")
         return list(self._goals.values())
-
-    def update_goal_status(self, goal_id: str, status: str) -> bool:
-        """
-        Updates the status of a goal.
-        """
-        logger.info(f"--> [Planner] INPUT: Updating goal {goal_id} to status: {status}")
-        if goal_id in self._goals:
-            self._goals[goal_id]['status'] = status
-            self._goals[goal_id]['updated_at'] = time.time()
-            logger.info(f"<-- [Planner] OUTPUT: Goal {goal_id} status updated successfully.")
-            return True
-        logger.warning(f"<-- [Planner] OUTPUT: Failed to update status for goal {goal_id} - not found.")
-        return False
 
     def add_sub_goal(self, parent_goal_id: str, sub_goal_description: str) -> Optional[str]:
         """

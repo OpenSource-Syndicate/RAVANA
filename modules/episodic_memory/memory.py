@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timedelta
 import os
 
-from llm import call_llm
+from .llm import call_llm
 import sqlite3
 import json # For storing embeddings as JSON strings
 import numpy as np
@@ -177,6 +177,10 @@ def get_embedding(text):
 @app.post("/extract_memories/", response_model=MemoriesList, tags=["Memories"])
 async def extract_memories_api(request: ConversationRequest):
     """Extracts memories from a given conversation text."""
+    # If called directly, request might be a dict. Convert to ConversationRequest.
+    if isinstance(request, dict):
+        request = ConversationRequest(**request)
+
     try:
         conversation = f"User: {request.user_input}\nAI: {request.ai_output}"
         prompt = PROMPT_FOR_EXTRACTING_MEMORIES_CONVO + "\nConversation:\n" + conversation
@@ -354,6 +358,18 @@ def cosine_similarity(vec1, vec2):
 @app.post("/get_relevant_memories/", response_model=RelevantMemoriesResponse, tags=["Memories"])
 async def get_relevant_memories_api(request: QueryRequest):
     """Retrieves relevant memories based on a query string. Uses LLM if no relevant memories are found."""
+    global embedding_model
+    # If called directly, request might be a dict. Convert to QueryRequest.
+    if isinstance(request, dict):
+        request = QueryRequest(**request)
+
+    # Ensure the embedding model and DB are initialized for direct calls.
+    if not embedding_model and hasattr(app, "embedding_model"):
+        logging.info("Initializing memory module for direct call...")
+        embedding_model = app.embedding_model
+        init_db()
+        migrate_db()
+        
     query = request.query_text
     top_n = request.top_n
     similarity_threshold = request.similarity_threshold
@@ -372,7 +388,7 @@ async def get_relevant_memories_api(request: QueryRequest):
         results = chroma_collection.query(
             query_embeddings=[query_embedding.tolist()],
             n_results=top_n,
-            include=['documents', 'metadatas', 'distances', 'ids']
+            include=['documents', 'metadatas', 'distances']
         )
         relevant_memories = []
         for i, doc in enumerate(results['documents'][0]):

@@ -2,7 +2,7 @@ import requests
 import random
 import re
 from typing import List, Tuple
-from llm import call_llm  # Import the LLM utility
+from .llm import call_llm  # Import the LLM utility
 import wikipedia
 
 class CuriosityTrigger:

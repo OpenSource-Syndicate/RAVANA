@@ -27,28 +27,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger("SituationGenerator")
 
-# Add modules directory to path
-MODULES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-PROJECT_ROOT = os.path.abspath(os.path.join(MODULES_DIR, ".."))
-sys.path.append(MODULES_DIR)
-
 # Import required modules
 try:
     # Import curiosity_trigger
-    from curiosity_trigger import CuriosityTrigger
+    from ..curiosity_trigger.curiosity_trigger import CuriosityTrigger
     
     # Import trend_analysis
-    from information_processing.trend_analysis.trend_engine import fetch_feeds, analyze_trends, setup_db
+    from ..information_processing.trend_analysis.trend_engine import fetch_feeds, analyze_trends, setup_db
     
     # Import event_detection
-    from event_detection.event_detector import process_data_for_events, load_models as load_event_models
+    from ..event_detection.event_detector import process_data_for_events, load_models as load_event_models
     
     # Import agent_self_reflection
-    from agent_self_reflection.llm import call_llm
+    from ..agent_self_reflection.llm import call_llm
     
     logger.info("All required modules imported successfully")
 except ImportError as e:
-    logger.error(f"Error importing modules: {e}")
+    logger.error(f"Error importing modules: {e}", exc_info=True)
     sys.exit(1)
 
 class SituationGenerator:
@@ -92,7 +87,7 @@ class SituationGenerator:
         # Load RSS feeds
         self.feed_urls = []
         try:
-            feed_path = os.path.join(MODULES_DIR, "information_processing/trend_analysis/feeds.txt")
+            feed_path = os.path.join(os.path.dirname(__file__), "../information_processing/trend_analysis/feeds.txt")
             with open(feed_path, 'r') as f:
                 self.feed_urls = [line.strip() for line in f if line.strip()]
         except Exception as e:
@@ -108,7 +103,7 @@ class SituationGenerator:
             
             # Get recent articles from database
             import sqlite3
-            db_path = os.path.join(PROJECT_ROOT, "trends.db")
+            db_path = os.path.join(os.path.dirname(__file__), "../../trends.db")
             if not os.path.exists(db_path):
                 self.logger.warning(f"Trends database not found at {db_path}. Skipping trending topic.")
                 return self.generate_simple_reflection_situation()
