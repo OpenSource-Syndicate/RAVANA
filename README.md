@@ -70,7 +70,7 @@ The core of Ravana AGI is its autonomous loop, which dictates how it perceives, 
 1.  **Clone the repository:**
     ```bash
     git clone https://github.com/OpenSource-Syndicate/RAVANA.git
-    cd AGI
+    cd RAVANA
     ```
 
 2.  **Set up a virtual environment (recommended):**
