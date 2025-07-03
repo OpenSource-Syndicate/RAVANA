@@ -36,7 +36,8 @@ The core of Ravana AGI is its autonomous loop, which dictates how it perceives, 
                   v
       +-----------+-------------+
       |  2. Decision & Planning |
-      |     (DecisionEngine)    |
+      | (influenced by mood &   |
+      |  memory)                |
       +-----------+-------------+
                   |
                   v
@@ -53,8 +54,8 @@ The core of Ravana AGI is its autonomous loop, which dictates how it perceives, 
         |                  |
         v                  v
       +--------------------+----------+
-      |  6. Self-Reflection           |
-      |  (Generate Insights)          |
+      |  6. Self-Reflection &         |
+      |     Curiosity (State-Driven)  |
       +-------------------------------+
 ```
 

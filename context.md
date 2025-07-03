@@ -17,11 +17,15 @@ This document provides a detailed technical overview of the Ravana AGI system ar
          | Autonomous Agentic Loop          |
          |----------------------------------|
          | 1. SituationGenerator            |
-         | 2. DecisionEngine                |
-         | 3. Action Execution              |
-         | 4. EmotionalIntelligence         |
-         | 5. EpisodicMemory (R/W)          |
-         | 6. AgentSelfReflection           |
+         | 2. Recall Relevant Memories      |
+         | 3. DecisionEngine (Planning)     |
+         | 4. Action Execution              |
+         | 5. EmotionalIntelligence Update  |
+         | 6. EpisodicMemory Storage        |
+         | 7. AgentSelfReflection           |
+         |    - Hypothesis Generation       |
+         |    - Experimentation             |
+         | 8. CuriosityTrigger              |
          +----------------------------------+
                            |
 +--------------------------+--------------------------------------+
@@ -68,7 +72,9 @@ A single cycle of the autonomous loop is a complete perception-action-learning s
 5.  **Update State & Memory**:
     -   The `EmotionalIntelligence` module assesses the response, perhaps slightly increasing the "intellectual satisfaction" component of the mood vector.
     -   The entire interaction (situation, plan, response, new mood) is packaged and sent to the `EpisodicMemory` module to be saved as a new memory.
-6.  **Learn**: The `AgentSelfReflection` module is triggered. It might analyze this interaction and generate an insight: "My analysis of ethics improves when I explicitly list pros and cons." This insight becomes a new, powerful memory that can guide future planning.
+6.  **Learn & Reflect**: This is a multi-part step triggered by the agent's emotional state:
+    -   If the agent is in a **"Reflective"** mood, the `AgentSelfReflection` module is triggered. It might analyze recent performance and generate a testable hypothesis (e.g., "I hypothesize my planning is less effective when my mood is negative."). The `AGIExperimentation` module can then design and run a controlled experiment to validate this.
+    -   If the agent's mood is **"Bored"** or **"Confused,"** the `CuriosityTrigger` is activated. It identifies knowledge gaps or interesting threads from recent memories and prompts the `DecisionEngine` to engage in information-seeking behavior.
 
 This loop repeats, creating a flywheel effect where the AGI continuously accumulates experience and refines its own behavior.
 

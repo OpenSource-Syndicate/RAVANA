@@ -43,9 +43,9 @@ This document outlines the strategic development plan for the Ravana AGI Core pr
 -   **Integrate Curiosity and Experimentation**:
     -   **Why**: A passive agent is not an intelligent one. The AGI must be able to decide *what* it wants to learn about.
     -   **Tasks**:
-        -   Connect the `CuriosityTrigger` to the agent's emotional state. A state of "boredom" or "confusion" should trigger information-seeking behavior.
-        -   Allow the `AgentSelfReflection` module to generate testable hypotheses (e.g., "I hypothesize that my plans are better when I am in a 'happy' mood").
-        -   Use the `AGIExperimentation` module to design and run experiments to validate these hypotheses.
+        -   **DONE** - Connect the `CuriosityTrigger` to the agent's emotional state. A state of "boredom" or "confusion" now triggers information-seeking behavior.
+        -   **DONE** - Allow the `AgentSelfReflection` module to generate testable hypotheses (e.g., "I hypothesize that my plans are better when I am in a 'happy' mood").
+        -   **DONE** - Use the `AGIExperimentation` module to design and run experiments to validate these hypotheses.
 
 -   **Dynamic Self-Improvement**:
     -   **Why**: The ultimate goal is an agent that can improve itself.
