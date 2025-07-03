@@ -29,6 +29,7 @@ logger = logging.getLogger("SituationGenerator")
 
 # Add modules directory to path
 MODULES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+PROJECT_ROOT = os.path.abspath(os.path.join(MODULES_DIR, ".."))
 sys.path.append(MODULES_DIR)
 
 # Import required modules
@@ -94,7 +95,7 @@ class SituationGenerator:
             
             # Get recent articles from database
             import sqlite3
-            db_path = os.path.join(MODULES_DIR, "information_processing/trend_analysis/trends.db")
+            db_path = os.path.join(PROJECT_ROOT, "trends.db")
             if not os.path.exists(db_path):
                 logger.warning(f"Trends database not found at {db_path}. Skipping trending topic.")
                 return self.generate_simple_reflection_situation()
@@ -221,6 +222,10 @@ class SituationGenerator:
         
         situation = call_llm(prompt)
         
+        if situation is None:
+            logger.warning("LLM call failed. Falling back to simple reflection.")
+            return self.generate_simple_reflection_situation()
+            
         return {
             "type": "hypothetical_scenario",
             "prompt": situation,
@@ -258,6 +263,10 @@ class SituationGenerator:
         
         situation = call_llm(prompt)
         
+        if situation is None:
+            logger.warning("LLM call failed. Falling back to simple reflection.")
+            return self.generate_simple_reflection_situation()
+
         return {
             "type": "technical_challenge",
             "prompt": situation,
@@ -295,6 +304,10 @@ class SituationGenerator:
         
         situation = call_llm(prompt)
         
+        if situation is None:
+            logger.warning("LLM call failed. Falling back to simple reflection.")
+            return self.generate_simple_reflection_situation()
+
         return {
             "type": "ethical_dilemma",
             "prompt": situation,
@@ -332,6 +345,10 @@ class SituationGenerator:
         
         situation = call_llm(prompt)
         
+        if situation is None:
+            logger.warning("LLM call failed. Falling back to simple reflection.")
+            return self.generate_simple_reflection_situation()
+
         return {
             "type": "creative_task",
             "prompt": situation,

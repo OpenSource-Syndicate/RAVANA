@@ -4,6 +4,7 @@ from sklearn.cluster import AgglomerativeClustering
 import numpy as np
 from transformers import pipeline
 import logging
+import time
 
 # Placeholder for a more sophisticated data structure
 class Document:
@@ -47,18 +48,36 @@ sentiment_classifier = None
 logger = logging.getLogger(__name__)
 
 def load_models():
-    """Load all required models."""
+    """Load all required models with error handling and retries."""
     global embedding_model, sentiment_classifier
     
-    logger.info("Loading embedding model...")
-    # Using a lightweight model for embedding.
-    embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-    logger.info("Embedding model loaded successfully.")
+    # Load embedding model with retries and fallback to local cache
+    model_name = 'all-MiniLM-L6-v2'
+    max_retries = 3
+    retry_delay = 5  # seconds
     
-    logger.info("Loading sentiment analysis pipeline...")
-    # Using a default sentiment analysis model.
-    sentiment_classifier = pipeline('sentiment-analysis')
-    logger.info("Sentiment analysis pipeline loaded successfully.")
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Attempting to load embedding model '{model_name}' (Attempt {attempt + 1}/{max_retries})...")
+            embedding_model = SentenceTransformer(model_name)
+            logger.info("Embedding model loaded successfully.")
+            break  # Exit loop on success
+        except Exception as e:
+            logger.error(f"Failed to load embedding model '{model_name}': {e}. Retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+            retry_delay *= 2  # Exponential backoff
+    else:
+        logger.error(f"Failed to load embedding model '{model_name}' after {max_retries} attempts. The event detector will be unavailable.")
+        embedding_model = None # Ensure it is None if loading fails
+
+    # Load sentiment analysis pipeline with similar retry logic
+    try:
+        logger.info("Loading sentiment analysis pipeline...")
+        sentiment_classifier = pipeline('sentiment-analysis')
+        logger.info("Sentiment analysis pipeline loaded successfully.")
+    except Exception as e:
+        logger.error(f"Failed to load sentiment analysis pipeline: {e}. Some filtering capabilities may be affected.")
+        sentiment_classifier = None
 
 # --- Core Functions ---
 

@@ -21,6 +21,5 @@ for %%f in (uv.lock .gitignore .python-version) do (
     )
 )
 
-echo Cleanup complete.
 endlocal
 pause

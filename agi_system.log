@@ -1,42 +1,33 @@
-2025-07-02 17:49:35,457 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
-2025-07-02 17:49:35,458 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-07-02 17:49:41,940 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
-2025-07-02 17:49:42,136 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
-2025-07-02 17:49:42,136 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
-2025-07-02 17:49:43,687 - SituationGenerator - INFO - All required modules imported successfully
-2025-07-02 17:49:43,687 - AGI - INFO - All modules imported successfully
-2025-07-02 17:49:43,690 - event_detector - INFO - Loading embedding model...
-2025-07-02 17:49:43,696 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
-2025-07-02 17:49:43,696 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-07-02 17:49:48,204 - event_detector - INFO - Embedding model loaded successfully.
-2025-07-02 17:49:48,204 - event_detector - INFO - Loading sentiment analysis pipeline...
-2025-07-02 17:49:49,009 - event_detector - INFO - Sentiment analysis pipeline loaded successfully.
-2025-07-02 17:49:49,010 - event_detection.event_detector - INFO - Loading embedding model...
-2025-07-02 17:49:49,015 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
-2025-07-02 17:49:49,015 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
-2025-07-02 17:49:53,566 - event_detection.event_detector - INFO - Embedding model loaded successfully.
-2025-07-02 17:49:53,566 - event_detection.event_detector - INFO - Loading sentiment analysis pipeline...
-2025-07-02 17:49:54,321 - event_detection.event_detector - INFO - Sentiment analysis pipeline loaded successfully.
-2025-07-02 17:49:54,376 - SituationGenerator - INFO - SituationGenerator initialized
-2025-07-02 17:49:54,377 - AGI - INFO - AGI System initialized
-2025-07-02 17:49:54,378 - SituationGenerator - INFO - Generated new situation of type: simple_reflection
-2025-07-02 17:49:54,378 - SituationGenerator - INFO - Situation generator started
-2025-07-02 17:49:54,379 - AGI - INFO - Starting autonomous operation with decision-making
-2025-07-02 17:49:54,379 - AGI - INFO - Autonomous mode started
-2025-07-02 17:49:54,386 - AGI - INFO - Memory server started on port 8000
-2025-07-02 17:49:54,481 - root - INFO - Database 'memory.db' initialized successfully.
-2025-07-02 17:49:56,389 - AGI - INFO - AGI System started
-2025-07-02 17:50:46,889 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
-2025-07-02 17:50:58,494 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
-2025-07-02 17:50:58,506 - google_genai.models - INFO - AFC remote call 1 is done.
-2025-07-02 17:50:58,508 - SituationGenerator - INFO - Generated new situation of type: technical_challenge
-2025-07-02 17:51:04,508 - SituationGenerator - INFO - Generated new situation of type: simple_reflection
-2025-07-02 17:51:55,644 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
-2025-07-02 17:52:01,113 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
-2025-07-02 17:52:01,115 - google_genai.models - INFO - AFC remote call 1 is done.
-2025-07-02 17:52:01,117 - SituationGenerator - INFO - Generated new situation of type: creative_task
-2025-07-02 17:52:10,117 - SituationGenerator - INFO - Generated new situation of type: simple_reflection
-2025-07-02 17:52:52,552 - SituationGenerator - INFO - Generated new situation of type: hypothetical_scenario
-2025-07-02 17:53:23,106 - SituationGenerator - INFO - Situation generator stopped
-2025-07-02 17:53:23,106 - AGI - INFO - Autonomous mode stopped
-2025-07-02 17:53:23,106 - AGI - INFO - AGI System stopped
+2025-07-03 11:34:53,699 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-07-03 11:34:53,699 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-03 11:35:02,044 - chromadb.telemetry.product.posthog - INFO - Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+2025-07-03 11:35:02,100 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
+2025-07-03 11:35:02,100 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+2025-07-03 11:35:03,966 - SituationGenerator - INFO - All required modules imported successfully
+2025-07-03 11:35:03,967 - AGI - INFO - All modules imported successfully
+2025-07-03 11:35:03,968 - event_detector - INFO - Attempting to load embedding model 'all-MiniLM-L6-v2' (Attempt 1/3)...
+2025-07-03 11:35:03,970 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-07-03 11:35:03,970 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-03 11:35:09,710 - event_detector - INFO - Embedding model loaded successfully.
+2025-07-03 11:35:09,711 - event_detector - INFO - Loading sentiment analysis pipeline...
+2025-07-03 11:35:10,650 - event_detector - INFO - Sentiment analysis pipeline loaded successfully.
+2025-07-03 11:35:10,650 - event_detection.event_detector - INFO - Attempting to load embedding model 'all-MiniLM-L6-v2' (Attempt 1/3)...
+2025-07-03 11:35:10,651 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-07-03 11:35:10,651 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-03 11:35:15,281 - event_detection.event_detector - INFO - Embedding model loaded successfully.
+2025-07-03 11:35:15,281 - event_detection.event_detector - INFO - Loading sentiment analysis pipeline...
+2025-07-03 11:35:16,017 - event_detection.event_detector - INFO - Sentiment analysis pipeline loaded successfully.
+2025-07-03 11:35:16,032 - SituationGenerator - INFO - SituationGenerator initialized
+2025-07-03 11:35:16,032 - AGI - INFO - AGI System initialized
+2025-07-03 11:35:16,033 - AGI - INFO - Memory server started on port 8000
+2025-07-03 11:35:16,116 - root - INFO - Database 'memory.db' initialized successfully.
+2025-07-03 11:35:18,034 - AGI - INFO - AGI System started
+2025-07-03 11:35:18,034 - SituationGenerator - INFO - Generated new situation of type: simple_reflection
+2025-07-03 11:35:18,035 - SituationGenerator - INFO - Situation generator started
+2025-07-03 11:35:18,035 - AGI - INFO - Starting autonomous operation with a simplified loop.
+2025-07-03 11:35:18,035 - AGI - DEBUG - Getting new situation from generator...
+2025-07-03 11:35:18,035 - AGI - INFO - SITUATION (1): {'type': 'simple_reflection', 'prompt': 'Reflect on the following concept: the nature of consciousness. What are your thoughts on this topic?', 'context': {}}
+2025-07-03 11:35:18,035 - AGI - INFO - Starting system health monitor
+2025-07-03 11:35:18,035 - AGI - INFO - Health monitor thread started
+2025-07-03 11:35:18,036 - AGI - DEBUG - Processing situation at 1751522718.0360634
+2025-07-03 11:35:25,035 - SituationGenerator - INFO - Generated new situation of type: simple_reflection

@@ -3,8 +3,11 @@ import sqlite3
 import time
 from collections import Counter
 import string
+import os
 
-DB_FILE = 'trends.db'
+# Define the project root and ensure the database is always at the project root
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+DB_FILE = os.path.join(PROJECT_ROOT, 'trends.db')
 
 # --------- SETUP DATABASE -----------
 def setup_db():

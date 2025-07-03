@@ -83,7 +83,8 @@ def call_gemini(prompt):
         )
         return response.text
     except Exception as e:
-        return f"[Gemini fallback failed: {e}]"
+        logger.error(f"Gemini fallback failed: {e}")
+        return None
 
 def call_gemini_image_caption(image_path, prompt="Caption this image."):
     """Send an image and prompt to Gemini for captioning."""
