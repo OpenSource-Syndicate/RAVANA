@@ -1,13 +1,45 @@
 import os
 import json
-from typing import List, Dict, Optional
+import time
+import logging
+import uuid
+from typing import List, Dict, Any, Optional
 
 GOALS_DB_FILE = os.path.join(os.path.dirname(__file__), 'goals_db.json')
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# In-memory storage for goals
+_goals: Dict[str, Dict[str, Any]] = {}
+
+def plan_from_context(context: str, timeframe: str = "short-term", priority: int = 5) -> str:
+    """
+    Creates a new goal from a given context.
+    """
+    logger.info("--> [Planner] INPUT: Creating a new plan from context.")
+    logger.debug(f"Context: {context}, Timeframe: {timeframe}, Priority: {priority}")
+    
+    goal_id = str(uuid.uuid4())
+    goal = {
+        "id": goal_id,
+        "title": context,
+        "description": "",
+        "timeframe": timeframe,
+        "priority": priority,
+        "sub_goals": [],
+        "context": context
+    }
+    _goals[goal_id] = goal
+    
+    logger.info(f"<-- [Planner] OUTPUT: Created new goal with ID: {goal_id}")
+    return goal_id
+
 class GoalPlanner:
-    def __init__(self, db_file: str = GOALS_DB_FILE):
-        self.db_file = db_file
-        self.goals = self._load_goals()
+    def __init__(self):
+        logger.info("[Planner] Initialized GoalPlanner.")
+        self._goals = _goals  # Use the shared in-memory dictionary
 
     def _load_goals(self) -> List[Dict]:
         if not os.path.exists(self.db_file):
@@ -110,56 +142,67 @@ class GoalPlanner:
                     return t
         return None
 
-def plan_from_context(context: str, timeframe: str = "month", model: str = None) -> int:
-    """
-    Given a string context (e.g., "Learn reinforcement learning basics"), use the LLM to decompose it into a goal,
-    subgoals, and tasks, and populate the planner DB. Returns the new goal's ID.
-    """
-    from llm import call_llm
-    planner = GoalPlanner()
-    prompt = f"""
-    Given the following high-level objective, break it down into a hierarchical plan with subgoals and tasks.
-    Format the output as JSON with this structure:
-    ```
-    {{
-      "goal": {{"title": str, "description": str}},
-      "subgoals": [
-        {{
-          "title": str,
-          "description": str,
-          "tasks": [str, ...]
-        }}, ...
-      ]
-    }}
-    ```
-    Objective: {context}
-    """
-    response = call_llm(prompt, model=model)
-    import re
-    import json as pyjson
-    # Try to extract JSON from triple backticks first
-    code_block = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response)
-    if code_block:
-        plan_json = code_block.group(1)
-    else:
-        # fallback: extract first JSON-like block
-        match = re.search(r'\{[\s\S]*\}', response)
-        if match:
-            plan_json = match.group(0)
+    def get_goal(self, goal_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves a goal by its ID.
+        """
+        logger.info(f"--> [Planner] INPUT: Retrieving goal with ID: {goal_id}")
+        goal = self._goals.get(goal_id)
+        if goal:
+            logger.info(f"<-- [Planner] OUTPUT: Found goal: {goal.get('description')}")
         else:
-            raise ValueError("Could not extract plan JSON from LLM response")
-    try:
-        plan = pyjson.loads(plan_json)
-    except Exception:
-        # fallback: try to fix common JSON issues
-        plan = pyjson.loads(plan_json.replace("'", '"'))
-    goal = plan["goal"]
-    goal_id = planner.add_goal(goal["title"], goal.get("description", ""), timeframe)
-    for subgoal in plan["subgoals"]:
-        subgoal_id = planner.add_subgoal(goal_id, subgoal["title"], subgoal.get("description", ""))
-        for task_desc in subgoal["tasks"]:
-            planner.add_task(goal_id, subgoal_id, task_desc)
-    return goal_id
+            logger.warning(f"<-- [Planner] OUTPUT: Goal with ID {goal_id} not found.")
+        return goal
+
+    def get_goals(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Retrieves all goals, optionally filtered by status.
+        """
+        logger.info(f"--> [Planner] INPUT: Retrieving all goals with status: {status}")
+        if status:
+            filtered_goals = [g for g in self._goals.values() if g['status'] == status]
+            logger.info(f"<-- [Planner] OUTPUT: Found {len(filtered_goals)} goals with status {status}.")
+            return filtered_goals
+        logger.info(f"<-- [Planner] OUTPUT: Found {len(self._goals)} total goals.")
+        return list(self._goals.values())
+
+    def update_goal_status(self, goal_id: str, status: str) -> bool:
+        """
+        Updates the status of a goal.
+        """
+        logger.info(f"--> [Planner] INPUT: Updating goal {goal_id} to status: {status}")
+        if goal_id in self._goals:
+            self._goals[goal_id]['status'] = status
+            self._goals[goal_id]['updated_at'] = time.time()
+            logger.info(f"<-- [Planner] OUTPUT: Goal {goal_id} status updated successfully.")
+            return True
+        logger.warning(f"<-- [Planner] OUTPUT: Failed to update status for goal {goal_id} - not found.")
+        return False
+
+    def add_sub_goal(self, parent_goal_id: str, sub_goal_description: str) -> Optional[str]:
+        """
+        Adds a sub-goal to a parent goal.
+        """
+        logger.info(f"--> [Planner] INPUT: Adding sub-goal to parent {parent_goal_id}.")
+        logger.debug(f"Sub-goal description: {sub_goal_description}")
+        
+        if parent_goal_id in self._goals:
+            sub_goal_id = str(uuid.uuid4())
+            sub_goal = {
+                "id": sub_goal_id,
+                "title": sub_goal_description,
+                "description": "",
+                "tasks": [],
+                "completed": False,
+                "status": "pending",
+                "context": self._goals[parent_goal_id]['context']
+            }
+            self._goals[parent_goal_id]['sub_goals'].append(sub_goal)
+            logger.info(f"<-- [Planner] OUTPUT: Added sub-goal {sub_goal_id} to parent {parent_goal_id}.")
+            return sub_goal_id
+            
+        logger.warning(f"<-- [Planner] OUTPUT: Failed to add sub-goal to parent {parent_goal_id} - not found.")
+        return None
 
 # Example usage:
 # new_goal_id = plan_from_context("Implement an image classifier for cats vs dogs")

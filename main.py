@@ -249,8 +249,10 @@ class AGISystem:
     
     def create_goal_from_context(self, context: str):
         """Create a new goal based on the given context"""
+        logger.info("--> [GoalCreator] INPUT: Creating goal from context.")
+        logger.debug(f"Context for goal creation: {context}")
         goal_id = plan_from_context(context)
-        logger.info(f"Created new goal with ID: {goal_id}")
+        logger.info(f"<-- [GoalCreator] OUTPUT: Created new goal with ID: {goal_id}")
         return goal_id
     
     def trigger_curiosity(self, recent_topics: List[str], lateralness: float = 0.7):
@@ -272,18 +274,20 @@ class AGISystem:
         return reflection
     
     def compress_knowledge_logs(self, logs: List[Dict]):
-        """Compress knowledge from logs"""
-        compressed = compress_knowledge(logs)
-        logger.info("Knowledge compressed")
-        return compressed
+        """Compress knowledge from a list of logs"""
+        return compress_knowledge(logs)
     
     def detect_events(self, texts: List[str]):
-        """Detect events from a list of texts"""
-        if self.event_detector:
-            return self.event_detector.process(texts)
-        else:
-            logger.warning("Event detector is not available. Skipping event detection.")
+        """Detect events from a list of texts using the pre-loaded models."""
+        if not self.event_detector:
+            logger.warning("Event detection is disabled.")
             return []
+        # Pass the pre-loaded models to the event detector module
+        return self.event_detector.process(
+            texts, 
+            embedding_model=self.embedding_model, 
+            sentiment_classifier=self.sentiment_classifier
+        )
     
     def transcribe_youtube(self, url: str):
         """Transcribe a YouTube video"""
@@ -345,6 +349,7 @@ class AGISystem:
         Process a situation using the full agentic loop:
         Decision Engine -> Response -> Emotions -> Memory -> Reflection
         """
+        logger.info("--- Entering process_situation ---")
         logger.info(f"--- Starting new situation processing: {situation.get('type', 'Unknown')} ---")
         logger.debug(f"Full situation details: {situation}")
         
@@ -556,7 +561,7 @@ class AGISystem:
         
         logger.info("Autonomous mode stopped")
     
-    def start(self):
+    def start(self, started_in_auto: bool = False):
         """Start the AGI system"""
         self.running = True
         self.start_memory_server()
@@ -566,12 +571,18 @@ class AGISystem:
         
         logger.info("AGI System started")
 
-        if self.autonomous_mode:
+        if started_in_auto:
+            self.autonomous_mode = True
             self.start_autonomous_mode()
         
         # Unified main loop
         try:
             while self.running:
+                # If we started in autonomous mode, just wait. Never enter interactive mode.
+                if started_in_auto:
+                    time.sleep(1)
+                    continue
+
                 if not self.autonomous_mode:
                     # Interactive mode
                     try:
@@ -693,14 +704,23 @@ class AGISystem:
         logger.info("System health monitor stopped")
 
 class EventDetector:
+    """Wrapper for the event detector module to handle model passing."""
     def __init__(self, embedding_model, sentiment_classifier):
-        # Pass the pre-loaded models to the event detector module
-        load_models(embedding_model_instance=embedding_model, sentiment_classifier_instance=sentiment_classifier)
+        self.embedding_model = embedding_model
+        self.sentiment_classifier = sentiment_classifier
+        # The actual processing function is imported, so this class is mostly a placeholder
+        # for holding the models and providing a consistent interface.
         
-    def process(self, texts: List[str]) -> List[Dict]:
-        """Process a list of texts to detect events"""
-        result = process_data_for_events(texts)
-        return result.get("events", [])
+    def process(self, texts: List[str], **kwargs) -> List[Dict]:
+        """
+        Process texts to find events.
+        Passes the pre-loaded models to the processing function.
+        """
+        # Get the models from self, but allow overriding with kwargs for flexibility
+        model = kwargs.get('embedding_model', self.embedding_model)
+        classifier = kwargs.get('sentiment_classifier', self.sentiment_classifier)
+        
+        return process_data_for_events(texts, embedding_model=model, sentiment_classifier=classifier)
 
 def main():
     parser = argparse.ArgumentParser(description="AGI System")
@@ -711,12 +731,14 @@ def main():
     log_level = logging.DEBUG if args.debug else logging.INFO
     logger.setLevel(log_level)
     
+    # Keep track of whether we started with the --auto flag
+    started_in_auto = args.auto
+    
     agi = AGISystem(debug=args.debug)
     
-    if args.auto:
-        agi.autonomous_mode = True
+    # No need to set autonomous_mode here, the start method will handle it
     
-    agi.start()
+    agi.start(started_in_auto=started_in_auto)
 
 if __name__ == "__main__":
     main() 

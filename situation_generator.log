@@ -1,6 +1,0 @@
-2025-07-03 12:10:14,759 - SituationGenerator - INFO - All required modules imported successfully
-2025-07-03 12:10:26,508 - SituationGenerator - INFO - SituationGenerator initialized
-2025-07-03 12:10:28,512 - SituationGenerator - DEBUG - Generating new situation of type: simple_reflection
-2025-07-03 12:10:28,512 - SituationGenerator - INFO - Situation generator started
-2025-07-03 12:10:28,512 - SituationGenerator - INFO - Generated new situation of type: simple_reflection
-2025-07-03 12:10:39,627 - SituationGenerator - DEBUG - Generating new situation of type: trending_topic
