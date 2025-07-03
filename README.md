@@ -68,35 +68,22 @@ The core of Ravana AGI is its autonomous loop, which dictates how it perceives, 
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/yourusername/AGI.git
+    git clone https://github.com/OpenSource-Syndicate/RAVANA.git
     cd AGI
     ```
 
 2.  **Set up a virtual environment (recommended):**
     ```bash
-    python -m venv .venv
+    uv venv
     # On Windows
     .venv\Scripts\activate
     # On macOS/Linux
     source .venv/bin/activate
     ```
 
-3.  **Create and populate `requirements.txt`:**
-    Create a file named `requirements.txt` in the root of the project and add the following core dependencies. Your project may require more as it evolves.
-    ```
-    fastapi
-    uvicorn
-    numpy
-    pydantic
-    sentence-transformers
-    torch
-    chromadb
-    sqlite3
-    ```
-
-4.  **Install dependencies:**
+3.  **Install dependencies:**
     ```bash
-    pip install -r requirements.txt
+    uv add -r requirements.txt
     ```
 
 ### Running the AGI
@@ -105,24 +92,19 @@ The recommended way to run the system is in 24/7 autonomous mode using the provi
 
 **On Windows:**
 ```bash
-start_agi_24_7.bat
+uv run main.py
 ```
 
 **On macOS/Linux:**
 ```bash
-./run_agi_24_7.py
+uv run main.py
 ```
 
 This will start the main AGI process.
 
 ## Monitoring the System
 
-You can monitor the AGI's status and view logs in real-time:
-
--   `agi_system.log`: Main log for the AGI's thoughts, decisions, and actions.
--   `situation_generator.log`: Logs related to the generation of new situations.
--   `interactions.jsonl`: A structured log of every situation, response, and reflection, perfect for analysis.
--   `autonomous_agi.log`: Log for the wrapper script that monitors the main process health.
+You can monitor the AGI's status and view logs in real-time
 
 ## Contributing
 
