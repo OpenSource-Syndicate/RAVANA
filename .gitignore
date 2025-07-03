@@ -1,8 +1,61 @@
-.venv/
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*/__pycache__/
-*/.venv/
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+**/.venv/
+env/
+**/env/
+venv/
+**/venv/
+
+# Logs and databases
 *.log
 *.db
+*.sqlite3
+
+# Environment and lock files
+.env
+.env.*
+.venv
+Pipfile.lock
+poetry.lock
 uv.lock
+
+# Ignore temporary editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Custom
 .cursorignore
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Coverage and testing
+htmlcov/
+.coverage
+.cache/
+pytest_cache/
+.tox/
+
+# Mypy and Pyright
+.mypy_cache/
+.pyright/
