@@ -25,13 +25,8 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# Embedding model selection (pluggable)
-EMBEDDING_MODEL_NAME = os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
-try:
-    embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-except Exception as e:
-    logging.error(f"Failed to load embedding model '{EMBEDDING_MODEL_NAME}': {e}. Make sure the model is available.")
-    embedding_model = None
+# The embedding model will be set by the main AGI system before starting the server.
+embedding_model: Optional[SentenceTransformer] = None
 
 DATABASE_NAME = 'memory.db'
 
@@ -159,8 +154,12 @@ def migrate_db():
 async def startup_event():
     """Initializes the database when the FastAPI application starts."""
     init_db()
+    # The embedding model is now set globally from main.py before startup
+    global embedding_model
+    embedding_model = app.embedding_model if hasattr(app, "embedding_model") else None
+    
     if not embedding_model:
-        logging.warning("Embedding model could not be loaded.")
+        logging.warning("Embedding model could not be loaded or was not passed from the main application.")
     # Add new columns if missing
     migrate_db()
 

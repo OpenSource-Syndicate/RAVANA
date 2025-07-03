@@ -56,10 +56,23 @@ class SituationGenerator:
     Generates situations for the AGI system to tackle without user input.
     """
     
-    def __init__(self):
-        self.situation_queue = queue.Queue()
+    def __init__(self, situation_queue: Optional[queue.Queue] = None, log_level=logging.INFO):
+        if situation_queue:
+            self.situation_queue = situation_queue
+        else:
+            self.situation_queue = queue.Queue(maxsize=100)
         self.running = False
         self.thread = None
+        
+        # Set up logger
+        self.logger = logging.getLogger("SituationGenerator")
+        self.logger.setLevel(log_level)
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+
         self.situation_types = [
             "trending_topic",
             "curiosity_exploration",
@@ -83,9 +96,9 @@ class SituationGenerator:
             with open(feed_path, 'r') as f:
                 self.feed_urls = [line.strip() for line in f if line.strip()]
         except Exception as e:
-            logger.error(f"Error loading feeds: {e}")
+            self.logger.error(f"Error loading feeds: {e}")
         
-        logger.info("SituationGenerator initialized")
+        self.logger.info("SituationGenerator initialized")
     
     def generate_trending_topic_situation(self) -> Dict[str, Any]:
         """Generate a situation based on trending topics from RSS feeds."""
@@ -97,7 +110,7 @@ class SituationGenerator:
             import sqlite3
             db_path = os.path.join(PROJECT_ROOT, "trends.db")
             if not os.path.exists(db_path):
-                logger.warning(f"Trends database not found at {db_path}. Skipping trending topic.")
+                self.logger.warning(f"Trends database not found at {db_path}. Skipping trending topic.")
                 return self.generate_simple_reflection_situation()
 
             conn = sqlite3.connect(db_path)
@@ -107,7 +120,7 @@ class SituationGenerator:
             c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='articles'")
             if c.fetchone() is None:
                 conn.close()
-                logger.warning("'articles' table not found in trends.db. Skipping trending topic.")
+                self.logger.warning("'articles' table not found in trends.db. Skipping trending topic.")
                 return self.generate_simple_reflection_situation()
 
             c.execute('SELECT title FROM articles ORDER BY timestamp DESC LIMIT 20')
@@ -144,7 +157,7 @@ class SituationGenerator:
                     }
                 }
         except Exception as e:
-            logger.error(f"Error generating trending topic situation: {e}")
+            self.logger.error(f"Error generating trending topic situation: {e}")
             return self.generate_hypothetical_scenario()
     
     def generate_curiosity_situation(self) -> Dict[str, Any]:
@@ -175,7 +188,7 @@ class SituationGenerator:
                 }
             }
         except Exception as e:
-            logger.error(f"Error generating curiosity situation: {e}")
+            self.logger.error(f"Error generating curiosity situation: {e}")
             return self.generate_hypothetical_scenario()
     
     def generate_simple_reflection_situation(self) -> Dict[str, Any]:
@@ -223,7 +236,7 @@ class SituationGenerator:
         situation = call_llm(prompt)
         
         if situation is None:
-            logger.warning("LLM call failed. Falling back to simple reflection.")
+            self.logger.warning("LLM call failed. Falling back to simple reflection.")
             return self.generate_simple_reflection_situation()
             
         return {
@@ -264,7 +277,7 @@ class SituationGenerator:
         situation = call_llm(prompt)
         
         if situation is None:
-            logger.warning("LLM call failed. Falling back to simple reflection.")
+            self.logger.warning("LLM call failed. Falling back to simple reflection.")
             return self.generate_simple_reflection_situation()
 
         return {
@@ -305,7 +318,7 @@ class SituationGenerator:
         situation = call_llm(prompt)
         
         if situation is None:
-            logger.warning("LLM call failed. Falling back to simple reflection.")
+            self.logger.warning("LLM call failed. Falling back to simple reflection.")
             return self.generate_simple_reflection_situation()
 
         return {
@@ -346,7 +359,7 @@ class SituationGenerator:
         situation = call_llm(prompt)
         
         if situation is None:
-            logger.warning("LLM call failed. Falling back to simple reflection.")
+            self.logger.warning("LLM call failed. Falling back to simple reflection.")
             return self.generate_simple_reflection_situation()
 
         return {
@@ -358,93 +371,76 @@ class SituationGenerator:
         }
     
     def generate_situation(self) -> Dict[str, Any]:
-        """Generate a random situation based on the available types, with weights."""
+        """Generate a situation of a random type."""
+        # Add weights to make simple, non-LLM situations more common
+        situation_type = random.choices(
+            self.situation_types, 
+            weights=[1, 1, 4, 1, 1, 1, 1], 
+            k=1
+        )[0]
         
-        # Give a high weight to the fast, non-LLM situations
-        weights = [
-            0.1,  # trending_topic
-            0.1,  # curiosity_exploration
-            0.5,  # simple_reflection (high weight)
-            0.1,  # hypothetical_scenario
-            0.05, # technical_challenge
-            0.05, # ethical_dilemma
-            0.1   # creative_task
-        ]
+        self.logger.debug(f"Generating new situation of type: {situation_type}")
         
-        situation_type = random.choices(self.situation_types, weights=weights, k=1)[0]
+        generation_methods = {
+            "trending_topic": self.generate_trending_topic_situation,
+            "curiosity_exploration": self.generate_curiosity_situation,
+            "simple_reflection": self.generate_simple_reflection_situation,
+            "hypothetical_scenario": self.generate_hypothetical_scenario,
+            "technical_challenge": self.generate_technical_challenge,
+            "ethical_dilemma": self.generate_ethical_dilemma,
+            "creative_task": self.generate_creative_task,
+        }
         
-        if situation_type == "trending_topic":
-            return self.generate_trending_topic_situation()
-        elif situation_type == "curiosity_exploration":
-            return self.generate_curiosity_situation()
-        elif situation_type == "simple_reflection":
-            return self.generate_simple_reflection_situation()
-        elif situation_type == "hypothetical_scenario":
-            return self.generate_hypothetical_scenario()
-        elif situation_type == "technical_challenge":
-            return self.generate_technical_challenge()
-        elif situation_type == "ethical_dilemma":
-            return self.generate_ethical_dilemma()
-        elif situation_type == "creative_task":
-            return self.generate_creative_task()
-        else:
-            # Fallback to the fastest option
-            return self.generate_simple_reflection_situation()
-    
+        method = generation_methods.get(situation_type, self.generate_simple_reflection_situation)
+        return method()
+
     def situation_generator_thread(self):
-        """Thread function to continuously generate situations."""
+        """The thread that continuously generates situations."""
         while self.running:
-            try:
-                # Generate a new situation
+            if not self.situation_queue.full():
                 situation = self.generate_situation()
-                
-                # Add to queue
                 if situation:
+                    self.logger.info(f"Generated new situation of type: {situation['type']}")
                     self.situation_queue.put(situation)
-                    logger.info(f"Generated new situation of type: {situation.get('type', 'N/A')}")
-                
-                # Sleep for a much shorter time
-                sleep_time = random.randint(5, 15)
-                logger.debug(f"Situation generator sleeping for {sleep_time} seconds.")
-                time.sleep(sleep_time)
-            except Exception as e:
-                logger.error(f"Error in situation generator thread: {e}")
-                time.sleep(20)  # Sleep for 20 seconds on error
+                # Sleep for a bit to avoid overwhelming the system
+                time.sleep(random.uniform(5, 15))
+            else:
+                self.logger.warning("Situation queue is full. Pausing generation.")
+                time.sleep(30)
     
     def start(self):
-        """Start the situation generator."""
+        """Start the situation generator thread."""
         if self.running:
-            logger.warning("Situation generator already running")
             return
-        
         self.running = True
         self.thread = threading.Thread(target=self.situation_generator_thread)
         self.thread.daemon = True
         self.thread.start()
-        
-        logger.info("Situation generator started")
+        self.logger.info("Situation generator started")
     
     def stop(self):
-        """Stop the situation generator."""
-        if not self.running:
-            logger.warning("Situation generator not running")
-            return
-        
+        """Stop the situation generator thread."""
         self.running = False
         if self.thread:
-            self.thread.join(timeout=5)
-        
-        logger.info("Situation generator stopped")
-    
-    def get_situation(self, timeout: Optional[float] = None) -> Optional[Dict[str, Any]]:
+            # No need to join a daemon thread, but it's good practice
+            self.thread.join(timeout=2)
+        self.logger.info("Situation generator stopped")
+
+    def get_situation(self, timeout: Optional[float] = 10.0) -> Optional[Dict[str, Any]]:
         """Get a situation from the queue."""
         try:
-            return self.situation_queue.get(block=True, timeout=timeout)
+            # If the queue is empty, generate a simple situation directly
+            if self.situation_queue.empty():
+                self.logger.warning("Situation queue is empty. Generating a simple reflection on the fly.")
+                return self.generate_simple_reflection_situation()
+            return self.situation_queue.get(timeout=timeout)
         except queue.Empty:
-            return None
+            self.logger.warning(f"No situation available from queue after {timeout} seconds. Generating a fallback.")
+            return self.generate_simple_reflection_situation()
 
 def main():
-    """Main function to run the situation generator as a standalone module."""
+    """Main function for testing the situation generator."""
+    logger.info("Starting SituationGenerator test...")
     import argparse
     parser = argparse.ArgumentParser(description="Situation Generator Module")
     parser.add_argument("--generate", action="store_true", help="Generate a single situation and print it")

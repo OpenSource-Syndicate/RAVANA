@@ -47,37 +47,50 @@ sentiment_classifier = None
 # Get a logger instance
 logger = logging.getLogger(__name__)
 
-def load_models():
-    """Load all required models with error handling and retries."""
+def load_models(embedding_model_instance=None, sentiment_classifier_instance=None):
+    """
+    Load all required models with error handling and retries.
+    If instances are passed, use them directly.
+    """
     global embedding_model, sentiment_classifier
-    
-    # Load embedding model with retries and fallback to local cache
-    model_name = 'all-MiniLM-L6-v2'
-    max_retries = 3
-    retry_delay = 5  # seconds
-    
-    for attempt in range(max_retries):
-        try:
-            logger.info(f"Attempting to load embedding model '{model_name}' (Attempt {attempt + 1}/{max_retries})...")
-            embedding_model = SentenceTransformer(model_name)
-            logger.info("Embedding model loaded successfully.")
-            break  # Exit loop on success
-        except Exception as e:
-            logger.error(f"Failed to load embedding model '{model_name}': {e}. Retrying in {retry_delay} seconds...")
-            time.sleep(retry_delay)
-            retry_delay *= 2  # Exponential backoff
-    else:
-        logger.error(f"Failed to load embedding model '{model_name}' after {max_retries} attempts. The event detector will be unavailable.")
-        embedding_model = None # Ensure it is None if loading fails
 
-    # Load sentiment analysis pipeline with similar retry logic
-    try:
-        logger.info("Loading sentiment analysis pipeline...")
-        sentiment_classifier = pipeline('sentiment-analysis')
-        logger.info("Sentiment analysis pipeline loaded successfully.")
-    except Exception as e:
-        logger.error(f"Failed to load sentiment analysis pipeline: {e}. Some filtering capabilities may be affected.")
-        sentiment_classifier = None
+    if embedding_model_instance:
+        logger.info("Using pre-loaded embedding model.")
+        embedding_model = embedding_model_instance
+    else:
+        logger.warning("No embedding model instance passed. Loading new one.")
+        # Load embedding model with retries and fallback to local cache
+        model_name = 'all-MiniLM-L6-v2'
+        max_retries = 3
+        retry_delay = 5  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempting to load embedding model '{model_name}' (Attempt {attempt + 1}/{max_retries})...")
+                embedding_model = SentenceTransformer(model_name)
+                logger.info("Embedding model loaded successfully.")
+                break  # Exit loop on success
+            except Exception as e:
+                logger.error(f"Failed to load embedding model '{model_name}': {e}. Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+        else:
+            logger.error(f"Failed to load embedding model '{model_name}' after {max_retries} attempts. The event detector will be unavailable.")
+            embedding_model = None # Ensure it is None if loading fails
+
+    if sentiment_classifier_instance:
+        logger.info("Using pre-loaded sentiment classifier.")
+        sentiment_classifier = sentiment_classifier_instance
+    else:
+        logger.warning("No sentiment classifier instance passed. Loading new one.")
+        # Load sentiment analysis pipeline with similar retry logic
+        try:
+            logger.info("Loading sentiment analysis pipeline...")
+            sentiment_classifier = pipeline('sentiment-analysis')
+            logger.info("Sentiment analysis pipeline loaded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to load sentiment analysis pipeline: {e}. Some filtering capabilities may be affected.")
+            sentiment_classifier = None
 
 # --- Core Functions ---
 
@@ -140,9 +153,9 @@ def process_data_for_events(texts: List[str]) -> Dict[str, Any]:
         A dictionary containing detected events and processed documents.
     """
     if not embedding_model or not sentiment_classifier:
-        # This is a safeguard, but models should be loaded at startup.
-        logger.warning("Models not pre-loaded. Loading them now. This may take a moment.")
-        load_models()
+        # This is a safeguard. If this happens, it means the models were not passed correctly.
+        logger.error("Models not available. They must be loaded or passed before processing.")
+        return {"events": [], "documents": [], "message": "Critical error: Models not loaded."}
 
     # 1. Create Document objects
     documents = [Document(text) for text in texts]

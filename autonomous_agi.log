@@ -1,29 +1,32 @@
-2025-07-03 11:34:27,260 - AutonomousAGI - DEBUG - Starting script with arguments: Namespace(debug=True, ddebug=False, duration=0, timeout=300, skip_dependency_check=False, monitor_interval=30, continuous=True, heartbeat_timeout=600, restart_delay=60)
-2025-07-03 11:34:27,260 - AutonomousAGI - DEBUG - Performing dependency check
-2025-07-03 11:34:27,261 - AutonomousAGI - DEBUG - Starting dependency check...
-2025-07-03 11:34:27,988 - AutonomousAGI - DEBUG - [OK] requests module imported
-2025-07-03 11:34:43,959 - AutonomousAGI - DEBUG - [OK] sentence_transformers module imported (version: 5.0.0)
-2025-07-03 11:34:44,118 - AutonomousAGI - DEBUG - [OK] wikipedia module imported
-2025-07-03 11:34:44,331 - AutonomousAGI - DEBUG - [OK] uvicorn module imported
-2025-07-03 11:34:45,947 - AutonomousAGI - DEBUG - [OK] openai module imported (version: 1.93.0)
-2025-07-03 11:34:46,746 - AutonomousAGI - DEBUG - [OK] google.genai module imported
-2025-07-03 11:34:46,747 - AutonomousAGI - INFO - All required dependencies are installed.
-2025-07-03 11:34:46,747 - AutonomousAGI - INFO - ================================================================================
-2025-07-03 11:34:46,747 - AutonomousAGI - INFO - Starting AGI system in CONTINUOUS 24/7 MODE with automatic restart
-2025-07-03 11:34:46,747 - AutonomousAGI - INFO - Press Ctrl+C to stop
-2025-07-03 11:34:46,747 - AutonomousAGI - INFO - ================================================================================
-2025-07-03 11:34:46,749 - AutonomousAGI - DEBUG - Executing command: C:\Users\anony\Desktop\LIKHITH\github\AGI\.venv\Scripts\python.exe main.py --auto --debug
-2025-07-03 11:34:46,755 - AutonomousAGI - DEBUG - Process started with PID: 29736
-2025-07-03 11:34:46,756 - AutonomousAGI - DEBUG - Starting resource monitor thread with interval 30 seconds
-2025-07-03 11:34:46,757 - AutonomousAGI - DEBUG - Starting heartbeat checker with interval 60 seconds
-2025-07-03 11:34:46,757 - AutonomousAGI - DEBUG - Starting output monitoring loop
-2025-07-03 11:34:47,767 - AutonomousAGI - DEBUG - Process resources: CPU 1.6%, Memory 3.9MB, Children: 1
-2025-07-03 11:35:18,785 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
-2025-07-03 11:35:46,758 - AutonomousAGI - DEBUG - Heartbeat detected: log file has grown
-2025-07-03 11:35:49,816 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
-2025-07-03 11:36:20,833 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
-2025-07-03 11:36:46,760 - AutonomousAGI - DEBUG - No new log output for 60.0 seconds
-2025-07-03 11:36:51,852 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
-2025-07-03 11:37:22,872 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
-2025-07-03 11:37:46,761 - AutonomousAGI - DEBUG - No new log output for 120.0 seconds
-2025-07-03 11:37:53,890 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-03 12:09:39,426 - AutonomousAGI - DEBUG - Starting script with arguments: Namespace(debug=True, ddebug=False, duration=0, timeout=300, skip_dependency_check=False, monitor_interval=30, continuous=True, heartbeat_timeout=600, restart_delay=60)
+2025-07-03 12:09:39,427 - AutonomousAGI - DEBUG - Performing dependency check
+2025-07-03 12:09:39,427 - AutonomousAGI - DEBUG - Starting dependency check...
+2025-07-03 12:09:40,190 - AutonomousAGI - DEBUG - [OK] requests module imported
+2025-07-03 12:10:00,439 - AutonomousAGI - DEBUG - [OK] sentence_transformers module imported (version: 5.0.0)
+2025-07-03 12:10:00,641 - AutonomousAGI - DEBUG - [OK] wikipedia module imported
+2025-07-03 12:10:00,916 - AutonomousAGI - DEBUG - [OK] uvicorn module imported
+2025-07-03 12:10:03,043 - AutonomousAGI - DEBUG - [OK] openai module imported (version: 1.93.0)
+2025-07-03 12:10:04,078 - AutonomousAGI - DEBUG - [OK] google.genai module imported
+2025-07-03 12:10:04,078 - AutonomousAGI - INFO - All required dependencies are installed.
+2025-07-03 12:10:04,078 - AutonomousAGI - INFO - ================================================================================
+2025-07-03 12:10:04,078 - AutonomousAGI - INFO - Starting AGI system in CONTINUOUS 24/7 MODE with automatic restart
+2025-07-03 12:10:04,078 - AutonomousAGI - INFO - Press Ctrl+C to stop
+2025-07-03 12:10:04,079 - AutonomousAGI - INFO - ================================================================================
+2025-07-03 12:10:04,081 - AutonomousAGI - DEBUG - Executing command: C:\Users\anony\Desktop\LIKHITH\github\AGI\.venv\Scripts\python.exe main.py --auto --debug
+2025-07-03 12:10:04,088 - AutonomousAGI - DEBUG - Process started with PID: 31076
+2025-07-03 12:10:04,089 - AutonomousAGI - DEBUG - Starting resource monitor thread with interval 30 seconds
+2025-07-03 12:10:04,090 - AutonomousAGI - DEBUG - Starting heartbeat checker with interval 60 seconds
+2025-07-03 12:10:04,091 - AutonomousAGI - DEBUG - Starting output monitoring loop
+2025-07-03 12:10:05,104 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.9MB, Children: 1
+2025-07-03 12:10:36,127 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-03 12:11:04,091 - AutonomousAGI - DEBUG - Heartbeat detected: log file has grown
+2025-07-03 12:11:07,150 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-03 12:11:38,174 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-03 12:12:04,092 - AutonomousAGI - DEBUG - No new log output for 60.0 seconds
+2025-07-03 12:12:09,200 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-03 12:12:40,223 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-03 12:13:04,093 - AutonomousAGI - DEBUG - No new log output for 120.0 seconds
+2025-07-03 12:13:11,244 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-03 12:13:42,265 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1
+2025-07-03 12:14:04,094 - AutonomousAGI - DEBUG - No new log output for 180.0 seconds
+2025-07-03 12:14:13,285 - AutonomousAGI - DEBUG - Process resources: CPU 0.0%, Memory 3.8MB, Children: 1

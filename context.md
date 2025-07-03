@@ -1,185 +1,49 @@
-# AGI System Architecture
+# Ravana AGI Core - System Architecture
 
-This document provides an overview of the AGI system architecture, explaining how the different modules interact with each other to create a cohesive artificial general intelligence system.
+This document provides an overview of the Ravana AGI system architecture, explaining how the different modules interact to create an autonomous, agentic system capable of continuous self-improvement.
 
 ## System Overview
 
-The AGI system is designed as a modular architecture where specialized components handle different aspects of intelligence. These modules work together through a central integration system that coordinates their activities and manages the flow of information between them.
+The Ravana AGI is designed as a modular system where specialized components, or "modules," handle different aspects of intelligence. These modules are orchestrated by a central `AGISystem` that manages the flow of information and decision-making. The system's primary mode of operation is a continuous, autonomous loop.
+
+## The Autonomous Agentic Loop
+
+The core of the system is its autonomous loop, which defines the AGI's process for perceiving, thinking, and acting without direct user intervention.
+
+1.  **Situation Generation**: The loop begins with the `SituationGenerator` module, which creates a novel and challenging scenario. These situations can range from technical problems and ethical dilemmas to creative tasks and hypothetical scenarios, providing a constant stream of new experiences.
+
+2.  **Decision & Planning**: The generated situation is passed to the `DecisionEngine`. This module analyzes the situation and formulates a high-level plan to address it. This involves breaking down the problem into manageable sub-goals and tasks.
+
+3.  **Action & Response**: Based on the plan from the Decision Engine, the `AGISystem` generates a concrete response or action. In the current implementation, this is a textual response outlining the plan, but it can be extended to include executing code, accessing APIs, or controlling other systems.
+
+4.  **Emotional Response**: The `EmotionalIntelligence` module processes the situation and the AGI's response, updating the agent's internal emotional state. This state, represented by a mood vector, can influence future decisions and add a dynamic, more "human" layer to the AGI's behavior.
+
+5.  **Memory Formation**: The entire interaction—including the situation, the plan, the response, and the resulting emotional state—is recorded as a new memory in the `EpisodicMemory` module. This module uses a vector database (ChromaDB) to store memories, allowing for efficient, semantic retrieval of relevant past experiences.
+
+6.  **Self-Reflection**: Finally, the `AgentSelfReflection` module analyzes the outcome of the interaction. It reflects on what was done, whether it was successful, and what could be learned. These reflections are also stored in memory and can be used to improve the AGI's core logic and decision-making processes over time.
+
+This entire loop runs continuously, enabling the AGI to learn, adapt, and potentially evolve its own capabilities without requiring a human operator.
 
 ## Core Modules
 
-### 1. Episodic Memory (modules/episodic_memory)
-
-**Purpose**: Stores and retrieves memories from conversations and experiences.
-
-**Key Components**:
-- FastAPI server for memory storage and retrieval
-- Embedding-based semantic search for finding relevant memories
-- SQLite database for persistent storage
-- ChromaDB for vector storage and similarity search
-
-**Interactions**:
-- Receives input from user conversations
-- Extracts key memories using LLM
-- Stores memories with embeddings for later retrieval
-- Provides relevant memories to other modules when needed
-
-### 2. Emotional Intelligence (modules/emotional_intellegence)
-
-**Purpose**: Manages the agent's emotional state and influences behavior.
-
-**Key Components**:
-- Mood tracking system with six basic moods: Curious, Frustrated, Confident, Stuck, Low Energy, Reflective
-- Mood vector that represents the intensity of each mood
-- Behavior influence system that suggests actions based on dominant mood
-
-**Interactions**:
-- Receives action results from other modules
-- Updates mood vector based on success/failure of actions
-- Provides behavior suggestions to the main system
-- Triggers curiosity module when appropriate
-
-### 3. Decision Engine (modules/decision_engine)
-
-**Purpose**: Plans and manages goals, subgoals, and tasks.
-
-**Key Components**:
-- Hierarchical goal planner inspired by Hierarchical Task Networks (HTN)
-- JSON-based storage of goals, subgoals, and tasks
-- LLM-based goal decomposition
-
-**Interactions**:
-- Receives high-level goals from user or other modules
-- Breaks down goals into subgoals and tasks
-- Tracks progress and completion
-- Generates new objectives as tasks are completed
-
-### 4. Curiosity Trigger (modules/curiosity_trigger)
-
-**Purpose**: Generates curiosity-driven exploration of topics.
-
-**Key Components**:
-- Wikipedia and Reddit data sources for interesting facts
-- LLM-based topic suggestion system
-- Lateralness parameter to control how unrelated topics should be
-
-**Interactions**:
-- Receives recent topics from memory or conversation
-- Generates curiosity topics based on lateralness
-- Fetches articles about topics
-- Provides learning prompts to the main system
-
-### 5. Agent Self-Reflection (modules/agent_self_reflection)
-
-**Purpose**: Enables the agent to reflect on its actions and improve.
-
-**Key Components**:
-- Structured self-reflection process after tasks
-- LLM-based reflection generation
-- Database storage of reflections
-- Self-modification capability to improve code based on reflections
-
-**Interactions**:
-- Receives task summaries and outcomes from other modules
-- Generates reflections on what worked, what failed, what surprised, and what to learn
-- Stores reflections for future reference
-- Can propose and test code modifications to improve performance
-
-### 6. Knowledge Compression (modules/knowledge_compression)
-
-**Purpose**: Summarizes accumulated knowledge to prevent memory bloat.
-
-**Key Components**:
-- Scheduled compression of knowledge logs
-- LLM-based summarization
-- Storage of compressed summaries
-
-**Interactions**:
-- Receives logs from other modules
-- Compresses knowledge on a schedule
-- Provides concise summaries to the main system
-- Helps prevent memory overload
-
-### 7. Event Detection (modules/event_detection)
-
-**Purpose**: Detects emerging events and trending topics from text data.
-
-**Key Components**:
-- Topic detection using sentence embeddings and clustering
-- Content filtering based on sentiment analysis
-- Event alerting system
-
-**Interactions**:
-- Receives streams of text data
-- Identifies significant clusters as events
-- Alerts the main system to important events
-- Helps the AGI stay aware of emerging trends
-
-### 8. Information Processing (modules/information_processing)
-
-**Purpose**: Processes information from various sources.
-
-**Submodules**:
-- **YouTube Transcription**: Transcribes YouTube videos to text
-- **Trend Analysis**: Analyzes trends from RSS feeds
-
-**Interactions**:
-- Receives URLs or data sources from user or other modules
-- Processes information into text format
-- Provides processed information to memory and other modules
-- Helps the AGI consume and understand diverse information sources
-
-### 9. AGI Experimentation (modules/agi_experimentation)
-
-**Purpose**: Runs experiments to test hypotheses and learn.
-
-**Key Components**:
-- LLM-based experiment design
-- Code generation and execution
-- Result analysis and learning
-
-**Interactions**:
-- Receives experiment ideas from user or curiosity module
-- Designs and runs experiments
-- Analyzes results and generates insights
-- Feeds new knowledge back to memory
-
-## System Integration
-
-The main AGI system (main.py) integrates all these modules into a cohesive system. It:
-
-1. **Initializes all components** at startup
-2. **Manages the memory server** in a separate thread
-3. **Processes user input** and routes it to appropriate modules
-4. **Coordinates module interactions** to create a seamless experience
-5. **Maintains system state** across interactions
-6. **Supports autonomous operation** for continuous learning and self-improvement
+-   **AGISystem (`main.py`)**: The central coordinator that orchestrates the agentic loop, initializes all modules, and manages the overall state.
+-   **SituationGenerator**: Creates diverse and unpredictable situations to drive the AGI's learning process.
+-   **DecisionEngine**: Responsible for high-level planning and goal setting.
+-   **EmotionalIntelligence**: Manages the AGI's internal mood and emotional state.
+-   **EpisodicMemory**: The long-term memory of the AGI, storing all experiences for later retrieval and reflection.
+-   **AgentSelfReflection**: Enables the AGI to learn from its past actions and improve its future performance.
+-   **CuriosityTrigger**: Can be used to inject novelty and drive exploration, though it is secondary to the `SituationGenerator` in the main loop.
+-   **Resource Management**: A key design feature is the centralized loading of large models (like sentence transformers). The main system loads these models once at startup and passes them to the other modules, significantly reducing the memory footprint and improving performance.
 
 ## 24/7 Continuous Operation
 
-The AGI system is designed for robust, 24/7 continuous operation. This is managed by a set of scripts that provide monitoring, automatic restarts, and detailed logging.
+The system is designed for robust, 24/7 continuous operation, managed by a set of wrapper scripts (`run_autonomous.py`, `start_agi_24_7.bat`, etc.). These scripts provide:
 
-### Key Features of Continuous Mode:
+-   **Automatic Restarts**: If the main AGI process crashes or hangs, it is automatically restarted.
+-   **Heartbeat Monitoring**: The system's log files are monitored for activity. If the AGI becomes unresponsive, the wrapper script will restart it.
+-   **Resource Monitoring**: CPU and memory usage are logged for performance analysis and debugging.
 
--   **Automatic Restart**: If the main AGI process crashes or becomes unresponsive, the `run_autonomous.py` script will automatically restart it.
--   **Heartbeat Monitoring**: A heartbeat mechanism checks if the AGI system is still active by monitoring its log file. If there's no activity for a configurable period, the process is considered hung and will be restarted.
--   **Resource Monitoring**: The `run_autonomous.py` script monitors the CPU and memory usage of the AGI process and its children, logging the data for later analysis.
--   **Port Management**: Before starting, the script checks if the memory server's port (8000) is in use and attempts to terminate any existing processes to prevent conflicts.
--   **Restart Throttling**: To prevent rapid-fire restarts in case of a persistent crash, the system limits the number of restarts within a specific time window.
--   **Graceful Shutdown**: The system is designed to handle `Ctrl+C` (KeyboardInterrupt) gracefully, ensuring that processes are terminated properly.
-
-### How to Run in 24/7 Mode:
-
-The easiest way to start the system in continuous mode is by using the provided wrapper scripts:
-
--   **On Windows**: `start_agi_24_7.bat`
--   **On macOS/Linux**: `run_agi_24_7.py`
-
-These scripts handle the necessary command-line arguments and ensure the system runs with the optimal settings for long-term stability.
-
-### Monitoring the System:
-
-While the AGI is running, you can use `check_agi_status.py` to get a real-time overview of the system's health, including uptime, resource usage, and the latest log entries.
+This robust setup ensures that the AGI can run autonomously for extended periods, continuously learning and evolving.
 
 ## Information Flow
 

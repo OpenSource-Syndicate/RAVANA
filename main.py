@@ -14,6 +14,14 @@ from typing import Dict, List, Any, Optional
 import threading
 import queue
 import importlib.util
+from transformers import pipeline
+
+# Import sentence transformers
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    print("SentenceTransformers library not found. Please install it with 'pip install sentence-transformers'")
+    sys.exit(1)
 
 # Configure logging
 logging.basicConfig(
@@ -33,6 +41,13 @@ interaction_logger.setLevel(logging.INFO)
 interaction_handler = logging.FileHandler("interactions.jsonl")
 interaction_handler.setFormatter(logging.Formatter('%(message)s'))
 interaction_logger.addHandler(interaction_handler)
+
+# Create a logger for the situation generator
+situation_logger = logging.getLogger("SituationGenerator")
+situation_logger.setLevel(logging.DEBUG)
+situation_handler = logging.FileHandler("situation_generator.log")
+situation_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+situation_logger.addHandler(situation_handler)
 
 # Add modules directory to path
 MODULES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "modules")
@@ -91,16 +106,6 @@ try:
     sys.path.append(os.path.join(MODULES_DIR, "event_detection"))
     from event_detector import process_data_for_events, load_models
     
-    # Create a wrapper class for event detection functionality
-    class EventDetector:
-        def __init__(self):
-            load_models()
-            
-        def process(self, texts: List[str]) -> List[Dict]:
-            """Process a list of texts to detect events"""
-            result = process_data_for_events(texts)
-            return result.get("events", [])
-    
     # Information Processing - YouTube Transcription
     youtube_transcription_dir = os.path.join(MODULES_DIR, "information_processing/youtube_transcription")
     sys.path.append(youtube_transcription_dir)
@@ -139,11 +144,28 @@ except ImportError as e:
 class AGISystem:
     """Main AGI system that integrates all modules"""
     
-    def __init__(self):
+    def __init__(self, debug=False):
+        # Load the embedding and sentiment models once
+        model_name = 'all-MiniLM-L6-v2'
+        logger.info(f"Loading embedding model '{model_name}'...")
+        try:
+            self.embedding_model = SentenceTransformer(model_name)
+            logger.info("Embedding model loaded successfully.")
+            logger.info("Loading sentiment analysis model...")
+            self.sentiment_classifier = pipeline('sentiment-analysis')
+            logger.info("Sentiment analysis model loaded successfully.")
+        except Exception as e:
+            logger.error(f"Fatal error: Failed to load a critical model: {e}")
+            sys.exit(1)
+
         self.emotional_intelligence = EmotionalIntelligence()
         self.goal_planner = GoalPlanner()
         try:
-            self.event_detector = EventDetector()
+            self.event_detector = EventDetector(
+                embedding_model=self.embedding_model,
+                sentiment_classifier=self.sentiment_classifier
+            )
+            logger.info("EventDetector initialized successfully.")
         except Exception as e:
             logger.error(f"Failed to initialize EventDetector: {e}. Event detection will be disabled.")
             self.event_detector = None
@@ -152,7 +174,10 @@ class AGISystem:
         self.situation_queue = queue.Queue()
         self.running = False
         self.memory_server_thread = None
-        self.situation_generator = SituationGenerator()
+        self.situation_generator = SituationGenerator(
+            situation_queue=self.situation_queue,
+            log_level=logging.DEBUG if debug else logging.INFO
+        )
         self.autonomous_mode = False
         self.autonomous_thread = None
         self.health_monitor_thread = None
@@ -165,9 +190,19 @@ class AGISystem:
         logger.info("AGI System initialized")
     
     def start_memory_server(self):
-        """Start the memory server in a separate thread"""
+        """Start the memory server in a separate thread, passing the model."""
+        # This is a bit tricky as we are running a separate ASGI app.
+        # A simple way is to make the model globally accessible to the app,
+        # but this is not ideal. A better way is to refactor the memory module
+        # to not be a completely separate app but a class that can be instantiated here.
+        
+        # For now, let's set a global variable that the memory_app can import.
+        # This requires a change in modules/episodic_memory/memory.py
+        memory_app.embedding_model = self.embedding_model
+        memory_app.sentiment_classifier = self.sentiment_classifier # Pass sentiment model too
+
         def run_server():
-            uvicorn.run(memory_app, host="127.0.0.1", port=8000)
+            uvicorn.run(memory_app, host="127.0.0.1", port=8000, log_level="warning")
         
         self.memory_server_thread = threading.Thread(target=run_server)
         self.memory_server_thread.daemon = True
@@ -306,91 +341,68 @@ class AGISystem:
         return f"Processed input. Current mood: {mood}, Memories stored: {len(memories)}"
     
     def process_situation(self, situation: Dict[str, Any]):
-        """Process a situation generated by the SituationGenerator"""
+        """
+        Process a situation using the full agentic loop:
+        Decision Engine -> Response -> Emotions -> Memory -> Reflection
+        """
+        logger.info(f"--- Starting new situation processing: {situation.get('type', 'Unknown')} ---")
+        logger.debug(f"Full situation details: {situation}")
+        
         try:
-            # Log the start of processing
-            logger.debug(f"Starting to process situation: {situation}")
+            # 1. Decision Engine
+            context_for_planning = f"Situation: {situation.get('prompt', '')}"
+            logger.info(f"--> [DecisionEngine] INPUT: {context_for_planning}")
+            goal_id = self.create_goal_from_context(context_for_planning)
+            plan = self.goal_planner.get_goal(goal_id)
+            logger.info(f"<-- [DecisionEngine] OUTPUT: {plan}")
+
+            # 2. Formulate Response
+            response_text = f"Acknowledged situation '{situation.get('type')}'. My plan is to address the prompt: '{plan.get('description', 'no plan description')}'"
+            response = {"response": response_text, "goal_id": goal_id, "plan": plan}
+            logger.info(f"--> [ResponseFormatter] INPUT: {plan}")
+            logger.info(f"<-- [ResponseFormatter] OUTPUT: {response}")
+
+            # 3. Emotional Intelligence
+            emotion_input = f"Processed situation: {situation.get('type')}"
+            logger.info(f"--> [EmotionalIntelligence] INPUT: {emotion_input}")
+            self.emotional_intelligence.process_action_natural(emotion_input)
+            current_mood = self.emotional_intelligence.get_dominant_mood()
+            logger.info(f"<-- [EmotionalIntelligence] OUTPUT: {current_mood}")
+
+            # 4. Episodic Memory
+            memory_text = f"Situation: {situation.get('prompt', '')}\nResponse: {response_text}"
+            logger.info(f"--> [EpisodicMemory] INPUT: {memory_text}")
+            stored_memories = self.process_memory(memory_text)
+            logger.info(f"<-- [EpisodicMemory] OUTPUT: Stored {len(stored_memories)} memories.")
+
+            # 5. Agent Self-Reflection
+            reflection_task = f"Processed a '{situation.get('type')}' situation."
+            reflection_outcome = f"Created goal {goal_id} and responded. Current mood is {current_mood}."
+            logger.info(f"--> [AgentSelfReflection] INPUT: Task: {reflection_task}, Outcome: {reflection_outcome}")
+            reflection = self.reflect_on_action(reflection_task, reflection_outcome)
+            logger.info(f"<-- [AgentSelfReflection] OUTPUT: {reflection.get('summary', 'N/A')}")
             
-            # Store the situation for reference
-            self.last_situation = situation
+            # Log the full interaction to interactions.jsonl
+            interaction_log_entry = {
+                "timestamp": time.time(),
+                "situation": situation,
+                "response": response,
+                "mood": current_mood,
+                "reflection": reflection,
+                "memories_stored": len(stored_memories)
+            }
+            interaction_logger.info(json.dumps(interaction_log_entry))
             
-            # Simple processing for now - just log the situation
-            logger.info(f"Processing situation: {situation}")
-            
-            # A more advanced implementation would involve the decision engine,
-            # memory retrieval, and other modules to generate a response.
-            
-            # For now, let's create a simple response and log it.
-            response = f"I have received the situation: {situation['type']}. I am thinking about it."
-            self.last_response = response
-            
-            # Log the interaction with detailed error handling
-            try:
-                # First, verify that the situation is serializable
-                logger.debug("Attempting to serialize situation for logging")
-                interaction_data = {
-                    "timestamp": time.time(),
-                    "situation": situation,
-                    "response": response
-                }
-                
-                # Try to serialize the data first to catch any JSON errors
-                json_str = json.dumps(interaction_data)
-                logger.debug(f"Successfully serialized interaction data: {len(json_str)} bytes")
-                
-                # Now log it to the interactions.jsonl file
-                logger.debug("Writing to interactions.jsonl")
-                interaction_logger.info(json_str)
-                logger.debug("Successfully wrote to interactions.jsonl")
-                
-                # Also store this interaction in memory
-                try:
-                    self.process_memory(f"Situation: {situation['type']} - Response: {response}")
-                except Exception as mem_err:
-                    logger.error(f"Error storing situation in memory: {mem_err}", exc_info=True)
-                
-            except TypeError as e:
-                logger.error(f"JSON serialization error: {e}. Situation may contain non-serializable objects.", exc_info=True)
-                # Try with a simplified version
-                try:
-                    simplified_situation = {
-                        "type": situation.get("type", "unknown"),
-                        "prompt": str(situation.get("prompt", "")),
-                        "context": str(situation.get("context", ""))
-                    }
-                    logger.info(f"Using simplified situation for logging: {simplified_situation}")
-                    interaction_logger.info(json.dumps({
-                        "timestamp": time.time(),
-                        "situation": simplified_situation,
-                        "response": response
-                    }))
-                except Exception as inner_e:
-                    logger.error(f"Even simplified JSON serialization failed: {inner_e}", exc_info=True)
-            except Exception as e:
-                logger.error(f"Error logging interaction: {e}", exc_info=True)
-            
-            logger.info(f"Generated response: {response}")
-            
-            # Reflect on the action with error handling
-            try:
-                reflection = self.reflect_on_action(
-                    task=f"Processed situation of type: {situation['type']}",
-                    outcome=response
-                )
-                logger.debug(f"Reflection generated: {reflection[:100]}...")
-            except Exception as e:
-                logger.error(f"Error during reflection: {e}", exc_info=True)
-            
+            logger.info(f"--- Finished situation processing ---")
             return response
-            
-        except KeyError as e:
-            error_msg = f"Missing key in situation: {e}"
-            logger.error(error_msg, exc_info=True)
-            return f"Error processing situation: {error_msg}"
+
         except Exception as e:
-            error_msg = f"Unexpected error processing situation: {e}"
-            logger.error(error_msg, exc_info=True)
-            return f"Error processing situation: {error_msg}"
+            logger.error(f"Error during situation processing: {e}", exc_info=True)
+            # Fallback response
+            return {
+                "response": "An error occurred while processing the situation.",
+                "error": str(e)
+            }
     
     def autonomous_thread_function(self):
         """A simpler, more robust thread function for autonomous operation."""
@@ -413,16 +425,16 @@ class AGISystem:
                 
                 # 1. Get a new situation
                 logger.debug("Getting new situation from generator...")
-                situation = self.situation_generator.get_situation(timeout=10)
+                try:
+                    situation = self.situation_generator.get_situation(timeout=10)
+                except queue.Empty:
+                    logger.debug("Situation queue was empty, will try again.")
+                    time.sleep(5)
+                    continue
                 
                 if situation:
                     situation_count += 1
                     logger.info(f"SITUATION ({situation_count}): {situation}")
-                    
-                    # Check if situation generator queue is growing too large
-                    queue_size = self.situation_generator.situation_queue.qsize()
-                    if queue_size > 10:
-                        logger.warning(f"Situation queue is growing large: {queue_size} items")
                     
                     # 2. Process the situation with timing
                     start_time = time.time()
@@ -432,6 +444,14 @@ class AGISystem:
                         response = self.process_situation(situation)
                         process_time = time.time() - start_time
                         logger.debug(f"Situation processed in {process_time:.2f} seconds")
+                        
+                        # Log the interaction
+                        interaction_logger.info(json.dumps({
+                            "timestamp": time.time(),
+                            "situation": situation,
+                            "response": response,
+                            "duration": process_time
+                        }))
                         
                         # Reset error counters on success
                         last_success_time = time.time()
@@ -672,16 +692,26 @@ class AGISystem:
                 
         logger.info("System health monitor stopped")
 
+class EventDetector:
+    def __init__(self, embedding_model, sentiment_classifier):
+        # Pass the pre-loaded models to the event detector module
+        load_models(embedding_model_instance=embedding_model, sentiment_classifier_instance=sentiment_classifier)
+        
+    def process(self, texts: List[str]) -> List[Dict]:
+        """Process a list of texts to detect events"""
+        result = process_data_for_events(texts)
+        return result.get("events", [])
+
 def main():
     parser = argparse.ArgumentParser(description="AGI System")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     parser.add_argument("--auto", action="store_true", help="Start in autonomous mode")
     args = parser.parse_args()
     
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logger.setLevel(log_level)
     
-    agi = AGISystem()
+    agi = AGISystem(debug=args.debug)
     
     if args.auto:
         agi.autonomous_mode = True
