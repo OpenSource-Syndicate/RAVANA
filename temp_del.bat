@@ -1,8 +1,8 @@
 @echo off
 setlocal enabledelayedexpansion
 
-echo Deleting __pycache__ directories...
-for /d /r %%d in (__pycache__) do (
+echo Deleting __pycache__..pytest_cache directories...
+for /d /r %%d in (__pycache__,.pytest_cache) do (
     if exist "%%d" (
         echo Deleting folder: %%d
         rd /s /q "%%d"
