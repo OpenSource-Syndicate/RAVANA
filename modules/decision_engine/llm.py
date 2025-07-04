@@ -287,23 +287,26 @@ def generate_hypothetical_scenarios(trends=None, interest_areas=None, gap_topics
         return scenarios
     return []
 
-def decision_maker_loop(situation, memory=None, model=None, chain_of_thought=True, rag_context=None):
+def decision_maker_loop(situation, memory=None, mood=None, model=None, chain_of_thought=True, rag_context=None):
     """
-    Main LLM Decision-Maker loop: sense, recall, plan, execute, reflect.
-    Args:
-        situation (str): The current situation or scenario to analyze.
-        memory (list of str): Relevant memories or context (optional).
-        model (str): Optional model name to use for LLM.
-        chain_of_thought (bool): Whether to use chain-of-thought prompting.
-        rag_context (str): Additional retrieved context for RAG (optional).
-    Returns:
-        dict: { 'plan': str, 'actions': list, 'reflection': str }
+    The core decision-making loop of the AGI.
+    It now includes mood as a factor in its decision-making process.
     """
-    prompt = f"Situation: {situation}\n"
+    # 1. Construct the initial prompt
+    prompt = f"Situation: {situation['prompt']}\n"
     if memory:
-        prompt += f"Relevant memory: {'; '.join(memory)}\n"
+        prompt += f"Relevant Memories: {json.dumps(memory, indent=2)}\n"
+    if mood:
+        prompt += f"Current Mood: {json.dumps(mood, indent=2)}\n"
     if rag_context:
-        prompt += f"Extra context: {rag_context}\n"
+        prompt += f"Retrieved Context: {rag_context}\n"
+    
+    prompt += """
+Analyze the situation, memories, and your current mood.
+Determine the best course of action.
+Your response should be a JSON object with 'action' and 'params'.
+Example: {"action": "fetch_and_analyze_trends", "params": {"query": "AI in healthcare"}}
+"""
     if chain_of_thought:
         prompt += "\nThink step by step. Draft a plan, list actions, and reflect on possible outcomes."
     else:

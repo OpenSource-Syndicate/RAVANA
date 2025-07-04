@@ -335,15 +335,27 @@ async def consolidate_memories_api(request: ConsolidateRequest):
 
         # Delete old memories
         if consolidation_plan["to_delete"]:
-            to_delete_ids = [mem_id for mem_id in consolidation_plan["to_delete"] if mem_id in memories_data['ids']]
+            to_delete_ids = consolidation_plan["to_delete"]
             if to_delete_ids:
-                chroma_collection.delete(ids=to_delete_ids)
-                logging.info(f"Deleted {len(to_delete_ids)} old memories.")
+                # Ensure uniqueness of IDs before deleting
+                unique_to_delete_ids = list(set(to_delete_ids))
+                if unique_to_delete_ids:
+                    try:
+                        chroma_collection.delete(ids=unique_to_delete_ids)
+                        logging.info(f"Deleted {len(unique_to_delete_ids)} old memories.")
+                    except Exception as e:
+                        logging.error(f"Error deleting memories from ChromaDB: {e}", exc_info=True)
+                        # Optionally, decide if you want to raise an exception or just log the error
+                        # For now, we'll just log it and continue
 
-        return StatusResponse(status="ok", message="Consolidation process completed.", details=consolidation_plan)
+        return StatusResponse(
+            status="ok",
+            message=f"Consolidation process completed. Added {len(consolidation_plan['consolidated'])} and attempted to delete {len(to_delete_ids)} memories.",
+            details=consolidation_plan
+        )
 
     except Exception as e:
-        logging.error(f"Error during memory consolidation: {e}", exc_info=True)
+        logging.error(f"Error during consolidation: {e}")
         raise HTTPException(status_code=500, detail=f"Error during consolidation: {e}")
 
 @app.get("/list_memories/", response_model=List[MemoryRecord], tags=["Memories"])

@@ -118,7 +118,8 @@ class AGISystem:
                 decision = await asyncio.to_thread(
                     decision_maker_loop,
                     situation=situation,
-                    memory=self.shared_state["recent_memories"]
+                    memory=self.shared_state["recent_memories"],
+                    mood=self.shared_state["mood"]
                 )
                 logger.info(f"Made decision: {decision}")
 

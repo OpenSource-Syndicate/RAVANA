@@ -42,6 +42,9 @@ try:
     # Import agent_self_reflection
     from ..agent_self_reflection.llm import call_llm
     
+    # Import config
+    from core.config import Config
+    
     logger.info("All required modules imported successfully")
 except ImportError as e:
     logger.error(f"Error importing modules: {e}", exc_info=True)
@@ -79,13 +82,7 @@ class SituationGenerator:
         setup_db()
         
         # Load RSS feeds
-        self.feed_urls = []
-        try:
-            feed_path = os.path.join(os.path.dirname(__file__), "../information_processing/trend_analysis/feeds.txt")
-            with open(feed_path, 'r') as f:
-                self.feed_urls = [line.strip() for line in f if line.strip()]
-        except Exception as e:
-            self.logger.error(f"Error loading feeds: {e}")
+        self.feed_urls = Config.FEED_URLS
         
         self.logger.info("SituationGenerator initialized")
     
@@ -117,7 +114,7 @@ class SituationGenerator:
             conn.close()
             
             if not articles:
-                return self.generate_hypothetical_scenario()
+                return await self.generate_hypothetical_scenario()
             
             # Process articles to detect events
             events_data = process_data_for_events(articles)
