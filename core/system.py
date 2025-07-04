@@ -139,7 +139,10 @@ class AGISystem:
                 if random.random() < 0.1:
                     logger.info("Starting self-reflection cycle...")
                     hypothesis = self.reflection_module.generate_hypothesis(self.shared_state)
-                    experiment_results = await self.experimentation_module.run_experiment_from_prompt(hypothesis)
+                    experiment_results = await asyncio.to_thread(
+                        self.experimentation_module.run_experiment_from_prompt,
+                        hypothesis
+                    )
                     logger.info(f"Reflection experiment results: {experiment_results}")
 
                 logger.info("End of loop iteration. Sleeping for 10 seconds.")
