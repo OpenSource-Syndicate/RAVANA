@@ -60,3 +60,5 @@ pytest_cache/
 # Mypy and Pyright
 .mypy_cache/
 .pyright/
+
+modules/knowledge_compression/compressed_memory.json

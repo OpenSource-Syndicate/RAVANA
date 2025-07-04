@@ -15,6 +15,7 @@ import logging
 from typing import Dict, List, Any, Optional
 import threading
 import queue
+import asyncio
 
 # Configure logging
 logging.basicConfig(
@@ -51,14 +52,7 @@ class SituationGenerator:
     Generates situations for the AGI system to tackle without user input.
     """
     
-    def __init__(self, situation_queue: Optional[queue.Queue] = None, log_level=logging.INFO):
-        if situation_queue:
-            self.situation_queue = situation_queue
-        else:
-            self.situation_queue = queue.Queue(maxsize=100)
-        self.running = False
-        self.thread = None
-        
+    def __init__(self, log_level=logging.INFO):
         # Set up logger
         self.logger = logging.getLogger("SituationGenerator")
         self.logger.setLevel(log_level)
@@ -95,11 +89,11 @@ class SituationGenerator:
         
         self.logger.info("SituationGenerator initialized")
     
-    def generate_trending_topic_situation(self) -> Dict[str, Any]:
+    async def generate_trending_topic_situation(self) -> Dict[str, Any]:
         """Generate a situation based on trending topics from RSS feeds."""
         try:
             # Fetch latest feeds
-            fetch_feeds(self.feed_urls)
+            await asyncio.to_thread(fetch_feeds, self.feed_urls)
             
             # Get recent articles from database
             import sqlite3
@@ -153,9 +147,9 @@ class SituationGenerator:
                 }
         except Exception as e:
             self.logger.error(f"Error generating trending topic situation: {e}")
-            return self.generate_hypothetical_scenario()
+            return await self.generate_hypothetical_scenario()
     
-    def generate_curiosity_situation(self) -> Dict[str, Any]:
+    async def generate_curiosity_situation(self) -> Dict[str, Any]:
         """Generate a situation based on the curiosity trigger module."""
         try:
             # Generate some recent topics
@@ -173,7 +167,7 @@ class SituationGenerator:
             ]
             
             # Use the curiosity trigger to get an article and prompt
-            article, prompt = CuriosityTrigger.trigger(recent_topics, lateralness=0.8)
+            article, prompt = await asyncio.to_thread(CuriosityTrigger.trigger, recent_topics, lateralness=0.8)
             
             return {
                 "type": "curiosity_exploration",
@@ -184,7 +178,7 @@ class SituationGenerator:
             }
         except Exception as e:
             self.logger.error(f"Error generating curiosity situation: {e}")
-            return self.generate_hypothetical_scenario()
+            return await self.generate_hypothetical_scenario()
     
     def generate_simple_reflection_situation(self) -> Dict[str, Any]:
         """Generate a simple, fast, non-LLM reflection situation."""
@@ -200,7 +194,7 @@ class SituationGenerator:
             "context": {}
         }
     
-    def generate_hypothetical_scenario(self) -> Dict[str, Any]:
+    async def generate_hypothetical_scenario(self) -> Dict[str, Any]:
         """Generate a hypothetical scenario using the LLM."""
         scenario_types = [
             "You are an AI assistant helping a user with a technical problem.",
@@ -228,7 +222,7 @@ class SituationGenerator:
         Format the output as a direct prompt that would be given to an AI system.
         """
         
-        situation = call_llm(prompt)
+        situation = await asyncio.to_thread(call_llm, prompt)
         
         if situation is None:
             self.logger.warning("LLM call failed. Falling back to simple reflection.")
@@ -242,7 +236,7 @@ class SituationGenerator:
             }
         }
     
-    def generate_technical_challenge(self) -> Dict[str, Any]:
+    async def generate_technical_challenge(self) -> Dict[str, Any]:
         """Generate a technical challenge situation."""
         challenge_types = [
             "Optimize an inefficient algorithm",
@@ -269,7 +263,7 @@ class SituationGenerator:
         Format the output as a direct prompt that would be given to an AI system.
         """
         
-        situation = call_llm(prompt)
+        situation = await asyncio.to_thread(call_llm, prompt)
         
         if situation is None:
             self.logger.warning("LLM call failed. Falling back to simple reflection.")
@@ -283,7 +277,7 @@ class SituationGenerator:
             }
         }
     
-    def generate_ethical_dilemma(self) -> Dict[str, Any]:
+    async def generate_ethical_dilemma(self) -> Dict[str, Any]:
         """Generate an ethical dilemma situation."""
         dilemma_types = [
             "AI decision-making with moral implications",
@@ -310,7 +304,7 @@ class SituationGenerator:
         Format the output as a direct prompt that would be given to an AI system.
         """
         
-        situation = call_llm(prompt)
+        situation = await asyncio.to_thread(call_llm, prompt)
         
         if situation is None:
             self.logger.warning("LLM call failed. Falling back to simple reflection.")
@@ -324,7 +318,7 @@ class SituationGenerator:
             }
         }
     
-    def generate_creative_task(self) -> Dict[str, Any]:
+    async def generate_creative_task(self) -> Dict[str, Any]:
         """Generate a creative task situation."""
         creative_types = [
             "Write a short story",
@@ -351,7 +345,7 @@ class SituationGenerator:
         Format the output as a direct prompt that would be given to an AI system.
         """
         
-        situation = call_llm(prompt)
+        situation = await asyncio.to_thread(call_llm, prompt)
         
         if situation is None:
             self.logger.warning("LLM call failed. Falling back to simple reflection.")
@@ -361,20 +355,15 @@ class SituationGenerator:
             "type": "creative_task",
             "prompt": situation,
             "context": {
-                "creative_type": task
+                "task_type": task
             }
         }
     
-    def generate_situation(self) -> Dict[str, Any]:
-        """Generate a situation of a random type."""
-        # Add weights to make simple, non-LLM situations more common
-        situation_type = random.choices(
-            self.situation_types, 
-            weights=[1, 1, 4, 1, 1, 1, 1], 
-            k=1
-        )[0]
-        
-        self.logger.debug(f"Generating new situation of type: {situation_type}")
+    async def generate_situation(self) -> Dict[str, Any]:
+        """
+        Generate a situation by randomly selecting one of the generation methods.
+        """
+        situation_type = random.choice(self.situation_types)
         
         generation_methods = {
             "trending_topic": self.generate_trending_topic_situation,
@@ -383,103 +372,30 @@ class SituationGenerator:
             "hypothetical_scenario": self.generate_hypothetical_scenario,
             "technical_challenge": self.generate_technical_challenge,
             "ethical_dilemma": self.generate_ethical_dilemma,
-            "creative_task": self.generate_creative_task,
+            "creative_task": self.generate_creative_task
         }
         
-        method = generation_methods.get(situation_type, self.generate_simple_reflection_situation)
-        return method()
-
-    def situation_generator_thread(self):
-        """The thread that continuously generates situations."""
-        while self.running:
-            if not self.situation_queue.full():
-                situation = self.generate_situation()
-                if situation:
-                    self.logger.info(f"Generated new situation of type: {situation['type']}")
-                    self.situation_queue.put(situation)
-                # Sleep for a bit to avoid overwhelming the system
-                time.sleep(random.uniform(5, 15))
-            else:
-                self.logger.warning("Situation queue is full. Pausing generation.")
-                time.sleep(30)
-    
-    def start(self):
-        """Start the situation generator thread."""
-        if self.running:
-            return
-        self.running = True
-        self.thread = threading.Thread(target=self.situation_generator_thread)
-        self.thread.daemon = True
-        self.thread.start()
-        self.logger.info("Situation generator started")
-    
-    def stop(self):
-        """Stop the situation generator thread."""
-        self.running = False
-        if self.thread:
-            # No need to join a daemon thread, but it's good practice
-            self.thread.join(timeout=2)
-        self.logger.info("Situation generator stopped")
-
-    def get_situation(self, timeout: Optional[float] = 10.0) -> Optional[Dict[str, Any]]:
-        """Get a situation from the queue."""
-        try:
-            # If the queue is empty, generate a simple situation directly
-            if self.situation_queue.empty():
-                self.logger.warning("Situation queue is empty. Generating a simple reflection on the fly.")
-                return self.generate_simple_reflection_situation()
-            return self.situation_queue.get(timeout=timeout)
-        except queue.Empty:
-            self.logger.warning(f"No situation available from queue after {timeout} seconds. Generating a fallback.")
-            return self.generate_simple_reflection_situation()
+        generation_method = generation_methods.get(situation_type, self.generate_simple_reflection_situation)
+        
+        self.logger.info(f"Generating situation of type: {situation_type}")
+        if asyncio.iscoroutinefunction(generation_method):
+            return await generation_method()
+        else:
+            return generation_method()
 
 def main():
-    """Main function for testing the situation generator."""
-    logger.info("Starting SituationGenerator test...")
-    import argparse
-    parser = argparse.ArgumentParser(description="Situation Generator Module")
-    parser.add_argument("--generate", action="store_true", help="Generate a single situation and print it")
-    parser.add_argument("--run", action="store_true", help="Run the situation generator continuously")
-    parser.add_argument("--type", type=str, choices=["trending_topic", "curiosity_exploration", 
-                                                   "event_response", "hypothetical_scenario",
-                                                   "technical_challenge", "ethical_dilemma", 
-                                                   "creative_task"], 
-                       help="Specify a situation type to generate")
-    
-    args = parser.parse_args()
-    
-    generator = SituationGenerator()
-    
-    if args.generate:
-        if args.type:
-            if args.type == "trending_topic":
-                situation = generator.generate_trending_topic_situation()
-            elif args.type == "curiosity_exploration":
-                situation = generator.generate_curiosity_situation()
-            elif args.type == "event_response":
-                situation = generator.generate_trending_topic_situation()
-            elif args.type == "hypothetical_scenario":
-                situation = generator.generate_hypothetical_scenario()
-            elif args.type == "technical_challenge":
-                situation = generator.generate_technical_challenge()
-            elif args.type == "ethical_dilemma":
-                situation = generator.generate_ethical_dilemma()
-            elif args.type == "creative_task":
-                situation = generator.generate_creative_task()
-        else:
-            situation = generator.generate_situation()
-        
-        print(json.dumps(situation, indent=2))
-    elif args.run:
-        generator.start()
-        try:
-            while True:
-                situation = generator.get_situation()
-                print(json.dumps(situation, indent=2))
-        except KeyboardInterrupt:
-            generator.stop()
-    else:
-        parser.print_help()
+    """
+    Main function to test the SituationGenerator.
+    This will generate a few situations and print them.
+    """
+    async def test_generator():
+        generator = SituationGenerator()
+        for _ in range(5):
+            situation = await generator.generate_situation()
+            print(json.dumps(situation, indent=2))
+            print("-" * 20)
 
-if __name__ == "__main__":
+    asyncio.run(test_generator())
+
+if __name__ == '__main__':
     main() 
