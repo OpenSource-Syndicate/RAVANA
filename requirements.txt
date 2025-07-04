@@ -17,4 +17,5 @@ torch>=2.0.0
 scikit-learn>=1.2.2
 matplotlib>=3.7.1
 pandas>=2.0.0
-tqdm>=4.65.0 
+tqdm>=4.65.0
+pytest-asyncio 

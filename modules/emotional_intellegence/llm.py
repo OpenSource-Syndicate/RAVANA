@@ -59,6 +59,25 @@ def call_zanity(prompt, model=None):
     except Exception as e:
         return None
 
+def call_local_llm(prompt: str, model: str = "finalend/hermes-3-llama-3.1:8b", base_url: str = "http://172.30.45.64:11434") -> str:
+    """
+    Calls a local LLM using the OpenAI-compatible endpoint (e.g., from Ollama).
+    """
+    try:
+        client = OpenAI(base_url=f"{base_url}/v1", api_key="ollama")
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,  # Lower temperature for more deterministic output
+        )
+        return response.choices[0].message.content
+    except requests.exceptions.ConnectionError as e:
+        logging.warning(f"Could not connect to local LLM at {base_url}. Is it running? Error: {e}")
+        return None
+    except Exception as e:
+        logging.error(f"Error calling local LLM: {e}")
+        return None
+
 def call_a4f(prompt):
     try:
         api_key = config['a4f']['api_key']
@@ -160,7 +179,16 @@ def call_gemini_with_function_calling(prompt, function_declarations):
 def call_llm(prompt, preferred_provider=None, model=None):
     """
     Try all providers in order, fallback to Gemini if all fail.
+    Prefers local model first.
     """
+    # Prioritize local LLM
+    local_result = call_local_llm(prompt, model=model) if model else call_local_llm(prompt)
+    if local_result:
+        logging.info("Successfully used local LLM.")
+        return local_result
+    
+    logging.warning("Local LLM failed or was unavailable, falling back to other providers.")
+
     providers = [
         (call_zuki, 'zuki'),
         (call_electronhub, 'electronhub'),

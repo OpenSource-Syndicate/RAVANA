@@ -1,14 +1,14 @@
 from typing import Dict, Optional
 import random
 from .llm import call_llm
+from core.config import Config
+import json
+import re
 
 class EmotionalIntelligence:
-    BASIC_MOODS = [
-        "Curious", "Frustrated", "Confident", "Stuck", "Low Energy", "Reflective"
-    ]
-
     def __init__(self):
         # Initialize all moods to 0.0
+        self.BASIC_MOODS = Config.POSITIVE_MOODS + Config.NEGATIVE_MOODS
         self.mood_vector: Dict[str, float] = {mood: 0.0 for mood in self.BASIC_MOODS}
         self.last_action_result: Optional[dict] = None
 
@@ -45,28 +45,69 @@ class EmotionalIntelligence:
 
     def process_action_natural(self, action_output: str):
         print(f"[DEBUG] Processing natural action output: {action_output}")
-        prompt = (
-            "Given the following output from an AI action, classify which of these mood triggers are present: "
-            "'success', 'error', 'new_topic', 'fact_discovered', 'major_completion', 'inactivity', 'loop', 'low_output_variance', 'failure_streak'.\n"
-            "Return a JSON dictionary with these keys set to true or false.\n"
-            f"Output: {action_output}"
-        )
+
+        # Advanced prompt engineering
+        definitions = {
+            "success": "The action was completed successfully without errors.",
+            "error": "The action resulted in a clear error or failure.",
+            "new_topic": "A new subject or area of knowledge was introduced.",
+            "fact_discovered": "A new, verifiable piece of information was found.",
+            "major_completion": "A significant milestone or a large, multi-step task was finished.",
+            "inactivity": "There was a lack of progress, or nothing significant happened.",
+            "loop": "The same actions or outputs were repeated, indicating being stuck.",
+            "low_output_variance": "The outputs are repetitive or lack creativity/novelty.",
+            "failure_streak": "Multiple consecutive actions have failed."
+        }
+        
+        prompt = f"""
+You are an expert AI analysis system. Your task is to classify the output of an AI agent's action based on a set of predefined triggers.
+Analyze the following action output and determine which triggers are present.
+
+**Definitions:**
+{json.dumps(definitions, indent=2)}
+
+**Example:**
+Action Output: "I have successfully transcribed the YouTube video and saved it to a file."
+Your Response:
+```json
+{{
+  "success": true,
+  "error": false,
+  "new_topic": false,
+  "fact_discovered": false,
+  "major_completion": true,
+  "inactivity": false,
+  "loop": false,
+  "low_output_variance": false,
+  "failure_streak": false
+}}
+```
+
+**Action Output to Analyze:**
+"{action_output}"
+
+**Your Response (MUST be only a valid JSON object):**
+"""
+        
         llm_response = call_llm(prompt)
         print(f"[DEBUG] LLM response: {llm_response}")
-        import json
-        # Remove markdown code block if present
-        resp = llm_response.strip()
-        if resp.startswith("```"):
-            resp = resp.split('\n', 1)[-1]
-            if resp.startswith("json"):
-                resp = resp[4:]
-            resp = resp.strip("` \n")
+
+        # Robust JSON parsing
+        triggers = {}
         try:
-            triggers = json.loads(resp)
-            print(f"[DEBUG] Parsed triggers: {triggers}")
+            # Use regex to find the JSON object, accommodating markdown code blocks
+            json_match = re.search(r'\{.*\}', llm_response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                triggers = json.loads(json_str)
+                print(f"[DEBUG] Parsed triggers: {triggers}")
+            else:
+                print("[DEBUG] No JSON object found in the LLM response.")
+        except json.JSONDecodeError as e:
+            print(f"[DEBUG] Error parsing LLM response JSON: {e}")
         except Exception as e:
-            print(f"[DEBUG] Error parsing LLM response: {e}")
-            triggers = {}
+            print(f"[DEBUG] An unexpected error occurred during parsing: {e}")
+
         self.process_action_result(triggers)
 
     def get_dominant_mood(self) -> str:

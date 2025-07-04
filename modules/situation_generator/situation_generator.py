@@ -358,36 +358,46 @@ class SituationGenerator:
             }
         }
     
-    async def generate_situation(self, curiosity_topics: Optional[List[str]] = None) -> Dict[str, Any]:
+    async def generate_situation(self, curiosity_topics: Optional[List[str]] = None, behavior_modifiers: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Generate a situation by randomly selecting one of the generation methods.
-        If curiosity_topics are provided, it prioritizes curiosity_exploration.
+        Generates a new situation for the AGI to handle, optionally influenced by behavior modifiers.
         """
-        if curiosity_topics:
-            self.logger.info(f"Prioritizing curiosity exploration with topics: {curiosity_topics}")
-            return await self.generate_curiosity_situation(curiosity_topics=curiosity_topics)
+        if behavior_modifiers is None:
+            behavior_modifiers = {}
 
-        situation_type = random.choice(self.situation_types)
-        
-        generation_methods = {
-            "trending_topic": self.generate_trending_topic_situation,
-            "curiosity_exploration": self.generate_curiosity_situation,
-            "simple_reflection": self.generate_simple_reflection_situation,
-            "hypothetical_scenario": self.generate_hypothetical_scenario,
-            "technical_challenge": self.generate_technical_challenge,
-            "ethical_dilemma": self.generate_ethical_dilemma,
-            "creative_task": self.generate_creative_task
-        }
-        
-        generation_method = generation_methods.get(situation_type, self.generate_simple_reflection_situation)
-        
-        self.logger.info(f"Generating situation of type: {situation_type}")
-        if asyncio.iscoroutinefunction(generation_method):
-            if situation_type == "curiosity_exploration":
-                return await generation_method(curiosity_topics=curiosity_topics)
-            return await generation_method()
+        # Prioritize situation types based on behavior modifiers
+        if behavior_modifiers.get('activate_self_reflection'):
+            return self.generate_simple_reflection_situation()
+        if behavior_modifiers.get('explore_more'):
+            return await self.generate_curiosity_situation(curiosity_topics)
+        if behavior_modifiers.get('try_simpler_task'):
+            # Choose from a list of simpler tasks
+            situation_type = random.choice(['simple_reflection', 'creative_task'])
+        elif behavior_modifiers.get('take_on_harder_challenges'):
+            # Choose from a list of more complex tasks
+            situation_type = random.choice(['technical_challenge', 'hypothetical_scenario', 'ethical_dilemma'])
         else:
-            return generation_method()
+            situation_type = random.choice(self.situation_types)
+
+        self.logger.info(f"Generating situation of type: {situation_type}")
+
+        if situation_type == "trending_topic":
+            return await self.generate_trending_topic_situation()
+        elif situation_type == "curiosity_exploration":
+            return await self.generate_curiosity_situation(curiosity_topics)
+        elif situation_type == "simple_reflection":
+            return self.generate_simple_reflection_situation()
+        elif situation_type == "hypothetical_scenario":
+            return await self.generate_hypothetical_scenario()
+        elif situation_type == "technical_challenge":
+            return await self.generate_technical_challenge()
+        elif situation_type == "ethical_dilemma":
+            return await self.generate_ethical_dilemma()
+        elif situation_type == "creative_task":
+            return await self.generate_creative_task()
+        
+        # Fallback to a default situation
+        return self.generate_simple_reflection_situation()
 
 def main():
     """
