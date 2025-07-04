@@ -146,25 +146,27 @@ class SituationGenerator:
             self.logger.error(f"Error generating trending topic situation: {e}")
             return await self.generate_hypothetical_scenario()
     
-    async def generate_curiosity_situation(self) -> Dict[str, Any]:
+    async def generate_curiosity_situation(self, curiosity_topics: Optional[List[str]] = None) -> Dict[str, Any]:
         """Generate a situation based on the curiosity trigger module."""
         try:
-            # Generate some recent topics
-            recent_topics = [
-                "artificial intelligence",
-                "machine learning",
-                "neural networks",
-                "natural language processing",
-                "robotics",
-                "computer vision",
-                "ethics in AI",
-                "data science",
-                "quantum computing",
-                "blockchain"
-            ]
+            # Generate some recent topics if not provided
+            if not curiosity_topics:
+                self.logger.info("No curiosity topics provided, using default list.")
+                curiosity_topics = [
+                    "artificial intelligence",
+                    "machine learning",
+                    "neural networks",
+                    "natural language processing",
+                    "robotics",
+                    "computer vision",
+                    "ethics in AI",
+                    "data science",
+                    "quantum computing",
+                    "blockchain"
+                ]
             
             # Use the curiosity trigger to get an article and prompt
-            article, prompt = await asyncio.to_thread(CuriosityTrigger.trigger, recent_topics, lateralness=0.8)
+            article, prompt = await asyncio.to_thread(CuriosityTrigger.trigger, curiosity_topics, lateralness=0.8)
             
             return {
                 "type": "curiosity_exploration",
@@ -356,10 +358,15 @@ class SituationGenerator:
             }
         }
     
-    async def generate_situation(self) -> Dict[str, Any]:
+    async def generate_situation(self, curiosity_topics: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Generate a situation by randomly selecting one of the generation methods.
+        If curiosity_topics are provided, it prioritizes curiosity_exploration.
         """
+        if curiosity_topics:
+            self.logger.info(f"Prioritizing curiosity exploration with topics: {curiosity_topics}")
+            return await self.generate_curiosity_situation(curiosity_topics=curiosity_topics)
+
         situation_type = random.choice(self.situation_types)
         
         generation_methods = {
@@ -376,6 +383,8 @@ class SituationGenerator:
         
         self.logger.info(f"Generating situation of type: {situation_type}")
         if asyncio.iscoroutinefunction(generation_method):
+            if situation_type == "curiosity_exploration":
+                return await generation_method(curiosity_topics=curiosity_topics)
             return await generation_method()
         else:
             return generation_method()

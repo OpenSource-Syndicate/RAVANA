@@ -41,6 +41,7 @@ class AGISystem:
         # Initialize modules
         self.situation_generator = SituationGenerator()
         self.emotional_intelligence = EmotionalIntelligence()
+        self.curiosity_trigger = CuriosityTrigger()
         self.reflection_module = type("ReflectionModule", (), {
             "generate_hypothesis": generate_hypothesis
         })
@@ -60,6 +61,7 @@ class AGISystem:
             "recent_memories": [],
             "long_term_goals": [],
             "mood_history": [],
+            "curiosity_topics": [],
         }
 
     async def stop(self):
@@ -101,7 +103,23 @@ class AGISystem:
         while not self._shutdown.is_set():
             try:
                 logger.info("New loop iteration.")
-                situation = await self.situation_generator.generate_situation()
+
+                # Curiosity-driven situation generation
+                if random.random() < 0.3: # 30% chance to be driven by curiosity
+                    logger.info("Curiosity triggered. Generating new topics...")
+                    context_for_curiosity = ". ".join([m['content'] for m in self.shared_state.get('recent_memories', [])])
+                    if not context_for_curiosity:
+                        context_for_curiosity = "Artificial intelligence, machine learning, and consciousness."
+                    
+                    curiosity_topics = await asyncio.to_thread(self.curiosity_trigger.get_curiosity_topics_llm, [context_for_curiosity])
+                    self.shared_state["curiosity_topics"] = curiosity_topics
+                    logger.info(f"Generated curiosity topics: {curiosity_topics}")
+                else:
+                    self.shared_state["curiosity_topics"] = []
+
+                situation = await self.situation_generator.generate_situation(
+                    curiosity_topics=self.shared_state["curiosity_topics"]
+                )
                 self.shared_state["current_situation"] = situation
                 logger.info(f"Generated situation: {situation}")
 
@@ -132,19 +150,26 @@ class AGISystem:
                 logger.info("Memorized interaction.")
 
                 logger.info("Updating mood.")
+                old_mood = self.shared_state["mood"].copy()
                 self.emotional_intelligence.process_action_natural(str(action_output))
                 self.shared_state["mood"] = self.emotional_intelligence.get_mood_vector()
+                new_mood = self.shared_state["mood"]
                 self.shared_state["mood_history"].append(self.shared_state["mood"])
                 logger.info("Updated mood.")
 
-                if random.random() < 0.1:
-                    logger.info("Starting self-reflection cycle...")
+                # Self-reflection based on emotional feedback
+                mood_changed_for_better = self._did_mood_improve(old_mood, new_mood)
+                
+                if not mood_changed_for_better:
+                    logger.info("Mood did not improve. Starting self-reflection cycle...")
                     hypothesis = self.reflection_module.generate_hypothesis(self.shared_state)
                     experiment_results = await asyncio.to_thread(
                         self.experimentation_module.run_experiment_from_prompt,
                         hypothesis
                     )
                     logger.info(f"Reflection experiment results: {experiment_results}")
+                else:
+                    logger.info("Mood improved or stayed the same, skipping reflection.")
 
                 logger.info("End of loop iteration. Sleeping for 10 seconds.")
                 await asyncio.sleep(10)
@@ -155,6 +180,17 @@ class AGISystem:
             except Exception as e:
                 logger.error(f"Error in autonomous loop: {e}", exc_info=True)
                 await asyncio.sleep(60)
+
+    def _did_mood_improve(self, old_mood: Dict[str, float], new_mood: Dict[str, float]) -> bool:
+        """Checks if the mood has improved based on a simple score."""
+        positive_moods = ['Confident', 'Curious', 'Reflective']
+        negative_moods = ['Frustrated', 'Stuck', 'Low Energy']
+
+        old_score = sum(old_mood.get(m, 0) for m in positive_moods) - sum(old_mood.get(m, 0) for m in negative_moods)
+        new_score = sum(new_mood.get(m, 0) for m in positive_moods) - sum(new_mood.get(m, 0) for m in negative_moods)
+        
+        logger.info(f"Mood score changed from {old_score:.2f} to {new_score:.2f}")
+        return new_score > old_score
 
     async def execute_action(self, decision: Dict[str, Any]) -> Any:
         """Executes the action determined by the decision engine."""
