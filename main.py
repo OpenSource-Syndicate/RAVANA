@@ -68,19 +68,35 @@ class Summary(SQLModel, table=True):
 SQLModel.metadata.create_all(engine)
 
 class EnhancedSituationGenerator(SituationGenerator):
-    def generate_situation(self) -> Dict[str, str]:
-        """Enhanced situation generator that occasionally uses recent events."""
-        if random.random() < 0.2:  # 20% chance to use a recent event
+    async def generate_situation(self) -> Dict[str, str]:
+        """Enhanced situation generator that can use recent events, summaries, or memories."""
+        roll = random.random()
+
+        if roll < 0.25:  # 25% chance to use a recent event
             with Session(engine) as session:
-                # Fetch the most recent event
-                stmt = select(Event).order_by(Event.timestamp.desc()).limit(1)
-                event = session.exec(stmt).first()
-                if event:
-                    scenarios = generate_hypothetical_scenarios(trends=[event.description])
-                    if scenarios:
-                        return {'type': 'event_based', 'prompt': scenarios[0]}
-        # Default situation generation (fallback)
-        return {'type': 'default', 'prompt': 'Think about a random topic.'}
+                # Fetch a few recent events and pick one
+                stmt = select(Event).order_by(Event.timestamp.desc()).limit(5)
+                events = session.exec(stmt).all()
+                if events:
+                    event = random.choice(events)
+                    # Generate a more engaging prompt
+                    prompt = f"A recent event was reported: '{event.description}'. What are the potential short-term and long-term consequences of this?"
+                    return {'type': 'event_based', 'prompt': prompt, 'context': event.description}
+        
+        elif roll < 0.5: # 25% chance to reflect on a recent memory
+            try:
+                # Query for a "general" topic to get some recent memories.
+                recent_memories_response = await get_relevant_memories_api({"query_text": "recent interesting topics"})
+                if recent_memories_response and recent_memories_response.relevant_memories:
+                    memory = random.choice(recent_memories_response.relevant_memories)
+                    prompt = f"Let's reflect on this memory: '{memory.text}'. How does this connect to my long-term goals or understanding of the world?"
+                    return {'type': 'memory_reflection', 'prompt': prompt, 'context': memory.text}
+            except Exception as e:
+                logger.warning(f"Could not fetch memories for situation generation: {e}")
+                # Fallback to default if memory retrieval fails
+        
+        # Fallback to default situation generation (50% chance)
+        return {'type': 'default', 'prompt': 'What is a surprising fact I learned recently, and what makes it surprising?'}
 
 class AGISystem:
     def __init__(self):
@@ -103,6 +119,10 @@ class AGISystem:
             "run_experiment_from_prompt": run_experiment_from_prompt
         })
 
+        # For graceful shutdown
+        self._shutdown = asyncio.Event()
+        self.background_tasks = []
+
         # Shared state
         self.shared_state = {
             "mood": self.emotional_intelligence.get_mood_vector(),
@@ -119,9 +139,37 @@ class AGISystem:
             # Add more feed URLs as needed
         ]
 
+    async def stop(self):
+        """Gracefully stops the AGI system and its background tasks."""
+        if self._shutdown.is_set():
+            return
+            
+        logger.info("Initiating graceful shutdown...")
+        self._shutdown.set()
+
+        logger.info(f"Cancelling {len(self.background_tasks)} background tasks...")
+        for task in self.background_tasks:
+            task.cancel()
+        
+        # Wait for all background tasks to be cancelled
+        await asyncio.gather(*self.background_tasks, return_exceptions=True)
+        
+        logger.info("All background tasks stopped.")
+
+    async def _memorize_interaction(self, situation_prompt: str, decision: dict, action_output: Any):
+        """Extracts and saves memories from an interaction."""
+        interaction_summary = f"Situation: {situation_prompt}\nDecision: {decision}\nAction Output: {action_output}"
+        try:
+            memories_to_save = await extract_memories_api({"user_input": interaction_summary, "ai_output": ""})
+            if memories_to_save and memories_to_save.memories:
+                await asyncio.to_thread(save_memories, memories_to_save.memories)
+                logger.info(f"Saved {len(memories_to_save.memories)} new memories.")
+        except Exception as e:
+            logger.error(f"Failed during memorization: {e}", exc_info=True)
+
     async def data_collection_task(self):
         """Background task to fetch articles from RSS feeds every hour."""
-        while True:
+        while not self._shutdown.is_set():
             try:
                 logger.info("Fetching feeds...")
                 new_articles = fetch_feeds(self.feed_urls)
@@ -146,11 +194,18 @@ class AGISystem:
                     logger.info("No new articles found.")
             except Exception as e:
                 logger.error(f"Error in data collection: {e}")
-            await asyncio.sleep(3600)  # Every hour
+            
+            try:
+                # Wait for an hour, but be responsive to shutdown
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                # Task was cancelled, exit the loop
+                break
+        logger.info("Data collection task shut down.")
 
     async def event_detection_task(self):
         """Background task to detect events from articles every 10 minutes."""
-        while True:
+        while not self._shutdown.is_set():
             try:
                 with Session(engine) as session:
                     # Fetch recent articles
@@ -172,11 +227,16 @@ class AGISystem:
                         logger.info(f"Detected and saved {len(events)} events.")
             except Exception as e:
                 logger.error(f"Error in event detection: {e}")
-            await asyncio.sleep(600)  # Every 10 minutes
+            
+            try:
+                await asyncio.sleep(600)  # Every 10 minutes
+            except asyncio.CancelledError:
+                break
+        logger.info("Event detection task shut down.")
 
     async def knowledge_compression_task(self):
         """Background task to compress knowledge every 24 hours."""
-        while True:
+        while not self._shutdown.is_set():
             try:
                 # Fetch recent logs (simplified; adjust to actual log source)
                 logs = {"recent_interactions": ["Sample log entry"] * 10}  # Placeholder
@@ -191,19 +251,24 @@ class AGISystem:
                 logger.info("Knowledge compressed and summary saved.")
             except Exception as e:
                 logger.error(f"Error in knowledge compression: {e}")
-            await asyncio.sleep(86400)  # Every 24 hours
+            
+            try:
+                await asyncio.sleep(86400)  # Every 24 hours
+            except asyncio.CancelledError:
+                break
+        logger.info("Knowledge compression task shut down.")
 
     async def run_autonomous_loop(self):
         logger.info("Starting autonomous loop...")
         # Start background tasks
-        asyncio.create_task(self.data_collection_task())
-        asyncio.create_task(self.event_detection_task())
-        asyncio.create_task(self.knowledge_compression_task())
+        self.background_tasks.append(asyncio.create_task(self.data_collection_task()))
+        self.background_tasks.append(asyncio.create_task(self.event_detection_task()))
+        self.background_tasks.append(asyncio.create_task(self.knowledge_compression_task()))
 
-        while True:
+        while not self._shutdown.is_set():
             try:
                 # 1. Sense: Generate a new situation
-                situation = self.situation_generator.generate_situation()
+                situation = await self.situation_generator.generate_situation()
                 self.shared_state['current_situation'] = situation
                 logger.info(f"New Situation: {situation['type']} - {situation['prompt']}")
 
@@ -231,18 +296,18 @@ class AGISystem:
                 action_output = await self.execute_action(decision)
                 logger.info(f"Action Output: {action_output}")
 
-                # 5. Feel: Update emotional state
-                self.emotional_intelligence.process_action_natural(action_output)
+                # 5. & 6. Feel and Memorize (concurrently)
+                mood_update_task = asyncio.to_thread(self.emotional_intelligence.process_action_natural, action_output)
+                memorization_task = self._memorize_interaction(situation['prompt'], decision, action_output)
+                
+                await asyncio.gather(mood_update_task, memorization_task)
+
+                # Update state after concurrent tasks
                 self.shared_state['mood'] = self.emotional_intelligence.get_mood_vector()
                 self.shared_state['mood_history'].append(self.emotional_intelligence.get_dominant_mood())
                 if len(self.shared_state['mood_history']) > 50:
                     self.shared_state['mood_history'].pop(0)
                 logger.info(f"Updated Mood: {self.shared_state['mood']}")
-
-                # 6. Memorize: Store the interaction
-                interaction_summary = f"Situation: {situation['prompt']}\nDecision: {decision}\nAction Output: {action_output}"
-                memories_to_save = await extract_memories_api({"user_input": interaction_summary, "ai_output": ""})
-                await asyncio.to_thread(save_memories, memories_to_save.memories)
                 
                 # 7. Reflect: Run self-reflection and experimentation
                 dominant_mood = self.emotional_intelligence.get_dominant_mood()
@@ -269,10 +334,16 @@ class AGISystem:
                     curiosity_output = await asyncio.to_thread(CuriosityTrigger.trigger, self.shared_state.get('recent_memories', []))
                     logger.info(f"Curiosity Output: {curiosity_output}")
 
-                await asyncio.sleep(10)  # Pause between loops
+                try:
+                    await asyncio.sleep(10)  # Pause between loops
+                except asyncio.CancelledError:
+                    break # Exit loop if main task is cancelled
             except Exception as e:
                 logger.error(f"Error in autonomous loop: {e}", exc_info=True)
+                if self._shutdown.is_set():
+                    break
                 await asyncio.sleep(60)  # Wait a minute before retrying
+        logger.info("Autonomous loop finished.")
                 
     async def execute_action(self, decision):
         raw_response = decision.get('raw_response', "")
@@ -292,7 +363,19 @@ class AGISystem:
 
 async def main():
     agi = AGISystem()
-    await agi.run_autonomous_loop()
+    main_task = None
+    try:
+        main_task = asyncio.create_task(agi.run_autonomous_loop())
+        await main_task
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        logger.info("Shutdown signal received.")
+    finally:
+        if main_task and not main_task.done():
+            main_task.cancel()
+        await agi.stop()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Application shut down by user.")
