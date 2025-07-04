@@ -1,7 +1,7 @@
 [project]
 name = "agi"
 version = "0.1.0"
-description = "Add your description here"
+description = "An autonomous, evolving agentic system designed for continuous 24/7 operation, driven by internal states, reflection, and self-generated goals."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -20,6 +20,7 @@ dependencies = [
     "pydantic>=1.10.7",
     "pytest>=7.3.1",
     "pytest-asyncio>=1.0.0",
+    "python-json-logger>=2.0.7",
     "pytubefix>=2.1.0",
     "requests>=2.28.2",
     "scikit-learn>=1.2.2",

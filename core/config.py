@@ -3,6 +3,7 @@ import os
 class Config:
     DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///ravana_agi.db")
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+    LOG_FORMAT = os.environ.get("LOG_FORMAT", "TEXT")
     FEED_URLS = [
         "http://rss.cnn.com/rss/cnn_latest.rss",
         "https://feeds.bbci.co.uk/news/rss.xml",
@@ -19,6 +20,9 @@ class Config:
     # Emotional Intelligence Settings
     POSITIVE_MOODS = ['Confident', 'Curious', 'Reflective']
     NEGATIVE_MOODS = ['Frustrated', 'Stuck', 'Low Energy']
+
+    # Model Settings
+    EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
     # Background Task Intervals (in seconds)
     DATA_COLLECTION_INTERVAL = int(os.environ.get("DATA_COLLECTION_INTERVAL", 3600))

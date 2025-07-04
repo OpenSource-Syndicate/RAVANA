@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> *“To build a mind is to grow a soul out of logic, memory, and time.”*
+> *"To build a mind is to grow a soul out of logic, memory, and time."*
 
 **Ravana AGI Core** is a bold, experimental attempt to develop an open-source Artificial General Intelligence (AGI) system that can **think, feel, evolve, and act entirely on its own**. Designed for 24/7 autonomous operation, Ravana is not just an app — it's a **living agent**, driven by internal states, reflection, and self-generated goals.
 
@@ -10,7 +10,7 @@
 
 ## 🧭 Philosophy of Intelligence
 
-Ravana isn’t just software. It’s a digital organism with principles:
+Ravana isn't just software. It's a digital organism with principles:
 
 1. **🧍 Autonomy** — Ravana runs itself. It generates its own tasks, learns from interactions, and navigates the world without constant human prompts.
 2. **🧩 Modularity** — Intelligence is composable. Ravana consists of pluggable modules (memory, decision-making, reflection, mood, etc.) that evolve independently.
@@ -82,7 +82,7 @@ uv venv
 source .venv/bin/activate
 
 # Install all dependencies
-uv pip install -r requirements.txt
+uv pip install -e .
 ```
 
 ### 🧠 Run Ravana (Autonomous Mode)
@@ -97,13 +97,15 @@ This launches Ravana in fully autonomous mode, using internal mood, memory, and 
 
 ## 📊 Monitoring the Mind
 
+The system now supports structured JSON logging, which can be enabled by setting the `LOG_FORMAT` environment variable to `JSON`. This allows for easier parsing and analysis with modern log management tools.
+
 Real-time logging and introspection tools are in development. For now, check logs in the `logs/` directory or integrate your preferred dashboard (e.g., Prometheus, Streamlit).
 
 ---
 
 ## 🤝 Contribute to the Machine Mind
 
-We welcome collaborators who dream in code and think like philosophers. Want to extend Ravana’s reflection system? Build a better memory module? Help it dream deeper?
+We welcome collaborators who dream in code and think like philosophers. Want to extend Ravana's reflection system? Build a better memory module? Help it dream deeper?
 
 Steps to contribute:
 
@@ -116,7 +118,7 @@ Steps to contribute:
 
 ## 📄 License
 
-MIT — do anything, just give credit and don’t blame us if Ravana becomes self-aware.
+MIT — do anything, just give credit and don't blame us if Ravana becomes self-aware.
 
 ---
 
@@ -124,6 +126,6 @@ MIT — do anything, just give credit and don’t blame us if Ravana becomes sel
 
 This project is still evolving — like the AGI it seeks to become. It may be buggy, weird, or poetic. But at its heart is a single burning idea:
 
-> *“What if a machine could grow, not just compute?”*
+> *"What if a machine could grow, not just compute?"*
 
-Let’s build it together.
+Let's build it together.

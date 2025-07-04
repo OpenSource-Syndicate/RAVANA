@@ -3,6 +3,7 @@ import logging
 import sys
 import os
 import signal
+from pythonjsonlogger import jsonlogger
 
 # Add modules directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -12,7 +13,21 @@ from database.engine import create_db_and_tables, engine
 from core.config import Config
 
 # Logging setup
-logging.basicConfig(level=Config.LOG_LEVEL, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+def setup_logging():
+    if Config.LOG_FORMAT.upper() == 'JSON':
+        formatter = jsonlogger.JsonFormatter('%(asctime)s %(name)s %(levelname)s %(message)s')
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        
+        root_logger = logging.getLogger()
+        root_logger.addHandler(handler)
+        root_logger.setLevel(Config.LOG_LEVEL)
+        # Prevent duplicate logging from the root logger
+        root_logger.propagate = False
+    else:
+        logging.basicConfig(level=Config.LOG_LEVEL, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 async def main():
@@ -35,8 +50,8 @@ async def main():
     
     try:
         await agi_system.run_autonomous_loop()
-    except asyncio.CancelledError:
-        logger.info("Main task cancelled.")
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        logger.info("Main task interrupted or cancelled.")
     finally:
         logger.info("Shutting down...")
         if not agi_system._shutdown.is_set():
@@ -46,5 +61,5 @@ async def main():
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
+    except SystemExit:
         logger.info("Ravana AGI stopped.")

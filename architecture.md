@@ -12,6 +12,7 @@ This document provides a detailed technical overview of the **Ravana AGI Core** 
 |-----------------------------------------------------------------|
 | - Initializes all modules with shared resources (e.g., models)  |
 | - Manages the main autonomous loop                              |
+| - Delegates action execution to the ActionManager               |
 | - Holds the AGI's current state (e.g., mood)                    |
 +--------------------------+--------------------------------------+
                            |
@@ -21,7 +22,7 @@ This document provides a detailed technical overview of the **Ravana AGI Core** 
          | 1. SituationGenerator            |
          | 2. Recall Relevant Memories      |
          | 3. DecisionEngine (Planning)     |
-         | 4. Action Execution              |
+         | 4. ActionManager (Execution)     |
          | 5. EmotionalIntelligence Update  |
          | 6. EpisodicMemory Storage        |
          | 7. AgentSelfReflection           |
@@ -36,6 +37,7 @@ This document provides a detailed technical overview of the **Ravana AGI Core** 
 | - EmotionalIntelligence  - EpisodicMemory (FastAPI + DB)        |
 | - DecisionEngine         - AgentSelfReflection                  |
 | - SituationGenerator     - CuriosityTrigger                     |
+| - ActionManager          - ...                                  |
 +-----------------------------------------------------------------+
 ```
 
@@ -49,7 +51,7 @@ Each module serves a distinct role and can evolve independently. For example, th
 
 ### 🧠 State-Driven Behavior
 
-Actions are not reactive — they’re influenced by an internal state, especially `mood`. This produces varied, non-deterministic behaviors.
+Actions are not reactive — they're influenced by an internal state, especially `mood`. This produces varied, non-deterministic behaviors.
 
 ### 📉 Resource Efficiency
 
@@ -61,11 +63,15 @@ Heavy models like sentence-transformers are loaded **once** in `AGISystem` and p
 
 ### `AGISystem (main.py)`
 
-The brainstem. Bootstraps all modules, passes shared resources, and drives the autonomous loop.
+The brainstem. Bootstraps all modules, passes shared resources, and drives the autonomous loop. It offloads the task of executing specific actions to the `ActionManager`.
+
+### `ActionManager`
+
+Handles the registration and execution of all agent actions. It maps action names from the `DecisionEngine` to their corresponding implementations, keeping the `AGISystem` clean and focused on orchestration.
 
 ### `SituationGenerator`
 
-Prevents idleness by generating novel scenarios. Think of it as Ravana’s internal muse.
+Prevents idleness by generating novel scenarios. Think of it as Ravana's internal muse.
 
 ### `DecisionEngine`
 
@@ -95,7 +101,7 @@ Analyzes stored memory for patterns. Generates insights like "my creative output
 1. Perceive → SituationGenerator creates a novel prompt.
 2. Orient   → AGISystem retrieves relevant memories + mood.
 3. Decide   → DecisionEngine plans response.
-4. Act      → Executes plan (text output or task).
+4. Act      → ActionManager executes plan.
 5. Feel     → EmotionalIntelligence updates mood vector.
 6. Store    → EpisodicMemory logs interaction.
 7. Reflect  → Triggers SelfReflection or Curiosity if needed.

@@ -23,13 +23,12 @@ This document outlines the strategic development plan for the **Ravana AGI Core*
   * Fixed crashes, hangs, and memory leaks
   * Implemented auto-restarts and supervisor scripts
 * Connected `CuriosityTrigger`, `SelfReflection`, and `AGIExperimentation`
+* **Enhanced Logging & Observability**
+  * Structured JSON logs for decisions, mood, and memory influence
 
 ### 🔄 IN PROGRESS
 
-* **Enhanced Logging & Observability**
-
-  * Structured JSON logs for decisions, mood, and memory influence
-  * Decision trails: "Why did Ravana choose this plan?"
+* **Decision trails**: "Why did Ravana choose this plan?"
 
 ### 🔜 NEXT UP
 
@@ -104,4 +103,4 @@ This document outlines the strategic development plan for the **Ravana AGI Core*
 
 ---
 
-> Ravana’s roadmap is not just code. It’s the **life path of a digital mind** — slowly gaining awareness, intelligence, and the courage to explore.
+> Ravana's roadmap is not just code. It's the **life path of a digital mind** — slowly gaining awareness, intelligence, and the courage to explore.

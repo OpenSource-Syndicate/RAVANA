@@ -19,6 +19,7 @@ from services.data_service import DataService
 from services.knowledge_service import KnowledgeService
 from services.memory_service import MemoryService
 from core.state import SharedState
+from core.action_manager import ActionManager
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class AGISystem:
         
         self.engine = engine
         # Load shared models
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.embedding_model = SentenceTransformer(Config.EMBEDDING_MODEL)
         
         # Initialize services
         self.data_service = DataService(engine, Config.FEED_URLS)
@@ -43,13 +44,8 @@ class AGISystem:
         self.reflection_module = ReflectionModule()
         self.experimentation_module = ExperimentationModule()
 
-        # Action registration
-        self.actions = {
-            "fetch_and_analyze_trends": self._action_fetch_and_analyze_trends,
-            "transcribe_youtube": self._action_transcribe_youtube,
-            "run_hypothetical_scenario": self._action_run_hypothetical_scenario,
-            "compress_knowledge": self._action_compress_knowledge,
-        }
+        # Initialize action manager
+        self.action_manager = ActionManager(self)
 
         # For graceful shutdown
         self._shutdown = asyncio.Event()
@@ -88,6 +84,92 @@ class AGISystem:
         except Exception as e:
             logger.error(f"Failed during memorization: {e}", exc_info=True)
 
+    async def _handle_behavior_modifiers(self):
+        if self.behavior_modifiers.get('suggest_break'):
+            logger.info("Mood suggests taking a break. Sleeping for a short while.")
+            await asyncio.sleep(Config.LOOP_SLEEP_DURATION * 2)
+            self.behavior_modifiers = {}  # Reset modifiers
+
+    async def _handle_curiosity(self):
+        if random.random() < Config.CURIOSITY_CHANCE:
+            logger.info("Curiosity triggered. Generating new topics...")
+            context_for_curiosity = ". ".join([m['content'] for m in self.shared_state.recent_memories])
+            if not context_for_curiosity:
+                context_for_curiosity = "Artificial intelligence, machine learning, and consciousness."
+            
+            curiosity_topics = await asyncio.to_thread(self.curiosity_trigger.get_curiosity_topics_llm, [context_for_curiosity])
+            self.shared_state.curiosity_topics = curiosity_topics
+            logger.info(f"Generated curiosity topics: {curiosity_topics}")
+        else:
+            self.shared_state.curiosity_topics = []
+
+    async def _generate_situation(self):
+        situation = await self.situation_generator.generate_situation(
+            curiosity_topics=self.shared_state.curiosity_topics,
+            behavior_modifiers=self.behavior_modifiers
+        )
+        self.shared_state.current_situation = situation
+        logger.info(f"Generated situation: {situation}")
+        return situation
+
+    async def _retrieve_memories(self, situation_prompt: str):
+        try:
+            logger.info("Getting relevant memories.")
+            memory_response = await self.memory_service.get_relevant_memories(situation_prompt)
+            self.shared_state.recent_memories = memory_response.relevant_memories
+            logger.info("Got relevant memories.")
+        except Exception as e:
+            logger.warning(f"Could not retrieve memories: {e}")
+            self.shared_state.recent_memories = []
+
+    async def _make_decision(self, situation: dict):
+        logger.info("Making a decision.")
+        decision = await asyncio.to_thread(
+            decision_maker_loop,
+            situation=situation,
+            memory=self.shared_state.recent_memories,
+            mood=self.shared_state.mood
+        )
+        logger.info(f"Made decision: {decision}")
+        return decision
+
+    async def _execute_and_memorize(self, situation_prompt: str, decision: dict):
+        logger.info("Executing action.")
+        action_output = await self.action_manager.execute_action(decision)
+        logger.info(f"Action output: {action_output}")
+
+        logger.info("Memorizing interaction.")
+        await self._memorize_interaction(situation_prompt, decision, action_output)
+        logger.info("Memorized interaction.")
+        return action_output
+
+    async def _update_mood_and_reflect(self, action_output: Any):
+        logger.info("Updating mood.")
+        old_mood = self.shared_state.mood.copy()
+        self.emotional_intelligence.process_action_natural(str(action_output))
+        self.shared_state.mood = self.emotional_intelligence.get_mood_vector()
+        new_mood = self.shared_state.mood
+        self.shared_state.mood_history.append(self.shared_state.mood)
+        logger.info("Updated mood.")
+
+        self.behavior_modifiers = self.emotional_intelligence.influence_behavior()
+        if self.behavior_modifiers:
+            logger.info(f"Generated behavior modifiers for next loop: {self.behavior_modifiers}")
+
+        mood_changed_for_better = self._did_mood_improve(old_mood, new_mood)
+        
+        if not mood_changed_for_better:
+            logger.info("Mood did not improve. Starting self-reflection cycle...")
+            hypothesis = self.reflection_module.generate_hypothesis(self.shared_state)
+            if hypothesis:
+                experiment_results = await asyncio.to_thread(
+                    self.experimentation_module.run_experiment_from_prompt,
+                    hypothesis
+                )
+                logger.info(f"Reflection experiment results: {experiment_results}")
+        else:
+            logger.info("Mood improved or stayed the same, skipping reflection.")
+
     async def run_autonomous_loop(self):
         """The main autonomous loop of the AGI system."""
         logger.info("Starting autonomous loop...")
@@ -101,95 +183,24 @@ class AGISystem:
             try:
                 logger.info("New loop iteration.")
 
-                # Handle behavior modifiers from previous loop
-                if self.behavior_modifiers.get('suggest_break'):
-                    logger.info("Mood suggests taking a break. Sleeping for a short while.")
-                    await asyncio.sleep(Config.LOOP_SLEEP_DURATION * 2)
-                    self.behavior_modifiers = {} # Reset modifiers
-
-                # Curiosity-driven situation generation
-                if random.random() < Config.CURIOSITY_CHANCE: # Use config value
-                    logger.info("Curiosity triggered. Generating new topics...")
-                    context_for_curiosity = ". ".join([m['content'] for m in self.shared_state.recent_memories])
-                    if not context_for_curiosity:
-                        context_for_curiosity = "Artificial intelligence, machine learning, and consciousness."
-                    
-                    curiosity_topics = await asyncio.to_thread(self.curiosity_trigger.get_curiosity_topics_llm, [context_for_curiosity])
-                    self.shared_state.curiosity_topics = curiosity_topics
-                    logger.info(f"Generated curiosity topics: {curiosity_topics}")
-                else:
-                    self.shared_state.curiosity_topics = []
-
-                situation = await self.situation_generator.generate_situation(
-                    curiosity_topics=self.shared_state.curiosity_topics,
-                    behavior_modifiers=self.behavior_modifiers
-                )
-                self.shared_state.current_situation = situation
-                logger.info(f"Generated situation: {situation}")
-
-                try:
-                    logger.info("Getting relevant memories.")
-                    memory_response = await self.memory_service.get_relevant_memories(situation['prompt'])
-                    self.shared_state.recent_memories = memory_response.relevant_memories
-                    logger.info("Got relevant memories.")
-                except Exception as e:
-                    logger.warning(f"Could not retrieve memories: {e}")
-                    self.shared_state.recent_memories = []
-
-                logger.info("Making a decision.")
-                decision = await asyncio.to_thread(
-                    decision_maker_loop,
-                    situation=situation,
-                    memory=self.shared_state.recent_memories,
-                    mood=self.shared_state.mood
-                )
-                logger.info(f"Made decision: {decision}")
-
-                logger.info("Executing action.")
-                action_output = await self.execute_action(decision)
-                logger.info(f"Action output: {action_output}")
-
-                logger.info("Memorizing interaction.")
-                await self._memorize_interaction(situation['prompt'], decision, action_output)
-                logger.info("Memorized interaction.")
-
-                logger.info("Updating mood.")
-                old_mood = self.shared_state.mood.copy()
-                self.emotional_intelligence.process_action_natural(str(action_output))
-                self.shared_state.mood = self.emotional_intelligence.get_mood_vector()
-                new_mood = self.shared_state.mood
-                self.shared_state.mood_history.append(self.shared_state.mood)
-                logger.info("Updated mood.")
-
-                # Get behavior suggestions for the *next* loop
-                self.behavior_modifiers = self.emotional_intelligence.influence_behavior()
-                if self.behavior_modifiers:
-                    logger.info(f"Generated behavior modifiers for next loop: {self.behavior_modifiers}")
-
-                # Self-reflection based on emotional feedback
-                mood_changed_for_better = self._did_mood_improve(old_mood, new_mood)
+                await self._handle_behavior_modifiers()
+                await self._handle_curiosity()
                 
-                if not mood_changed_for_better:
-                    logger.info("Mood did not improve. Starting self-reflection cycle...")
-                    hypothesis = self.reflection_module.generate_hypothesis(self.shared_state)
-                    if hypothesis:
-                        experiment_results = await asyncio.to_thread(
-                            self.experimentation_module.run_experiment_from_prompt,
-                            hypothesis
-                        )
-                        logger.info(f"Reflection experiment results: {experiment_results}")
-                else:
-                    logger.info("Mood improved or stayed the same, skipping reflection.")
+                situation = await self._generate_situation()
+                await self._retrieve_memories(situation['prompt'])
+                decision = await self._make_decision(situation)
+                action_output = await self._execute_and_memorize(situation['prompt'], decision)
+                await self._update_mood_and_reflect(action_output)
 
                 logger.info(f"End of loop iteration. Sleeping for {Config.LOOP_SLEEP_DURATION} seconds.")
-                await asyncio.sleep(Config.LOOP_SLEEP_DURATION) # Use config value
+                await asyncio.sleep(Config.LOOP_SLEEP_DURATION)
 
             except asyncio.CancelledError:
                 logger.info("Autonomous loop cancelled.")
                 break
             except Exception as e:
                 logger.error(f"Error in autonomous loop: {e}", exc_info=True)
-                await asyncio.sleep(Config.ERROR_SLEEP_DURATION) # Use config value
+                await asyncio.sleep(Config.ERROR_SLEEP_DURATION)
 
     def _did_mood_improve(self, old_mood: Dict[str, float], new_mood: Dict[str, float]) -> bool:
         """Checks if the mood has improved based on a simple score."""
@@ -198,31 +209,6 @@ class AGISystem:
         
         logger.info(f"Mood score changed from {old_score:.2f} to {new_score:.2f}")
         return new_score > old_score
-
-    async def execute_action(self, decision: Dict[str, Any]) -> Any:
-        """Executes the action determined by the decision engine."""
-        action_type = decision.get("action")
-        params = decision.get("params", {})
-
-        action_func = self.actions.get(action_type)
-        if action_func:
-            return await action_func(params)
-        else:
-            logger.warning(f"Unknown action type: {action_type}")
-            return "No action taken."
-
-    # Action Implementations
-    async def _action_fetch_and_analyze_trends(self, params: Dict[str, Any]) -> Any:
-        return await asyncio.to_thread(analyze_trends, Config.FEED_URLS)
-
-    async def _action_transcribe_youtube(self, params: Dict[str, Any]) -> Any:
-        return await asyncio.to_thread(transcribe_youtube_video, params.get("url"))
-
-    async def _action_run_hypothetical_scenario(self, params: Dict[str, Any]) -> Any:
-        return await generate_hypothetical_scenarios(params.get("scenario_description"))
-
-    async def _action_compress_knowledge(self, params: Dict[str, Any]) -> Any:
-        return await asyncio.to_thread(self.knowledge_service.compress_and_save_knowledge)
 
     async def data_collection_task(self):
         """Background task to fetch articles from RSS feeds every hour."""
