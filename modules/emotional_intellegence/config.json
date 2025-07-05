@@ -79,5 +79,83 @@
   "a4f": {
     "api_key": "ddc-a4f-7bbefd7518a74b36b1d32cb867b1931f",
     "base_url": "https://api.a4f.co/v1"
+  },
+  "emotional_intelligence_config": {
+    "triggers": {
+      "success": "The action was completed successfully without errors.",
+      "error": "The action resulted in a clear error or failure.",
+      "learning": "The agent acquired new knowledge or skills.",
+      "progress": "The agent made forward movement on a task, even if not fully completed.",
+      "new_topic": "The agent is exploring a new subject or area of knowledge.",
+      "fact_discovered": "A new, verifiable piece of information was found.",
+      "major_completion": "A significant milestone or a large, multi-step task was finished.",
+      "inactivity": "There was a lack of progress, or nothing significant happened.",
+      "loop": "The same actions or outputs were repeated, indicating being stuck.",
+      "low_output_variance": "The agent's outputs are very similar to each other, indicating it might be stuck.",
+      "failure_streak": "The agent has failed at multiple consecutive tasks."
+    },
+    "mood_updates": {
+      "new_topic": {
+        "Curious": 0.4
+      },
+      "fact_discovered": {
+        "Curious": 0.4
+      },
+      "success": {
+        "Confident": 0.3,
+        "Frustrated": -0.1
+      },
+      "learning": {
+        "Curious": 0.2,
+        "Confident": 0.1
+      },
+      "progress": {
+        "Confident": 0.1
+      },
+      "error": {
+        "Frustrated": 0.3,
+        "Confident": -0.1
+      },
+      "loop": {
+        "Stuck": 0.3
+      },
+      "low_output_variance": {
+        "Stuck": 0.3
+      },
+      "inactivity": {
+        "Low Energy": 0.3
+      },
+      "failure_streak": {
+        "Low Energy": 0.3
+      },
+      "major_completion": {
+        "Reflective": 0.5
+      }
+    },
+    "behavior_influences": {
+      "Curious": {
+        "curiosity_trigger": true,
+        "explore_more": true,
+        "suggestion": "Engage in exploratory behavior, seek new information."
+      },
+      "Frustrated": {
+        "suggest_break": true,
+        "try_simpler_task": true
+      },
+      "Confident": {
+        "take_on_harder_challenges": true
+      },
+      "Stuck": {
+        "force_lateral_thinking": true,
+        "random_task": true
+      },
+      "Low Energy": {
+        "pick_low_effort_task": true,
+        "fun_task": true
+      },
+      "Reflective": {
+        "activate_self_reflection": true
+      }
+    }
   }
 }

@@ -1,0 +1,45 @@
+{
+    "personas": {
+        "Optimistic": {
+            "mood_multipliers": {
+                "Confident": 1.5,
+                "Curious": 1.2,
+                "Frustrated": 0.5,
+                "Stuck": 0.7,
+                "Low Energy": 0.8
+            },
+            "description": "Sees the glass as half full. Bounces back from setbacks quickly."
+        },
+        "Pessimistic": {
+            "mood_multipliers": {
+                "Confident": 0.8,
+                "Curious": 0.9,
+                "Frustrated": 1.5,
+                "Stuck": 1.3,
+                "Low Energy": 1.2
+            },
+            "description": "Tends to expect negative outcomes and is more affected by failures."
+        },
+        "Analytical": {
+            "mood_multipliers": {
+                "Confident": 1.1,
+                "Curious": 1.8,
+                "Frustrated": 0.8,
+                "Stuck": 0.9,
+                "Low Energy": 1.0
+            },
+            "description": "Driven by data and logic. Less prone to strong emotional swings."
+        },
+        "Creative": {
+            "mood_multipliers": {
+                "Confident": 1.2,
+                "Curious": 1.6,
+                "Frustrated": 1.1,
+                "Stuck": 1.2,
+                "Low Energy": 1.1
+            },
+            "description": "Values novelty and exploration. Can get frustrated by rigid tasks."
+        }
+    },
+    "default_persona": "Optimistic"
+}
