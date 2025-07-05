@@ -442,57 +442,129 @@ def run_self_modification():
         
         log_audit(audit_entry)
 
-def generate_hypothesis(shared_state):
+def generate_hypothesis(shared_state: dict) -> str | None:
     """
-    Analyzes the agent's recent performance and formulates a testable hypothesis.
+    Analyzes the agent's recent performance and formulates a testable hypothesis using an LLM.
     """
-    # Example: Analyze mood and decision quality
+    # Extract relevant history from shared state
     recent_moods = shared_state.get('mood_history', [])
-    if len(recent_moods) < 10:
-        return None  # Not enough data
+    recent_actions = shared_state.get('action_history', [])
+    recent_reflections = load_reflections()[-5:] # Get last 5 reflections
 
-    # A simple heuristic: if mood has been consistently negative, hypothesize that it affects performance.
-    negative_mood_count = sum(1 for mood in recent_moods if mood in ["Sad", "Anxious", "Angry"])
-    if negative_mood_count > 5:
-        return "I hypothesize that my plans are less effective when I am in a negative mood."
+    if len(recent_actions) < 5:
+        print("Not enough action history to generate a hypothesis.")
+        return None
 
+    # Prepare context for the LLM
+    context = f"""
+    Here is a summary of my recent performance:
+    - Recent Moods: {json.dumps(recent_moods)}
+    - Recent Actions: {json.dumps([a.get('summary', a) for a in recent_actions])}
+    - Recent Self-Reflections: {json.dumps(recent_reflections, indent=2)}
+
+    Analyze this data and identify a potential area for improvement.
+    Formulate a single, clear, and testable hypothesis about my behavior or performance.
+    The hypothesis should propose a cause-and-effect relationship that can be tested through a specific action or scenario.
+
+    Example Hypothesis: "I hypothesize that my planning accuracy decreases when I am in a 'sad' or 'anxious' mood, leading to less effective outcomes."
+    Example Hypothesis: "I hypothesize that I am spending too much time on creative tasks and not enough on technical challenges, slowing my skill development."
+    
+    Return only the string containing the hypothesis.
+    """
+    
+    print("Generating a new hypothesis from agent's recent history...")
+    hypothesis = call_llm(context)
+
+    if hypothesis and not is_lazy_llm_response(hypothesis):
+        print(f"Generated Hypothesis: {hypothesis}")
+        return hypothesis
+    
+    print("Failed to generate a valid hypothesis.")
     return None
 
-def design_and_run_experiment(hypothesis, shared_state):
+def analyze_experiment_outcome(hypothesis: str, situation_prompt: str, outcome: str) -> dict:
     """
-    Designs and runs an experiment to validate the hypothesis.
+    Analyzes the result of an experiment designed to test a hypothesis.
+    Generates a new reflection based on the findings and saves it.
     """
-    # This would involve creating a plan to test the hypothesis.
-    # For now, we'll just log the intent.
-    print(f"Designing experiment for hypothesis: {hypothesis}")
+    print(f"Analyzing outcome for hypothesis: {hypothesis}")
     
-    # In a real implementation, this would call the agi_experimentation_engine
-    # with a detailed plan.
-    experiment_plan = f"""
-    Hypothesis: {hypothesis}
-    Experiment:
-    1. For the next 20 cycles, record mood and a self-assessed 'plan quality' score (1-10).
-    2. Deliberately induce a 'happy' mood for 10 cycles and a 'sad' mood for 10 cycles.
-    3. Analyze the correlation between mood and plan quality.
-    """
-    
-    # This is a placeholder for where you would actually run the experiment
-    # from agi_experimentation_engine import agi_experimentation_engine
-    # results = agi_experimentation_engine(experiment_plan)
-    
-    results = {"status": "completed", "findings": " inconclusive, more data needed."}
-    return results
+    prompt = f"""
+    You are a research analyst examining the results of an AI's self-experiment.
 
-def run_experiment_from_prompt(prompt):
+    ## Hypothesis
+    "{hypothesis}"
+
+    ## Experiment
+    The AI was presented with the following situation to test the hypothesis:
+    "{situation_prompt}"
+
+    ## Outcome
+    The result of the AI's action was:
+    "{outcome}"
+
+    ## Analysis Task
+    1.  **Analyze the Outcome**: Did the outcome support, refute, or was it inconclusive for the hypothesis?
+    2.  **Explain Your Reasoning**: Provide a brief, logical explanation for your conclusion.
+    3.  **Formulate a New Principle**: Based on your analysis, formulate a new learned principle or an updated belief for the AI. This should be a concise takeaway.
+
+    ## Response Format
+    Return a JSON object with the following keys: "conclusion" ("supported", "refuted", "inconclusive"), "reasoning" (string), "new_principle" (string).
     """
-    Allows the agent to run an experiment based on a natural language command.
-    """
-    # This would parse the prompt and call the experimentation engine.
-    print(f"Running experiment from prompt: {prompt}")
-    # from agi_experimentation_engine import agi_experimentation_engine
-    # results = agi_experimentation_engine(prompt)
-    results = {"status": "completed", "output": "Experiment run based on prompt."}
-    return results
+
+    analysis_json = call_llm(prompt)
+    
+    try:
+        analysis = json.loads(analysis_json)
+        if all(k in analysis for k in ["conclusion", "reasoning", "new_principle"]):
+            print(f"Experiment Conclusion: {analysis['conclusion']} - {analysis['new_principle']}")
+            
+            # Create and save a new reflection summarizing the experiment
+            reflection_text = f"""
+            **Experiment Log**
+            - **Hypothesis**: {hypothesis}
+            - **Conclusion**: The hypothesis was {analysis['conclusion']}.
+            - **Reasoning**: {analysis['reasoning']}
+            - **Learned Principle**: {analysis['new_principle']}
+            """
+            
+            save_reflection({
+                'timestamp': datetime.now().isoformat(),
+                'task_summary': f"Conducted experiment to test hypothesis: '{hypothesis[:50]}...'",
+                'outcome': f"Experiment was {analysis['conclusion']}. Learned: {analysis['new_principle']}",
+                'reflection': reflection_text
+            })
+            return analysis
+        else:
+            print("Analysis from LLM was missing required keys.")
+            return {"error": "Invalid analysis format from LLM."}
+    except (json.JSONDecodeError, TypeError):
+        print(f"Failed to decode analysis from LLM: {analysis_json}")
+        return {"error": "Failed to decode analysis from LLM."}
 
 if __name__ == "__main__":
-    run_self_modification() 
+    run_self_modification()
+
+    # Example of how the new functions would be used in the main AGI loop
+    print("\n--- Testing Experimentation Loop ---")
+    mock_shared_state = {
+        "mood_history": ["happy", "neutral", "neutral", "sad", "sad", "sad"],
+        "action_history": [
+            {"summary": "Wrote a poem", "outcome": "positive feedback"},
+            {"summary": "Debugged a file", "outcome": "tests failed"},
+            {"summary": "Analyzed trends", "outcome": "found no new events"},
+            {"summary": "Reflected on consciousness", "outcome": "no conclusion"},
+            {"summary": "Planned a complex task", "outcome": "plan was inefficient"}
+        ]
+    }
+    # 1. Generate a hypothesis
+    hypo = generate_hypothesis(mock_shared_state)
+    
+    if hypo:
+        # 2. In the AGI loop, this hypothesis would trigger a specific situation.
+        #    For this test, we'll just define a mock situation and outcome.
+        mock_situation = "A technical challenge to optimize a sorting algorithm under time pressure."
+        mock_outcome = "The agent failed to optimize the algorithm, and its performance was worse than the baseline, confirming its plan was inefficient."
+        
+        # 3. Analyze the outcome
+        analyze_experiment_outcome(hypo, mock_situation, mock_outcome) 

@@ -4,6 +4,7 @@ import random
 from typing import Any, Dict, List
 from sentence_transformers import SentenceTransformer
 from sqlmodel import Session, select
+from datetime import datetime, timedelta
 
 from modules.decision_engine.llm import decision_maker_loop
 from modules.reflection_module import ReflectionModule
@@ -11,13 +12,13 @@ from modules.experimentation_module import ExperimentationModule
 from modules.situation_generator.situation_generator import SituationGenerator
 from modules.emotional_intellegence.emotional_intellegence import EmotionalIntelligence
 from modules.curiosity_trigger.curiosity_trigger import CuriosityTrigger
-from datetime import datetime
 from core.config import Config
 from services.data_service import DataService
 from services.knowledge_service import KnowledgeService
 from services.memory_service import MemoryService
 from core.state import SharedState
 from core.action_manager import ActionManager
+from database.models import Event
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class AGISystem:
         logger.info("Initializing Ravana AGI System...")
         
         self.engine = engine
+        self.session = Session(engine)
         # Load shared models
         self.embedding_model = SentenceTransformer(Config.EMBEDDING_MODEL)
         
@@ -54,6 +56,7 @@ class AGISystem:
             initial_mood=self.emotional_intelligence.get_mood_vector()
         )
         self.behavior_modifiers: Dict[str, Any] = {}
+        self.last_interaction_time: datetime = None
 
     async def stop(self):
         """Gracefully stops the AGI system and its background tasks."""
@@ -70,6 +73,7 @@ class AGISystem:
         await asyncio.gather(*self.background_tasks, return_exceptions=True)
         
         logger.info("All background tasks stopped.")
+        self.session.close()
 
     async def _memorize_interaction(self, situation_prompt: str, decision: dict, action_output: Any):
         """Extracts and saves memories from an interaction."""
@@ -79,6 +83,7 @@ class AGISystem:
             if memories_to_save and memories_to_save.memories:
                 await self.memory_service.save_memories(memories_to_save.memories)
                 logger.info(f"Saved {len(memories_to_save.memories)} new memories.")
+                self.last_interaction_time = datetime.utcnow()
         except Exception as e:
             logger.error(f"Failed during memorization: {e}", exc_info=True)
 
@@ -91,11 +96,16 @@ class AGISystem:
     async def _handle_curiosity(self):
         if random.random() < Config.CURIOSITY_CHANCE:
             logger.info("Curiosity triggered. Generating new topics...")
-            context_for_curiosity = ". ".join([m['content'] for m in self.shared_state.recent_memories])
-            if not context_for_curiosity:
+            if self.shared_state.recent_memories:
+                # Use a more descriptive name for the context
+                context_for_curiosity = ". ".join([m['content'] for m in self.shared_state.recent_memories])
+            else:
                 context_for_curiosity = "Artificial intelligence, machine learning, and consciousness."
             
-            curiosity_topics = await asyncio.to_thread(self.curiosity_trigger.get_curiosity_topics_llm, [context_for_curiosity])
+            curiosity_topics = await asyncio.to_thread(
+                self.curiosity_trigger.get_curiosity_topics_llm, 
+                [context_for_curiosity]
+            )
             self.shared_state.curiosity_topics = curiosity_topics
             logger.info(f"Generated curiosity topics: {curiosity_topics}")
         else:
@@ -176,6 +186,18 @@ class AGISystem:
         if self.behavior_modifiers:
             logger.info(f"Generated behavior modifiers for next loop: {self.behavior_modifiers}")
 
+        # If the action output contains a directive (like initiating an experiment),
+        # merge it into the behavior modifiers for the next loop.
+        if isinstance(action_output, dict) and 'action' in action_output:
+            if action_output['action'] == 'initiate_experiment':
+                logger.info(f"Action output contains a directive to '{action_output['action']}'. Merging into behavior modifiers.")
+                # Give priority to the action's directive
+                self.behavior_modifiers.update(action_output)
+                # Rename the 'action' key to 'new_hypothesis' to match what SituationGenerator expects
+                if 'hypothesis' in self.behavior_modifiers:
+                    self.behavior_modifiers['new_hypothesis'] = self.behavior_modifiers.pop('hypothesis')
+                    self.behavior_modifiers.pop('action', None) # Clean up the old action key
+
         mood_changed_for_better = self._did_mood_improve(old_mood, new_mood)
         
         if not mood_changed_for_better:
@@ -196,6 +218,19 @@ class AGISystem:
         else:
             logger.info("Mood improved or stayed the same, skipping reflection.")
 
+    async def get_recent_events(self, time_limit_seconds: int = 3600) -> List[Event]:
+        """Retrieves recent events from the database."""
+        logger.info("Retrieving recent events...")
+        try:
+            time_threshold = datetime.utcnow() - timedelta(seconds=time_limit_seconds)
+            statement = select(Event).where(Event.timestamp >= time_threshold).order_by(Event.timestamp.desc())
+            results = self.session.exec(statement).all()
+            logger.info(f"Found {len(results)} recent events.")
+            return results
+        except Exception as e:
+            logger.error(f"Could not retrieve recent events: {e}", exc_info=True)
+            return []
+
     async def run_autonomous_loop(self):
         """The main autonomous loop of the AGI system."""
         logger.info("Starting autonomous loop...")
@@ -212,6 +247,11 @@ class AGISystem:
                 await self._handle_behavior_modifiers()
                 await self._handle_curiosity()
                 
+                # new implementation
+                recent_events = await self.get_recent_events()
+                if recent_events:
+                    logger.info(f"Recent events influencing situation: {[e.description for e in recent_events]}")
+
                 situation = await self._generate_situation()
                 await self._retrieve_memories(situation['prompt'])
                 decision = await self._make_decision(situation)

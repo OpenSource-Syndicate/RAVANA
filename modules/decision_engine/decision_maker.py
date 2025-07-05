@@ -1,17 +1,45 @@
 import logging
 import json
 import re
+import random
 from modules.decision_engine.planner import GoalPlanner, plan_from_context
 from modules.decision_engine.llm import call_llm
+from ..agent_self_reflection.self_modification import generate_hypothesis, analyze_experiment_outcome
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_context=None):
+def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_context=None, hypotheses=None, shared_state=None):
     """
-    A goal-driven decision-making loop that uses a GoalPlanner to manage and execute goals.
+    A goal-driven decision-making loop that now manages the full experimentation cycle.
     """
     planner = GoalPlanner()
     goals = planner.get_goals()
+    
+    if hypotheses is None:
+        hypotheses = []
+    if shared_state is None:
+        shared_state = {}
+
+    # Check if we are analyzing an experiment outcome
+    if situation.get('type') == 'experiment_analysis':
+        logging.info("Analyzing the outcome of a completed experiment.")
+        return analyze_experiment_outcome(
+            situation['context']['hypothesis'],
+            situation['context']['situation_prompt'],
+            situation['context']['outcome']
+        )
+
+    # If there's no active experiment, consider starting one
+    if not shared_state.get('active_experiment') and random.random() < 0.1: # 10% chance to consider starting an experiment
+        new_hypothesis = generate_hypothesis(shared_state)
+        if new_hypothesis:
+            logging.info(f"Generated a new hypothesis, will now generate a situation to test it.")
+            # This decision signals the main loop to generate a test situation
+            return {
+                "action": "initiate_experiment",
+                "hypothesis": new_hypothesis,
+                "reason": "A new testable hypothesis was generated from recent performance."
+            }
 
     if not goals:
         logging.info("No goals found. Creating a new high-level meta-goal for self-improvement.")
@@ -31,13 +59,18 @@ def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_cont
     Current Situation: {situation}
     My Long-Term Goals:
     {json.dumps(goals, indent=2)}
+    My Current Hypotheses about Myself:
+    {json.dumps(hypotheses, indent=2)}
 
-    Review your long-term goals and the current situation.
-    1.  **Identify the most relevant task** to make progress on your goals. This could be a task from your existing plan or a new task that needs to be created.
-    2.  **Engage in meta-cognition:** Are your current goals ambitious enough? Is there a more challenging, "tougher" goal you should be pursuing? Propose a new, more ambitious goal if you believe it's time to raise the bar.
-    3.  **Analyze your own architecture:** Based on the current situation and your long-term goals, are there any opportunities to improve your own modules or architecture? Could you be using your tools more effectively? Propose a plan for self-improvement if you identify an opportunity.
+    Review your long-term goals, current hypotheses, and the situation.
+    1.  **Execute a Task**: Identify the most relevant task to make progress on your goals.
+    2.  **Test a Hypothesis**: Does the current situation provide an opportunity to test one of your hypotheses?
+    3.  **Propose an Invention**: Have you had a novel idea for a new tool, process, or concept? You can propose it for experimentation.
+    4.  **Engage in Meta-cognition**: Are your current goals ambitious enough? Should you propose a new, more ambitious goal?
+    5.  **Analyze Architecture**: Are there opportunities to improve your own modules or architecture?
 
-    Your response should be a JSON object with one of the following structures:
+    Your response should be a JSON object with one of the following structures.
+    You have access to a list of actions/tools you can use. If you decide to execute a task, the 'task_description' should be a clear instruction for what to do, potentially using one of your available tools.
 
     For executing a task:
     {{
@@ -46,6 +79,21 @@ def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_cont
       "subgoal_id": int,
       "task_id": int,
       "task_description": str
+    }}
+
+    For testing a hypothesis:
+    {{
+      "action": "test_hypothesis",
+      "hypothesis_to_test": str,
+      "test_method_description": str,
+      "expected_outcome": str
+    }}
+
+    For proposing a new invention (uses the 'propose_and_test_invention' action):
+    {{
+      "action": "propose_and_test_invention",
+      "invention_description": "A detailed description of the new concept or invention.",
+      "test_plan_suggestion": "A suggestion for how to test the viability of this invention."
     }}
 
     For proposing a new, more ambitious goal:
@@ -92,6 +140,15 @@ def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_cont
             logging.error(f"Error completing task: {e}")
             return {"action": "wait", "reason": str(e)}
 
+    elif decision.get('action') == 'test_hypothesis':
+        # Log the hypothesis test plan
+        hypothesis = decision['hypothesis_to_test']
+        test_method = decision['test_method_description']
+        logging.info(f"Proposing to test hypothesis: '{hypothesis}'")
+        logging.info(f"Test method: {test_method}")
+        # In a more advanced version, this could trigger a specific experiment or a new goal.
+        return decision
+
     elif decision.get('action') == 'new_goal':
         # Create a new goal and plan
         new_goal_context = decision['new_goal_context']
@@ -112,6 +169,12 @@ def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_cont
         logging.info(f"Proposed self-improvement plan: {plan_description}")
         logging.info(f"Modules to improve: {modules_to_improve}")
         # In a more advanced version, this could trigger a new goal or a series of tasks.
+        return decision
+
+    elif decision.get('action') == 'propose_and_test_invention':
+        # This decision will be caught by the ActionManager, which will execute
+        # the ProposeAndTestInventionAction. We just return the decision.
+        logging.info(f"Proposing a new invention for testing: {decision.get('invention_description')}")
         return decision
 
     return {"action": "wait", "reason": "LLM returned unknown or no action."}

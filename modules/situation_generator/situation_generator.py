@@ -41,6 +41,7 @@ try:
     
     # Import agent_self_reflection
     from ..agent_self_reflection.llm import call_llm
+    from ..agent_self_reflection.self_modification import generate_hypothesis, analyze_experiment_outcome
     
     # Import config
     from core.config import Config
@@ -153,39 +154,26 @@ class SituationGenerator:
             return await self.generate_hypothetical_scenario()
     
     async def generate_curiosity_situation(self, curiosity_topics: Optional[List[str]] = None) -> Dict[str, Any]:
-        """Generate a situation based on the curiosity trigger module."""
+        """Generate a situation based on the curiosity trigger module, making it more relevant to the current context."""
         try:
-            # Generate some recent topics if not provided
+            # If no specific topics are provided, generate them from the agent's context
             if not curiosity_topics:
-                self.logger.info("No curiosity topics provided, generating from LLM state.")
-                # Prompt for the LLM to generate a list of topics
-                topics_prompt = f"""
-                Based on your current state:
-                - Mood: {self.mood}
-                - Recent Memories: {self.memories[-5:]}
+                self.logger.info("No curiosity topics provided, generating from agent's context.")
+                context_str = f"Mood: {self.mood}, Recent Memories: {self.memories[-5:]}"
+                article, prompt = await asyncio.to_thread(CuriosityTrigger.from_context, context_str, lateralness=0.5)
+            else:
+                # Use the provided topics
+                article, prompt = await asyncio.to_thread(CuriosityTrigger.trigger, curiosity_topics, lateralness=0.8)
 
-                Suggest a list of 5 to 10 diverse and interesting topics for an AI to be curious about. The topics should be related to science, technology, art, philosophy, or current events. Format as a comma-separated list.
-                Example: quantum computing, renaissance art, large language models, ethical hacking, ancient philosophy
-                """
-                topics_str = await asyncio.to_thread(call_llm, topics_prompt)
+            if not article or "No article available" in article:
+                self.logger.warning("Could not fetch a curiosity article. Falling back to a hypothetical scenario.")
+                return await self.generate_hypothetical_scenario()
 
-                if topics_str and "failed" not in topics_str:
-                    curiosity_topics = [topic.strip() for topic in topics_str.split(',')]
-                else:
-                    self.logger.warning("LLM call for topics failed. Falling back to default list.")
-                    curiosity_topics = [
-                        "artificial intelligence", "machine learning", "neural networks", "natural language processing",
-                        "robotics", "computer vision", "ethics in AI", "data science", "quantum computing", "blockchain"
-                    ]
-            
-            # Use the curiosity trigger to get an article and prompt
-            article, prompt = await asyncio.to_thread(CuriosityTrigger.trigger, curiosity_topics, lateralness=0.8)
-            
             return {
                 "type": "curiosity_exploration",
                 "prompt": prompt,
                 "context": {
-                    "article": article[:1000] if article else "No article available.",
+                    "article": article[:1500] if article else "No article available.",
                     "topics": curiosity_topics
                 }
             }
@@ -193,7 +181,7 @@ class SituationGenerator:
             self.logger.error(f"Error generating curiosity situation: {e}", exc_info=True)
             return await self.generate_hypothetical_scenario()
     
-    async def generate_simple_reflection_situation(self) -> Dict[str, Any]:
+    async def generate_simple_reflection_situation(self, hypothesis: Optional[str] = None) -> Dict[str, Any]:
         """Generate a simple reflection situation with a concept from the LLM."""
         try:
             # Prompt for the LLM to generate a concept
@@ -205,8 +193,7 @@ class SituationGenerator:
             Suggest a single, abstract, or philosophical concept to reflect upon. The concept should be just a few words.
             Example: The nature of creativity.
             """
-
-            concept = await asyncio.to_thread(call_llm, concept_prompt)
+            concept = await asyncio.to_thread(call_llm, concept_prompt) if not hypothesis else hypothesis
 
             if not concept or "failed" in concept:
                 self.logger.warning("LLM call for concept failed. Falling back to a random concept.")
@@ -510,34 +497,61 @@ class SituationGenerator:
             self.logger.error(f"Error generating LLM-based situation: {e}")
             return await self.generate_hypothetical_scenario()
 
+    async def generate_hypothesis_test_situation(self, hypothesis: str) -> Dict[str, Any]:
+        """Generate a situation to test a specific hypothesis from the reflection module."""
+        prompt = f"""
+        Design a 'technical challenge' or a 'hypothetical scenario' to rigorously test the following hypothesis:
+        Hypothesis: "{hypothesis}"
+
+        Describe the challenge or scenario and what success or failure would indicate.
+        """
+        scenario_description = await asyncio.to_thread(call_llm, prompt)
+
+        return {
+            "type": "hypothesis_test",
+            "prompt": scenario_description,
+            "context": {
+                "hypothesis": hypothesis
+            }
+        }
+
     async def generate_situation(self, curiosity_topics: Optional[List[str]] = None, behavior_modifiers: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Generates a new situation for the AGI to handle, optionally influenced by behavior modifiers.
+        Dynamically generates a situation for the AGI based on its current state and triggers.
         """
-        if behavior_modifiers is None:
-            behavior_modifiers = {}
+        # Prioritize situation types based on triggers
+        if behavior_modifiers:
+            if "new_hypothesis" in behavior_modifiers:
+                self.logger.info(f"New hypothesis detected. Generating a situation to test it.")
+                return await self.generate_hypothesis_test_situation(behavior_modifiers["new_hypothesis"])
+            if "take_break" in behavior_modifiers and random.random() < 0.7:
+                self.logger.info("Behavior modifier suggests a break. Generating a simple reflection.")
+                return await self.generate_simple_reflection_situation()
 
-        # Prioritize situation types based on behavior modifiers
-        if behavior_modifiers.get('activate_self_reflection'):
-            return await self.generate_simple_reflection_situation()
-        if behavior_modifiers.get('explore_more'):
-            return await self.generate_curiosity_situation(curiosity_topics)
-        if behavior_modifiers.get('use_llm_state'):
-            return await self.generate_llm_situation()
-        if behavior_modifiers.get('try_simpler_task'):
-            # Choose from a list of simpler tasks
-            situation_type = random.choice(['simple_reflection', 'creative_task'])
-        elif behavior_modifiers.get('take_on_harder_challenges'):
-            # Choose from a list of more complex tasks
-            situation_type = random.choice(['technical_challenge', 'hypothetical_scenario', 'ethical_dilemma'])
-        else:
-            situation_type = random.choice(self.situation_types)
+        # Probabilistic selection of situation type, biased towards more engaging tasks
+        weights = {
+            "curiosity_exploration": 0.3,
+            "trending_topic": 0.2,
+            "technical_challenge": 0.15,
+            "hypothetical_scenario": 0.15,
+            "ethical_dilemma": 0.1,
+            "creative_task": 0.05,
+            "simple_reflection": 0.05,
+        }
 
-        self.logger.info(f"Generating situation of type: {situation_type}")
+        # If there is an active experiment, don't generate a new situation
+        if behavior_modifiers and behavior_modifiers.get('active_experiment'):
+            self.logger.info("Active experiment in progress. Situation generation is paused.")
+            return {
+                "type": "wait",
+                "prompt": "Experiment in progress. Awaiting outcome.",
+                "context": {"reason": "Waiting for experiment to conclude."}
+            }
+        
+        situation_type = random.choices(list(weights.keys()), weights=list(weights.values()), k=1)[0]
+        self.logger.info(f"Generating a '{situation_type}' situation.")
 
-        if situation_type == "llm_generated":
-            return await self.generate_llm_situation()
-        elif situation_type == "trending_topic":
+        if situation_type == "trending_topic":
             return await self.generate_trending_topic_situation()
         elif situation_type == "curiosity_exploration":
             return await self.generate_curiosity_situation(curiosity_topics)
@@ -551,30 +565,38 @@ class SituationGenerator:
             return await self.generate_ethical_dilemma()
         elif situation_type == "creative_task":
             return await self.generate_creative_task()
-        
-        # Fallback to a default situation
-        return await self.generate_simple_reflection_situation()
+        else:
+            # Fallback to a simple reflection
+            return await self.generate_simple_reflection_situation()
 
-def main():
-    """Main function to test the SituationGenerator."""
+async def main():
+    """
+    Test the situation generator.
+    """
+    generator = SituationGenerator()
     
-    async def test_generator():
-        generator = SituationGenerator()
-        
-        # Example of updating LLM state
-        generator.update_llm_state(mood="curious", new_memories=["Learned about quantum computing"], new_data=["Found a new paper on AI ethics"])
+    # Test with no specific inputs
+    print("--- Generating a random situation ---")
+    situation = await generator.generate_situation()
+    print(json.dumps(situation, indent=2))
+    
+    # Test with curiosity topics
+    print("\n--- Generating a situation with specific curiosity topics ---")
+    topics = ["quantum computing", "renaissance art"]
+    situation = await generator.generate_situation(curiosity_topics=topics)
+    print(json.dumps(situation, indent=2))
+    
+    # Test with a behavior modifier (hypothesis)
+    print("\n--- Generating a situation to test a hypothesis ---")
+    modifiers = {"new_hypothesis": "That my planning algorithm is not efficient for long-term goals."}
+    situation = await generator.generate_situation(behavior_modifiers=modifiers)
+    print(json.dumps(situation, indent=2))
 
-        # Generate a situation using the LLM state
-        situation = await generator.generate_situation(behavior_modifiers={"use_llm_state": True})
-        print("--- LLM State Situation ---")
-        print(json.dumps(situation, indent=2))
-        
-        # Generate a random situation
-        situation = await generator.generate_situation()
-        print("--- Random Situation ---")
-        print(json.dumps(situation, indent=2))
+    # Test with an active experiment
+    print("\n--- Generating a situation with an active experiment ---")
+    modifiers = {"active_experiment": True}
+    situation = await generator.generate_situation(behavior_modifiers=modifiers)
+    print(json.dumps(situation, indent=2))
 
-    asyncio.run(test_generator())
-
-if __name__ == '__main__':
-    main() 
+if __name__ == "__main__":
+    asyncio.run(main())
