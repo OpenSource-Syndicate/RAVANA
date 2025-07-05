@@ -6,13 +6,27 @@ import logging
 
 from core.actions.action import Action
 import core.actions
+from core.actions.experimental import ProposeAndTestInventionAction
+from core.actions.io import LogMessageAction
+from core.actions.coding import WritePythonCodeAction, ExecutePythonFileAction
 
 logger = logging.getLogger(__name__)
 
 class ActionRegistry:
-    def __init__(self):
+    def __init__(self,
+                 system: 'AGISystem',
+                 data_service: 'DataService'
+                 ) -> None:
         self.actions: Dict[str, Action] = {}
-        self.discover_actions()
+        self._register_action(ProposeAndTestInventionAction(system, data_service))
+        self._register_action(LogMessageAction(system, data_service))
+        self._register_action(WritePythonCodeAction(system, data_service))
+        self._register_action(ExecutePythonFileAction(system, data_service))
+
+    def _register_action(self, action: Action) -> None:
+        if action.name in self.actions:
+            logger.warning(f"Action '{action.name}' is already registered. Overwriting.")
+        self.actions[action.name] = action
 
     def discover_actions(self):
         """Discovers and registers all actions in the 'core.actions' package."""

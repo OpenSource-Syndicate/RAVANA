@@ -5,6 +5,9 @@ import json
 from core.actions.exceptions import InvalidActionParams
 
 class Action(ABC):
+    def __init__(self, system: 'AGISystem', data_service: 'DataService'):
+        self.system = system
+        self.data_service = data_service
     """
     An abstract base class for actions that the AGI can perform.
     """

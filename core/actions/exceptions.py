@@ -8,4 +8,8 @@ class InvalidActionError(ActionError):
 
 class InvalidActionParams(ActionError):
     """Raised when the parameters for an action are invalid."""
+    pass
+
+class ActionException(Exception):
+    """Custom exception for action execution errors."""
     pass 

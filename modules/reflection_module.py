@@ -1,6 +1,7 @@
 import logging
 from core.state import SharedState
 from core.config import Config
+from modules.decision_engine.llm import call_llm
 
 logger = logging.getLogger(__name__)
 
@@ -30,5 +31,13 @@ class ReflectionModule:
         
         if negative_mood_count > 5:
             return "I hypothesize that my plans are less effective when I am in a negative mood."
+
+        if shared_state.search_results:
+            search_summary = " ".join(shared_state.search_results)
+            prompt = f"Based on the following recent search results, what is a hypothesis I could form about the quality or focus of my information gathering?\n\nSearch Results:\n{search_summary}\n\nHypothesis:"
+            hypothesis = call_llm(prompt)
+            # Clear search results after processing
+            shared_state.search_results = []
+            return hypothesis
 
         return None 

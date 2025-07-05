@@ -64,6 +64,7 @@ def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_cont
 
     Review your long-term goals, current hypotheses, and the situation.
     1.  **Execute a Task**: Identify the most relevant task to make progress on your goals.
+        *   **Note on Ambitious Goals**: If a goal seems highly ambitious or is marked as 'lifelong' (e.g., 'Achieve Time Travel'), your first step should not be to solve it directly. Instead, break it down by proposing a smaller, actionable research task (e.g., "Research general relativity and its implications for spacetime manipulation").
     2.  **Test a Hypothesis**: Does the current situation provide an opportunity to test one of your hypotheses?
     3.  **Propose an Invention**: Have you had a novel idea for a new tool, process, or concept? You can propose it for experimentation.
     4.  **Engage in Meta-cognition**: Are your current goals ambitious enough? Should you propose a new, more ambitious goal?

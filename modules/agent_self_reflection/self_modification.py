@@ -8,6 +8,7 @@ import traceback
 from datetime import datetime
 from .reflection_db import load_reflections, save_reflection
 from .llm import call_llm, is_lazy_llm_response, is_valid_code_patch
+from ..decision_engine.planner import plan_from_context
 
 SELF_PATH = os.path.dirname(os.path.abspath(__file__))
 MODULE_ROOT = SELF_PATH
@@ -534,6 +535,39 @@ def analyze_experiment_outcome(hypothesis: str, situation_prompt: str, outcome: 
                 'outcome': f"Experiment was {analysis['conclusion']}. Learned: {analysis['new_principle']}",
                 'reflection': reflection_text
             })
+
+            # If a highly ambitious experiment failed, turn it into a long-term goal.
+            if analysis.get('conclusion') in ['refuted', 'inconclusive']:
+                ambition_prompt = f"""
+                Is the following hypothesis highly ambitious, speculative, or related to fundamental concepts like consciousness, cosmology, or theoretical physics?
+                Answer with only "yes" or "no".
+
+                Hypothesis: "{hypothesis}"
+                """
+                ambition_response = call_llm(ambition_prompt).lower().strip()
+
+                if "yes" in ambition_response:
+                    print(f"Ambitious experiment failed. Creating a long-term goal.")
+                    goal_context = f"Pursue the ambitious goal derived from the failed hypothesis: {hypothesis}. This will involve foundational research and developing novel approaches over a long period."
+                    try:
+                        new_goal_id = plan_from_context(goal_context, timeframe="lifelong")
+                        print(f"Created new long-term goal with ID: {new_goal_id}")
+                        
+                        # Update the reflection to note the new goal
+                        analysis['new_long_term_goal'] = f"Failure has led to a new long-term research goal (ID: {new_goal_id}) to pursue this ambitious concept."
+                        
+                        # Overwrite the previous reflection with this new context
+                        reflection_text += f"\n- **Next Step**: This hypothesis was too ambitious for a direct test. It has been converted into a long-term research goal (ID: {new_goal_id})."
+                        save_reflection({
+                            'timestamp': datetime.now().isoformat(),
+                            'task_summary': f"Failed to validate ambitious hypothesis: '{hypothesis[:50]}...'",
+                            'outcome': f"Experiment was {analysis['conclusion']}. Converted to long-term goal.",
+                            'reflection': reflection_text
+                        })
+
+                    except Exception as e:
+                        print(f"Failed to create long-term goal: {e}")
+
             return analysis
         else:
             print("Analysis from LLM was missing required keys.")

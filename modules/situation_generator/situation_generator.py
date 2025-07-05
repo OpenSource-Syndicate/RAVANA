@@ -74,7 +74,8 @@ class SituationGenerator:
             "hypothetical_scenario",
             "technical_challenge",
             "ethical_dilemma",
-            "creative_task"
+            "creative_task",
+            "search_result_analysis"
         ]
         
         # LLM State
@@ -238,7 +239,10 @@ class SituationGenerator:
             - Recent Memories: {self.memories[-5:]}
 
             Suggest a high-level scenario for an AI to be in. Just the scenario, a few words.
+            The scenario can be grounded in reality or highly speculative and philosophical.
             Example: An AI assistant helping a user with a technical problem.
+            Example: An AI philosopher debating the nature of consciousness with a human.
+            Example: An AI physicist attempting to design a warp drive.
             """
             scenario = await asyncio.to_thread(call_llm, scenario_type_prompt)
 
@@ -407,7 +411,10 @@ class SituationGenerator:
             - Recent Memories: {self.memories[-5:]}
 
             Suggest a high-level creative task for an AI. Just the topic.
+            The task can be artistic, scientific, or purely imaginative.
             Example: Write a short story.
+            Example: Design a theoretical model for a Dyson Sphere.
+            Example: Invent a new form of music based on mathematical principles.
             """
             task = await asyncio.to_thread(call_llm, task_type_prompt)
 
@@ -497,6 +504,18 @@ class SituationGenerator:
             self.logger.error(f"Error generating LLM-based situation: {e}")
             return await self.generate_hypothetical_scenario()
 
+    async def generate_search_result_situation(self, search_results: List[str]) -> Dict[str, Any]:
+        """Generate a situation based on search results."""
+        self.logger.info("Generating situation from search results.")
+        prompt = f"Analyze the following search results and provide a summary of the key findings, insights, and any potential actions to take:\n\n{''.join(search_results)}"
+        return {
+            "type": "search_result_analysis",
+            "prompt": prompt,
+            "context": {
+                "search_results": search_results
+            }
+        }
+
     async def generate_hypothesis_test_situation(self, hypothesis: str) -> Dict[str, Any]:
         """Generate a situation to test a specific hypothesis from the reflection module."""
         prompt = f"""
@@ -515,13 +534,24 @@ class SituationGenerator:
             }
         }
 
-    async def generate_situation(self, curiosity_topics: Optional[List[str]] = None, behavior_modifiers: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def generate_situation(self, shared_state: Any, curiosity_topics: Optional[List[str]] = None, behavior_modifiers: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Dynamically generates a situation for the AGI based on its current state and triggers.
+        Main method to generate a situation for the AGI.
+        It can be triggered by various internal states or modules.
         """
-        # Prioritize situation types based on triggers
+        self.logger.info("Generating a new situation...")
+
+        # Check for search results first
+        if hasattr(shared_state, 'search_results') and shared_state.search_results:
+            self.logger.info("Found search results, generating a situation to analyze them.")
+            search_results = shared_state.search_results
+            # Clear the search results from the shared state after using them
+            shared_state.search_results = []
+            return await self.generate_search_result_situation(search_results)
+
+        # Handle behavior modifiers that force a specific situation
         if behavior_modifiers:
-            if "new_hypothesis" in behavior_modifiers:
+            if behavior_modifiers.get("new_hypothesis"):
                 self.logger.info(f"New hypothesis detected. Generating a situation to test it.")
                 return await self.generate_hypothesis_test_situation(behavior_modifiers["new_hypothesis"])
             if "take_break" in behavior_modifiers and random.random() < 0.7:
@@ -570,33 +600,39 @@ class SituationGenerator:
             return await self.generate_simple_reflection_situation()
 
 async def main():
-    """
-    Test the situation generator.
-    """
+    """Main function for testing the SituationGenerator."""
     generator = SituationGenerator()
     
+    class DummySharedState:
+        def __init__(self):
+            self.search_results = []
+
+    shared_state = DummySharedState()
+
     # Test with no specific inputs
     print("--- Generating a random situation ---")
-    situation = await generator.generate_situation()
+    situation = await generator.generate_situation(shared_state)
     print(json.dumps(situation, indent=2))
     
     # Test with curiosity topics
     print("\n--- Generating a situation with specific curiosity topics ---")
     topics = ["quantum computing", "renaissance art"]
-    situation = await generator.generate_situation(curiosity_topics=topics)
+    situation = await generator.generate_situation(shared_state, curiosity_topics=topics)
     print(json.dumps(situation, indent=2))
     
     # Test with a behavior modifier (hypothesis)
     print("\n--- Generating a situation to test a hypothesis ---")
     modifiers = {"new_hypothesis": "That my planning algorithm is not efficient for long-term goals."}
-    situation = await generator.generate_situation(behavior_modifiers=modifiers)
+    situation = await generator.generate_situation(shared_state, behavior_modifiers=modifiers)
     print(json.dumps(situation, indent=2))
 
-    # Test with an active experiment
-    print("\n--- Generating a situation with an active experiment ---")
-    modifiers = {"active_experiment": True}
-    situation = await generator.generate_situation(behavior_modifiers=modifiers)
+    # Test with search results
+    print("\n--- Generating a situation with search results ---")
+    shared_state.search_results = ["Search result 1", "Search result 2"]
+    situation = await generator.generate_situation(shared_state)
     print(json.dumps(situation, indent=2))
+    # Verify that search results are cleared
+    print(f"Search results in shared state after generation: {shared_state.search_results}")
 
 if __name__ == "__main__":
     asyncio.run(main())

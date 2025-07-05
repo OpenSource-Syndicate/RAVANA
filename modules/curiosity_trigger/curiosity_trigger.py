@@ -65,6 +65,7 @@ class CuriosityTrigger:
         prompt = (
             f"Given these topics: {', '.join(recent_topics)}\n"
             f"Suggest {n} {relatedness_phrase} that could spark creativity. "
+            f"The topics can be from any field, including hard science (physics, biology), philosophy, art, or even highly speculative or 'childish' ideas (e.g., 'the nature of time', 'building a teleporter', 'what if animals could talk?'). "
             f"Avoid repeating the exact same topics. Return only a comma-separated list of topics."
         )
         response = call_llm(prompt)

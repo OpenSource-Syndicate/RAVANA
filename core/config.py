@@ -16,14 +16,18 @@ class Config:
     CURIOSITY_CHANCE = float(os.environ.get("CURIOSITY_CHANCE", 0.3))
     LOOP_SLEEP_DURATION = int(os.environ.get("LOOP_SLEEP_DURATION", 10))
     ERROR_SLEEP_DURATION = int(os.environ.get("ERROR_SLEEP_DURATION", 60))
+    MAX_EXPERIMENT_LOOPS = int(os.environ.get("MAX_EXPERIMENT_LOOPS", 10))
+    RESEARCH_TASK_TIMEOUT = int(os.environ.get("RESEARCH_TASK_TIMEOUT", 600)) # 10 minutes
 
     # Emotional Intelligence Settings
     POSITIVE_MOODS = ['Confident', 'Curious', 'Reflective', 'Excited', 'Content']
     NEGATIVE_MOODS = ['Frustrated', 'Stuck', 'Low Energy', 'Bored']
+    EMOTIONAL_PERSONA = "Optimistic"
 
     # Model Settings
     EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
     # Background Task Intervals (in seconds)
     DATA_COLLECTION_INTERVAL = int(os.environ.get("DATA_COLLECTION_INTERVAL", 3600))
-    EVENT_DETECTION_INTERVAL = int(os.environ.get("EVENT_DETECTION_INTERVAL", 600)) 
+    EVENT_DETECTION_INTERVAL = int(os.environ.get("EVENT_DETECTION_INTERVAL", 600))
+    KNOWLEDGE_COMPRESSION_INTERVAL = int(os.environ.get("KNOWLEDGE_COMPRESSION_INTERVAL", 3600)) 

@@ -14,6 +14,8 @@ import re
 import pkgutil
 import subprocess
 import importlib.util
+import threading
+from modules.decision_engine.search_result_manager import search_result_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -119,6 +121,37 @@ def call_gemini_audio_description(audio_path, prompt="Describe this audio clip")
 
 def call_gemini_with_search(prompt):
     """Use Gemini with Google Search tool enabled."""
+    def search_thread():
+        try:
+            from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
+            client = genai.Client(api_key=GEMINI_API_KEY)
+            model_id = "gemini-2.0-flash"
+            google_search_tool = Tool(google_search=GoogleSearch())
+            response = client.models.generate_content(
+                model=model_id,
+                contents=prompt,
+                config=GenerateContentConfig(
+                    tools=[google_search_tool],
+                    response_modalities=["TEXT"],
+                )
+            )
+            # Return both the answer and grounding metadata if available
+            answer = "\n".join([p.text for p in response.candidates[0].content.parts])
+            grounding = getattr(response.candidates[0].grounding_metadata, 'search_entry_point', None)
+            if grounding and hasattr(grounding, 'rendered_content'):
+                result = answer + "\n\n[Grounding Metadata:]\n" + grounding.rendered_content
+            else:
+                result = answer
+            search_result_manager.add_result(result)
+        except Exception as e:
+            search_result_manager.add_result(f"[Gemini with search failed: {e}]")
+
+    thread = threading.Thread(target=search_thread)
+    thread.start()
+    return "Search started in the background. Check for results later."
+
+def call_gemini_with_search_sync(prompt):
+    """Use Gemini with Google Search tool enabled (Synchronous)."""
     try:
         from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
         client = genai.Client(api_key=GEMINI_API_KEY)
@@ -316,7 +349,7 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, chain_of_
         prompt += f"**Current Mood:**\n{json.dumps(mood, indent=2)}\n\n"
         
     if rag_context:
-        prompt += f"**Additional Context:**\n{rag_context}\n\n"
+        prompt += f"**Additional Context (from recent web search):**\n{rag_context}\n\n"
 
     if actions:
         prompt += f"**Available Actions:**\n{actions}\n\n"
@@ -519,7 +552,7 @@ def agi_experimentation_engine(
             web_prompt = f"""
             Given this experiment idea and result, check if similar experiments have been done, and whether the result matches real-world knowledge.\n\nIdea: {refined_idea}\nResult: {exec_out or exec_err}\n\nCite sources if possible.\n"""
         try:
-            online_validation_result = call_gemini_with_search(web_prompt)
+            online_validation_result = call_gemini_with_search_sync(web_prompt)
         except Exception as e:
             online_validation_result = f"[Online validation failed: {e}]"
         result['online_validation'] = online_validation_result

@@ -1,21 +1,40 @@
 import json
 import logging
 from typing import Any, Dict
+import asyncio
 
-from core.actions.exceptions import ActionError
+from core.actions.exceptions import ActionError, ActionException
 from core.actions.registry import ActionRegistry
 
 logger = logging.getLogger(__name__)
 
 class ActionManager:
-    def __init__(self, agi_system, data_service):
-        self.agi_system = agi_system
-        self.action_registry = ActionRegistry()
+    def __init__(self, system: 'AGISystem', data_service: 'DataService'):
+        self.system = system
         self.data_service = data_service
-        logger.info(f"ActionManager initialized with {len(self.action_registry.get_all_actions())} actions.")
-        logger.info(self.action_registry.get_action_definitions())
+        self.action_registry = ActionRegistry(system, data_service)
+        logger.info(f"ActionManager initialized with {len(self.action_registry.actions)} actions.")
+        self.log_available_actions()
 
-    async def execute_action(self, decision: Dict[str, Any]) -> Any:
+    def log_available_actions(self):
+        logger.info("Available Actions:")
+        for action_name, action in self.action_registry.actions.items():
+            description = action.description
+            params = action.parameters
+            logger.info(f"- {action_name}:")
+            logger.info(f"  Description: {description}")
+            if params:
+                logger.info("  Parameters:")
+                for param in params:
+                    param_name = param.get('name')
+                    param_type = param.get('type')
+                    param_desc = param.get('description', '')
+                    logger.info(f"    - {param_name} ({param_type}): {param_desc}")
+            else:
+                logger.info("  Parameters: None")
+        logger.info("")
+
+    async def execute_action(self, decision: Dict[str, Any]) -> Dict[str, Any]:
         """
         Parses the decision from the LLM, validates it, and executes the chosen action.
         """
@@ -53,16 +72,43 @@ class ActionManager:
                 return "No action taken: 'action' key missing."
 
             action = self.action_registry.get_action(action_name)
-            action.validate_params(action_params)
-            
-            logger.info(f"Executing action '{action_name}' with params: {action_params}")
-            result = await action.execute(**action_params)
-            logger.info(f"Action '{action_name}' executed successfully.")
-            
-            # Log the successful action
-            self.data_service.save_action_log(action_name, action_params, "success", result)
-            
-            return result
+            if not action:
+                raise ActionException(f"Action '{action_name}' not found.")
+
+            try:
+                logger.info(f"Executing action '{action_name}' with params: {action_params}")
+                result = await action.execute(**action_params)
+                logger.info(f"Action '{action_name}' executed successfully.")
+                
+                # Log the action to the database
+                await asyncio.to_thread(
+                    self.data_service.save_action_log,
+                    action_name,
+                    action_params,
+                    'success',
+                    str(result) # Convert result to string for logging
+                )
+                return result
+            except ActionException as e:
+                logger.error(f"Action '{action_name}' failed: {e}")
+                await asyncio.to_thread(
+                    self.data_service.save_action_log,
+                    action_name,
+                    action_params,
+                    'error',
+                    str(e)
+                )
+                return {"error": str(e)}
+            except Exception as e:
+                logger.error(f"An unexpected error occurred during execution of action '{action_name}': {e}", exc_info=True)
+                await asyncio.to_thread(
+                    self.data_service.save_action_log,
+                    action_name,
+                    action_params,
+                    'error',
+                    f"Unexpected error: {e}"
+                )
+                return {"error": f"An unexpected error occurred: {e}"}
 
         except ActionError as e:
             logger.error(f"Action execution failed: {e}", exc_info=True)

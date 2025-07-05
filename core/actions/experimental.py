@@ -2,6 +2,8 @@ from core.actions.action import Action
 from typing import Any, Dict, List
 
 class ProposeAndTestInventionAction(Action):
+    def __init__(self, system: 'AGISystem', data_service: 'DataService'):
+        super().__init__(system, data_service)
     """
     An action that allows the AGI to propose a novel idea, concept, or 'invention'
     and formally submit it to the experimentation and learning loop for testing.

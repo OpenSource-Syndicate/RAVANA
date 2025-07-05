@@ -12,6 +12,7 @@ class SharedState:
         self.long_term_goals: List[str] = []
         self.mood_history: List[Dict[str, float]] = []
         self.curiosity_topics: List[str] = []
+        self.search_results: List[str] = []
 
     def get_state_summary(self) -> str:
         """
@@ -21,6 +22,7 @@ class SharedState:
             f"Mood: {self.mood}\n"
             f"Current Situation: {self.current_situation}\n"
             f"Recent Memories: {len(self.recent_memories)}\n"
-            f"Curiosity Topics: {self.curiosity_topics}"
+            f"Curiosity Topics: {self.curiosity_topics}\n"
+            f"Search Results: {len(self.search_results)}"
         )
         return summary 

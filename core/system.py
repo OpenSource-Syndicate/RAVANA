@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import random
+import hashlib
 from typing import Any, Dict, List
 from sentence_transformers import SentenceTransformer
 from sqlmodel import Session, select
@@ -19,6 +20,7 @@ from services.memory_service import MemoryService
 from core.state import SharedState
 from core.action_manager import ActionManager
 from database.models import Event
+from modules.decision_engine.search_result_manager import search_result_manager
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +59,41 @@ class AGISystem:
         )
         self.behavior_modifiers: Dict[str, Any] = {}
         self.last_interaction_time: datetime = None
+        self.experiment_tracker: Dict[str, int] = {}
+        self.research_in_progress: Dict[str, asyncio.Task] = {}
+        self.research_results: Dict[str, Any] = {}
+
+    async def _check_for_search_results(self):
+        """Checks for and processes any completed search results."""
+        search_result = search_result_manager.get_result()
+        if search_result:
+            logger.info(f"Retrieved search result: {search_result}")
+            
+            # Add to shared state for immediate use
+            if 'search_results' not in self.shared_state:
+                self.shared_state.search_results = []
+            self.shared_state.search_results.append(search_result)
+            
+            # Add to memory for long-term retention
+            try:
+                memory_summary = f"Search result retrieved: {search_result[:200]}..."  # Truncate for memory
+                memories_to_save = await self.memory_service.extract_memories(memory_summary, "")
+                if memories_to_save and memories_to_save.memories:
+                    await self.memory_service.save_memories(memories_to_save.memories)
+                    logger.info(f"Saved {len(memories_to_save.memories)} memories from search result")
+            except Exception as e:
+                logger.error(f"Failed to save search result to memory: {e}", exc_info=True)
+            
+            # Add to knowledge base for future reference
+            try:
+                await self.knowledge_service.add_knowledge(
+                    content=search_result,
+                    source="web_search",
+                    category="search_result"
+                )
+                logger.info("Added search result to knowledge base")
+            except Exception as e:
+                logger.error(f"Failed to add search result to knowledge base: {e}", exc_info=True)
 
     async def stop(self):
         """Gracefully stops the AGI system and its background tasks."""
@@ -113,6 +150,7 @@ class AGISystem:
 
     async def _generate_situation(self):
         situation = await self.situation_generator.generate_situation(
+            shared_state=self.shared_state,
             curiosity_topics=self.shared_state.curiosity_topics,
             behavior_modifiers=self.behavior_modifiers
         )
@@ -146,7 +184,8 @@ class AGISystem:
             situation=situation,
             memory=self.shared_state.recent_memories,
             mood=self.shared_state.mood,
-            actions=available_actions
+            actions=available_actions,
+            rag_context=self.shared_state.search_results
         )
         
         # Log the decision
@@ -195,11 +234,23 @@ class AGISystem:
                 self.behavior_modifiers.update(action_output)
                 # Rename the 'action' key to 'new_hypothesis' to match what SituationGenerator expects
                 if 'hypothesis' in self.behavior_modifiers:
+                    # Generate a unique key for the hypothesis to track it
+                    hypothesis_text = self.behavior_modifiers['hypothesis']
+                    hypothesis_key = hashlib.sha256(hypothesis_text.encode()).hexdigest()
+                    self.behavior_modifiers['hypothesis_key'] = hypothesis_key
                     self.behavior_modifiers['new_hypothesis'] = self.behavior_modifiers.pop('hypothesis')
                     self.behavior_modifiers.pop('action', None) # Clean up the old action key
 
         mood_changed_for_better = self._did_mood_improve(old_mood, new_mood)
         
+        # If mood improved and we were testing a hypothesis, consider it a success.
+        if mood_changed_for_better and self.shared_state.current_hypothesis_key:
+            logger.info(f"Mood improved after testing hypothesis {self.shared_state.current_hypothesis_key}. Considering it a success.")
+            # Reset the counter for this successful hypothesis
+            if self.shared_state.current_hypothesis_key in self.experiment_tracker:
+                del self.experiment_tracker[self.shared_state.current_hypothesis_key]
+            self.shared_state.current_hypothesis_key = None
+
         if not mood_changed_for_better:
             logger.info("Mood did not improve. Starting self-reflection cycle...")
             hypothesis = self.reflection_module.generate_hypothesis(self.shared_state)
@@ -243,9 +294,37 @@ class AGISystem:
         while not self._shutdown.is_set():
             try:
                 logger.info("New loop iteration.")
+                self.shared_state.current_hypothesis_key = None # Reset at the start of the loop
+
+                # Wait for any research to finish before starting a new cycle
+                if self.research_in_progress:
+                    logger.info(f"Waiting for {len(self.research_in_progress)} research tasks to complete...")
+                    await asyncio.sleep(Config.LOOP_SLEEP_DURATION)
+                    continue
+
+                # Check for and handle any completed web search results first
+                await self._check_for_search_results()
+
+                # Handle experimental loop logic
+                if 'new_hypothesis' in self.behavior_modifiers:
+                    hypothesis_key = self.behavior_modifiers.get('hypothesis_key')
+                    if hypothesis_key:
+                        self.experiment_tracker[hypothesis_key] = self.experiment_tracker.get(hypothesis_key, 0) + 1
+                        logger.info(f"Testing hypothesis {hypothesis_key}, attempt {self.experiment_tracker[hypothesis_key]}.")
+                        
+                        if self.experiment_tracker[hypothesis_key] > Config.MAX_EXPERIMENT_LOOPS:
+                            logger.warning(f"Hypothesis {hypothesis_key} failed {Config.MAX_EXPERIMENT_LOOPS} times. Moving on.")
+                            # Reset behavior modifiers to break the loop
+                            self.behavior_modifiers = {}
+                            continue # Skip the rest of this loop iteration
+
+                        self.shared_state.current_hypothesis_key = hypothesis_key
 
                 await self._handle_behavior_modifiers()
-                await self._handle_curiosity()
+
+                curiosity_driven_search = self.behavior_modifiers.get('curiosity_driven_search', False)
+                if self.behavior_modifiers.get('curiosity_trigger', True) and not curiosity_driven_search:
+                    await self._handle_curiosity()
                 
                 # new implementation
                 recent_events = await self.get_recent_events()
@@ -255,7 +334,43 @@ class AGISystem:
                 situation = await self._generate_situation()
                 await self._retrieve_memories(situation['prompt'])
                 decision = await self._make_decision(situation)
-                action_output = await self._execute_and_memorize(situation['prompt'], decision)
+                
+                # If we are in a hypothesis testing loop, the decision might be to write/execute code
+                if self.shared_state.current_hypothesis_key and situation.get('type') == 'hypothesis_test':
+                    # The LLM should ideally decide to write and then execute code.
+                    # This is a simplified flow where we orchestrate it.
+                    
+                    # 1. Write the code
+                    write_decision = {
+                        "action": "write_python_code",
+                        "params": {
+                            "file_path": f"test_{self.shared_state.current_hypothesis_key[:10]}.py",
+                            "hypothesis": self.behavior_modifiers.get('new_hypothesis'),
+                            "test_plan": situation.get('prompt')
+                        }
+                    }
+                    write_output = await self._execute_and_memorize(situation['prompt'], write_decision)
+
+                    # 2. Execute the code, if written successfully
+                    if write_output.get("status") == "success":
+                        execute_decision = {
+                            "action": "execute_python_file",
+                            "params": {"file_path": write_output["file_path"]}
+                        }
+                        action_output = await self._execute_and_memorize(situation['prompt'], execute_decision)
+                        
+                        # New success criteria: no execution error AND mood improves
+                        if action_output.get("status") == "success" and not action_output.get("error"):
+                            logger.info("Code execution successful with no errors.")
+                            # Mood check will happen in _update_mood_and_reflect
+                        else:
+                            logger.warning(f"Code execution failed or produced an error: {action_output.get('error')}")
+                            # This failed attempt's context (the error) will be in memory for the next attempt.
+                    else:
+                        action_output = write_output # The write action itself failed
+                else:
+                    action_output = await self._execute_and_memorize(situation['prompt'], decision)
+
                 await self._update_mood_and_reflect(action_output)
 
                 logger.info(f"End of loop iteration. Sleeping for {Config.LOOP_SLEEP_DURATION} seconds.")
