@@ -320,65 +320,83 @@ def generate_hypothetical_scenarios(trends=None, interest_areas=None, gap_topics
         return scenarios
     return []
 
-def decision_maker_loop(situation, memory=None, mood=None, model=None, chain_of_thought=True, rag_context=None, actions=None):
+def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_context=None, actions=None):
     """
     The main decision-making loop for the AGI.
-
-    Args:
-        situation (dict): The current situation or prompt for the AGI.
-        memory (list, optional): A list of relevant memories. Defaults to None.
-        mood (dict, optional): The current mood of the AGI. Defaults to None.
-        model (str, optional): The LLM model to use. Defaults to None.
-        chain_of_thought (bool, optional): Whether to use chain of thought prompting. Defaults to True.
-        rag_context (str, optional): Additional context from RAG. Defaults to None.
-        actions (str, optional): A formatted string of available actions. Defaults to None.
-
-    Returns:
-        dict: A dictionary containing the decision, including the raw response from the LLM.
+    It uses a one-shot prompt to generate an analysis, a plan, and an immediate action.
     """
-    # Construct the prompt
-    prompt = f"**Situation:**\n{situation['prompt']}\n\n"
+    prompt = f"""
+    You are an autonomous AI agent. Your goal is to analyze situations, create plans, and execute actions to achieve your objectives.
 
-    if memory:
-        prompt += "**Relevant Memories:**\n"
-        for mem in memory:
-            prompt += f"- {mem['content']}\n"
-        prompt += "\n"
+    **Situation:**
+    {situation.get('prompt', '')}
 
-    if mood:
-        prompt += f"**Current Mood:**\n{json.dumps(mood, indent=2)}\n\n"
-        
-    if rag_context:
-        prompt += f"**Additional Context (from recent web search):**\n{rag_context}\n\n"
+    **Context:**
+    {situation.get('context', {})}
 
-    if actions:
-        prompt += f"**Available Actions:**\n{actions}\n\n"
+    **Your Current Mood:**
+    {mood}
 
-    prompt += """
-**Your Task:**
-Based on the situation, memories, and your current mood, decide on the best course of action.
-1.  **Analyze the situation:** Briefly explain your understanding of the current state.
-2.  **Formulate a plan:** Outline a step-by-step plan to address the situation.
-3.  **Choose an action:** Select ONE action from the 'Available Actions' list and format your response as a JSON object within a ```json ... ``` block.
+    **Recent Memories:**
+    {memory}
 
-**JSON Output Format:**
-{
-  "action": "action_name",
-  "params": {
-    "param_name_1": "value_1",
-    "param_name_2": "value_2"
-  }
-}
-"""
+    **Relevant Information (RAG):**
+    {rag_context}
 
-    if chain_of_thought:
-        # This is a simplified representation of CoT.
-        # A more complex implementation might involve multiple LLM calls.
-        prompt += "\n**Chain of Thought:**\n1. Analyze the situation.\n2. Formulate a plan.\n3. Choose an action and format the output.\n"
+    **Available Actions:**
+    {json.dumps(actions, indent=2)}
 
-    # Call the LLM
+    **Your Task:**
+    1.  **Analyze** the situation, your mood, memories, and available information.
+    2.  **Formulate a Plan:** Create a step-by-step plan to address the situation. The plan should be an array of action objects. For complex tasks, this plan *must* have multiple steps. For simple tasks, it can have one step.
+    3.  **Choose Your First Action:** The `action` and `params` fields at the top level of your response MUST be the *first step* of your plan.
+
+    **Output Format:**
+    You MUST provide your response as a single JSON object inside a ```json ... ``` block.
+    The JSON object must contain:
+    - "analysis": A string containing your analysis of the situation.
+    - "plan": An array of JSON objects, where each object represents an action step. Each action step must have an "action" and "params" key.
+    - "action": A string with the name of the *first* action to be executed from your plan.
+    - "params": A JSON object with the parameters for that *first* action.
+
+    Example for a multi-step task:
+    ```json
+    {{
+      "analysis": "The user wants to test a hypothesis. I need to write a python script, then execute it, and then log the result.",
+      "plan": [
+        {{
+          "action": "write_python_code",
+          "params": {{
+            "file_path": "test.py",
+            "hypothesis": "A new sorting algorithm is faster than bubble sort.",
+            "test_plan": "Implement both algorithms and time their execution on a large list."
+          }}
+        }},
+        {{
+          "action": "execute_python_file",
+          "params": {{
+            "file_path": "test.py"
+          }}
+        }},
+        {{
+          "action": "log_message",
+          "params": {{
+            "message": "The test is complete, analyzing results from the script execution."
+          }}
+        }}
+      ],
+      "action": "write_python_code",
+      "params": {{
+        "file_path": "test.py",
+        "hypothesis": "A new sorting algorithm is faster than bubble sort.",
+        "test_plan": "Implement both algorithms and time their execution on a large list."
+      }}
+    }}
+    ```
+
+    **Provide your response now:**
+    """
     raw_response = call_llm(prompt, model=model)
-
     return {"raw_response": raw_response}
 
 def agi_experimentation_engine(

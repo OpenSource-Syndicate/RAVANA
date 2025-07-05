@@ -2,6 +2,7 @@ import asyncio
 import logging
 import random
 import hashlib
+import json
 from typing import Any, Dict, List
 from sentence_transformers import SentenceTransformer
 from sqlmodel import Session, select
@@ -48,6 +49,10 @@ class AGISystem:
 
         # Initialize action manager
         self.action_manager = ActionManager(self, self.data_service)
+
+        # New state for multi-step plans
+        self.current_plan: List[Dict] = []
+        self.current_task_prompt: str = None
 
         # For graceful shutdown
         self._shutdown = asyncio.Event()
@@ -294,84 +299,72 @@ class AGISystem:
         while not self._shutdown.is_set():
             try:
                 logger.info("New loop iteration.")
-                self.shared_state.current_hypothesis_key = None # Reset at the start of the loop
 
-                # Wait for any research to finish before starting a new cycle
-                if self.research_in_progress:
-                    logger.info(f"Waiting for {len(self.research_in_progress)} research tasks to complete...")
-                    await asyncio.sleep(Config.LOOP_SLEEP_DURATION)
-                    continue
-
-                # Check for and handle any completed web search results first
-                await self._check_for_search_results()
-
-                # Handle experimental loop logic
-                if 'new_hypothesis' in self.behavior_modifiers:
-                    hypothesis_key = self.behavior_modifiers.get('hypothesis_key')
-                    if hypothesis_key:
-                        self.experiment_tracker[hypothesis_key] = self.experiment_tracker.get(hypothesis_key, 0) + 1
-                        logger.info(f"Testing hypothesis {hypothesis_key}, attempt {self.experiment_tracker[hypothesis_key]}.")
-                        
-                        if self.experiment_tracker[hypothesis_key] > Config.MAX_EXPERIMENT_LOOPS:
-                            logger.warning(f"Hypothesis {hypothesis_key} failed {Config.MAX_EXPERIMENT_LOOPS} times. Moving on.")
-                            # Reset behavior modifiers to break the loop
-                            self.behavior_modifiers = {}
-                            continue # Skip the rest of this loop iteration
-
-                        self.shared_state.current_hypothesis_key = hypothesis_key
-
-                await self._handle_behavior_modifiers()
-
-                curiosity_driven_search = self.behavior_modifiers.get('curiosity_driven_search', False)
-                if self.behavior_modifiers.get('curiosity_trigger', True) and not curiosity_driven_search:
-                    await self._handle_curiosity()
-                
-                # new implementation
-                recent_events = await self.get_recent_events()
-                if recent_events:
-                    logger.info(f"Recent events influencing situation: {[e.description for e in recent_events]}")
-
-                situation = await self._generate_situation()
-                await self._retrieve_memories(situation['prompt'])
-                decision = await self._make_decision(situation)
-                
-                # If we are in a hypothesis testing loop, the decision might be to write/execute code
-                if self.shared_state.current_hypothesis_key and situation.get('type') == 'hypothesis_test':
-                    # The LLM should ideally decide to write and then execute code.
-                    # This is a simplified flow where we orchestrate it.
+                # If a plan is active, execute the next step
+                if self.current_plan:
+                    logger.info(f"Continuing with task: '{self.current_task_prompt}'. {len(self.current_plan)} steps remaining.")
+                    next_step = self.current_plan.pop(0)
                     
-                    # 1. Write the code
-                    write_decision = {
-                        "action": "write_python_code",
-                        "params": {
-                            "file_path": f"test_{self.shared_state.current_hypothesis_key[:10]}.py",
-                            "hypothesis": self.behavior_modifiers.get('new_hypothesis'),
-                            "test_plan": situation.get('prompt')
-                        }
-                    }
-                    write_output = await self._execute_and_memorize(situation['prompt'], write_decision)
+                    # Forge a decision object for the action manager
+                    forged_decision = {'raw_response': json.dumps(next_step)}
 
-                    # 2. Execute the code, if written successfully
-                    if write_output.get("status") == "success":
-                        execute_decision = {
-                            "action": "execute_python_file",
-                            "params": {"file_path": write_output["file_path"]}
-                        }
-                        action_output = await self._execute_and_memorize(situation['prompt'], execute_decision)
-                        
-                        # New success criteria: no execution error AND mood improves
-                        if action_output.get("status") == "success" and not action_output.get("error"):
-                            logger.info("Code execution successful with no errors.")
-                            # Mood check will happen in _update_mood_and_reflect
-                        else:
-                            logger.warning(f"Code execution failed or produced an error: {action_output.get('error')}")
-                            # This failed attempt's context (the error) will be in memory for the next attempt.
-                    else:
-                        action_output = write_output # The write action itself failed
-                else:
+                    action_output = await self._execute_and_memorize(self.current_task_prompt, forged_decision)
+                    await self._update_mood_and_reflect(action_output)
+
+                else: # No plan is active, so generate a new situation and plan
+                    self.current_task_prompt = None
+                    self.shared_state.current_hypothesis_key = None # Reset at the start of the loop
+
+                    # Wait for any research to finish before starting a new cycle
+                    if self.research_in_progress:
+                        logger.info(f"Waiting for {len(self.research_in_progress)} research tasks to complete...")
+                        await asyncio.sleep(Config.LOOP_SLEEP_DURATION)
+                        continue
+
+                    # Check for and handle any completed web search results first
+                    await self._check_for_search_results()
+
+                    await self._handle_behavior_modifiers()
+
+                    if self.behavior_modifiers.get('curiosity_trigger', True):
+                        await self._handle_curiosity()
+                    
+                    recent_events = await self.get_recent_events()
+                    if recent_events:
+                        logger.info(f"Recent events influencing situation: {[e.description for e in recent_events]}")
+
+                    situation = await self._generate_situation()
+                    await self._retrieve_memories(situation['prompt'])
+                    decision = await self._make_decision(situation)
+                    
+                    # Execute the first action from the decision
                     action_output = await self._execute_and_memorize(situation['prompt'], decision)
+                    
+                    # After executing, check if the decision contained a plan for future steps
+                    try:
+                        raw_response = decision.get("raw_response", "")
+                        if "plan" in raw_response:
+                            json_start = raw_response.find("```json")
+                            json_end = raw_response.rfind("```")
+                            if json_start != -1 and json_end != -1:
+                                json_str = raw_response[json_start + 7:json_end].strip()
+                                action_data = json.loads(json_str)
+                                plan = action_data.get("plan")
+                                if plan and isinstance(plan, list):
+                                    # The executed action was the first step.
+                                    # We assume the LLM includes the first step in the plan array.
+                                    if len(plan) > 1:
+                                        self.current_plan = plan[1:] # Store steps 2, 3, ...
+                                        self.current_task_prompt = situation['prompt']
+                                        logger.info(f"Found and stored a multi-step plan with {len(self.current_plan)} steps remaining.")
+                                    else:
+                                        logger.info("Plan found, but only had one step which was already executed.")
+                                        self.current_plan = []
+                    except (json.JSONDecodeError, IndexError) as e:
+                        logger.warning(f"Could not parse a plan from decision. Error: {e}")
+                        self.current_plan = []
 
-                await self._update_mood_and_reflect(action_output)
+                    await self._update_mood_and_reflect(action_output)
 
                 logger.info(f"End of loop iteration. Sleeping for {Config.LOOP_SLEEP_DURATION} seconds.")
                 await asyncio.sleep(Config.LOOP_SLEEP_DURATION)
