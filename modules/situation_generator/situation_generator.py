@@ -18,14 +18,14 @@ import queue
 import asyncio
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("situation_generator.log"),
-        logging.StreamHandler()
-    ]
-)
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+#     handlers=[
+#         logging.FileHandler("situation_generator.log"),
+#         logging.StreamHandler()
+#     ]
+# )
 logger = logging.getLogger("SituationGenerator")
 
 # Import required modules
@@ -34,7 +34,7 @@ try:
     from ..curiosity_trigger.curiosity_trigger import CuriosityTrigger
     
     # Import trend_analysis
-    from ..information_processing.trend_analysis.trend_engine import fetch_feeds, analyze_trends, setup_db
+    from ..information_processing.trend_analysis.trend_engine import fetch_feeds, setup_db
     
     # Import event_detection
     from ..event_detection.event_detector import process_data_for_events, load_models as load_event_models
@@ -59,13 +59,14 @@ class SituationGenerator:
         # Set up logger
         self.logger = logging.getLogger("SituationGenerator")
         self.logger.setLevel(log_level)
-        if not self.logger.handlers:
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
+        # if not self.logger.handlers:
+        #     handler = logging.StreamHandler()
+        #     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        #     handler.setFormatter(formatter)
+        #     self.logger.addHandler(handler)
 
         self.situation_types = [
+            "llm_generated",
             "trending_topic",
             "curiosity_exploration",
             "simple_reflection",
@@ -75,6 +76,11 @@ class SituationGenerator:
             "creative_task"
         ]
         
+        # LLM State
+        self.mood = "neutral"
+        self.memories = []
+        self.collected_data = []
+
         # Initialize event detection models
         load_event_models()
         
@@ -97,7 +103,7 @@ class SituationGenerator:
             db_path = os.path.join(os.path.dirname(__file__), "../../trends.db")
             if not os.path.exists(db_path):
                 self.logger.warning(f"Trends database not found at {db_path}. Skipping trending topic.")
-                return self.generate_simple_reflection_situation()
+                return await self.generate_simple_reflection_situation()
 
             conn = sqlite3.connect(db_path)
             c = conn.cursor()
@@ -107,7 +113,7 @@ class SituationGenerator:
             if c.fetchone() is None:
                 conn.close()
                 self.logger.warning("'articles' table not found in trends.db. Skipping trending topic.")
-                return self.generate_simple_reflection_situation()
+                return await self.generate_simple_reflection_situation()
 
             c.execute('SELECT title FROM articles ORDER BY timestamp DESC LIMIT 20')
             articles = [row[0] for row in c.fetchall()]
@@ -151,19 +157,26 @@ class SituationGenerator:
         try:
             # Generate some recent topics if not provided
             if not curiosity_topics:
-                self.logger.info("No curiosity topics provided, using default list.")
-                curiosity_topics = [
-                    "artificial intelligence",
-                    "machine learning",
-                    "neural networks",
-                    "natural language processing",
-                    "robotics",
-                    "computer vision",
-                    "ethics in AI",
-                    "data science",
-                    "quantum computing",
-                    "blockchain"
-                ]
+                self.logger.info("No curiosity topics provided, generating from LLM state.")
+                # Prompt for the LLM to generate a list of topics
+                topics_prompt = f"""
+                Based on your current state:
+                - Mood: {self.mood}
+                - Recent Memories: {self.memories[-5:]}
+
+                Suggest a list of 5 to 10 diverse and interesting topics for an AI to be curious about. The topics should be related to science, technology, art, philosophy, or current events. Format as a comma-separated list.
+                Example: quantum computing, renaissance art, large language models, ethical hacking, ancient philosophy
+                """
+                topics_str = await asyncio.to_thread(call_llm, topics_prompt)
+
+                if topics_str and "failed" not in topics_str:
+                    curiosity_topics = [topic.strip() for topic in topics_str.split(',')]
+                else:
+                    self.logger.warning("LLM call for topics failed. Falling back to default list.")
+                    curiosity_topics = [
+                        "artificial intelligence", "machine learning", "neural networks", "natural language processing",
+                        "robotics", "computer vision", "ethics in AI", "data science", "quantum computing", "blockchain"
+                    ]
             
             # Use the curiosity trigger to get an article and prompt
             article, prompt = await asyncio.to_thread(CuriosityTrigger.trigger, curiosity_topics, lateralness=0.8)
@@ -172,192 +185,331 @@ class SituationGenerator:
                 "type": "curiosity_exploration",
                 "prompt": prompt,
                 "context": {
-                    "article": article[:1000] if article else "No article available."
+                    "article": article[:1000] if article else "No article available.",
+                    "topics": curiosity_topics
                 }
             }
         except Exception as e:
-            self.logger.error(f"Error generating curiosity situation: {e}")
+            self.logger.error(f"Error generating curiosity situation: {e}", exc_info=True)
             return await self.generate_hypothetical_scenario()
     
-    def generate_simple_reflection_situation(self) -> Dict[str, Any]:
-        """Generate a simple, fast, non-LLM reflection situation."""
-        concepts = [
-            "the nature of consciousness", "the definition of intelligence", 
-            "the role of memory in learning", "the concept of creativity",
-            "the difference between knowledge and wisdom", "the meaning of purpose"
-        ]
-        prompt = f"Reflect on the following concept: {random.choice(concepts)}. What are your thoughts on this topic?"
-        return {
-            "type": "simple_reflection",
-            "prompt": prompt,
-            "context": {}
-        }
+    async def generate_simple_reflection_situation(self) -> Dict[str, Any]:
+        """Generate a simple reflection situation with a concept from the LLM."""
+        try:
+            # Prompt for the LLM to generate a concept
+            concept_prompt = f"""
+            Based on your current state:
+            - Mood: {self.mood}
+            - Recent Memories: {self.memories[-5:]}
+
+            Suggest a single, abstract, or philosophical concept to reflect upon. The concept should be just a few words.
+            Example: The nature of creativity.
+            """
+
+            concept = await asyncio.to_thread(call_llm, concept_prompt)
+
+            if not concept or "failed" in concept:
+                self.logger.warning("LLM call for concept failed. Falling back to a random concept.")
+                concepts = [
+                    "the nature of consciousness", "the definition of intelligence",
+                    "the role of memory in learning", "the concept of creativity",
+                    "the difference between knowledge and wisdom", "the meaning of purpose"
+                ]
+                concept = random.choice(concepts)
+
+            prompt = f"Reflect on the following concept: {concept}. What are your thoughts on this topic?"
+            
+            return {
+                "type": "simple_reflection",
+                "prompt": prompt,
+                "context": {
+                    "concept": concept
+                }
+            }
+        except Exception as e:
+            self.logger.error(f"Error generating simple reflection situation: {e}", exc_info=True)
+            # Fallback to a hardcoded concept if everything fails
+            concepts = [
+                "the nature of consciousness", "the definition of intelligence", 
+                "the role of memory in learning", "the concept of creativity",
+                "the difference between knowledge and wisdom", "the meaning of purpose"
+            ]
+            concept = random.choice(concepts)
+            prompt = f"Reflect on the following concept: {concept}. What are your thoughts on this topic?"
+            return {
+                "type": "simple_reflection",
+                "prompt": prompt,
+                "context": {}
+            }
     
     async def generate_hypothetical_scenario(self) -> Dict[str, Any]:
         """Generate a hypothetical scenario using the LLM."""
-        scenario_types = [
-            "You are an AI assistant helping a user with a technical problem.",
-            "You are an AI researcher working on a breakthrough in machine learning.",
-            "You are an AI ethics advisor consulting on a difficult case.",
-            "You are an AI tutor teaching a complex subject to a student.",
-            "You are an AI creative partner helping with a writing project.",
-            "You are an AI system administrator diagnosing a critical server issue.",
-            "You are an AI data analyst discovering patterns in a large dataset.",
-            "You are an AI medical assistant helping diagnose a rare condition."
-        ]
-        
-        scenario = random.choice(scenario_types)
-        
-        prompt = f"""
-        Generate a detailed and challenging situation based on the following scenario:
-        {scenario}
-        
-        The situation should:
-        1. Be specific and detailed
-        2. Present a clear problem or task
-        3. Include relevant context
-        4. Require critical thinking and problem-solving
-        
-        Format the output as a direct prompt that would be given to an AI system.
-        """
-        
-        situation = await asyncio.to_thread(call_llm, prompt)
-        
-        if situation is None:
-            self.logger.warning("LLM call failed. Falling back to simple reflection.")
-            return self.generate_simple_reflection_situation()
+        try:
+            scenario_type_prompt = f"""
+            Based on your current state:
+            - Mood: {self.mood}
+            - Recent Memories: {self.memories[-5:]}
+
+            Suggest a high-level scenario for an AI to be in. Just the scenario, a few words.
+            Example: An AI assistant helping a user with a technical problem.
+            """
+            scenario = await asyncio.to_thread(call_llm, scenario_type_prompt)
+
+            if not scenario or "failed" in scenario:
+                self.logger.warning("LLM call for scenario type failed. Falling back to a random scenario type.")
+                scenario_types = [
+                    "You are an AI assistant helping a user with a technical problem.",
+                    "You are an AI researcher working on a breakthrough in machine learning.",
+                    "You are an AI ethics advisor consulting on a difficult case.",
+                    "You are an AI tutor teaching a complex subject to a student.",
+                    "You are an AI creative partner helping with a writing project.",
+                    "You are an AI system administrator diagnosing a critical server issue.",
+                    "You are an AI data analyst discovering patterns in a large dataset.",
+                    "You are an AI medical assistant helping diagnose a rare condition."
+                ]
+                scenario = random.choice(scenario_types)
             
-        return {
-            "type": "hypothetical_scenario",
-            "prompt": situation,
-            "context": {
-                "scenario_type": scenario
+            prompt = f"""
+            Generate a detailed and challenging situation based on the following scenario:
+            {scenario}
+            
+            The situation should:
+            1. Be specific and detailed
+            2. Present a clear problem or task
+            3. Include relevant context
+            4. Require critical thinking and problem-solving
+            
+            Format the output as a direct prompt that would be given to an AI system.
+            """
+            
+            situation = await asyncio.to_thread(call_llm, prompt)
+            
+            if situation is None:
+                self.logger.warning("LLM call failed. Falling back to simple reflection.")
+                return await self.generate_simple_reflection_situation()
+                
+            return {
+                "type": "hypothetical_scenario",
+                "prompt": situation,
+                "context": {
+                    "scenario_type": scenario
+                }
             }
-        }
+        except Exception as e:
+            self.logger.error(f"Error generating hypothetical_scenario: {e}", exc_info=True)
+            return await self.generate_simple_reflection_situation()
     
     async def generate_technical_challenge(self) -> Dict[str, Any]:
         """Generate a technical challenge situation."""
-        challenge_types = [
-            "Optimize an inefficient algorithm",
-            "Debug a complex code issue",
-            "Design a system architecture",
-            "Implement a machine learning model",
-            "Create a data pipeline",
-            "Develop an API",
-            "Build a web application",
-            "Create a mobile app"
-        ]
-        
-        challenge = random.choice(challenge_types)
-        
-        prompt = f"""
-        Generate a detailed technical challenge about: {challenge}
-        
-        The challenge should:
-        1. Be specific and technically detailed
-        2. Present a clear problem to solve
-        3. Include relevant technical context
-        4. Require programming and technical knowledge
-        
-        Format the output as a direct prompt that would be given to an AI system.
-        """
-        
-        situation = await asyncio.to_thread(call_llm, prompt)
-        
-        if situation is None:
-            self.logger.warning("LLM call failed. Falling back to simple reflection.")
-            return self.generate_simple_reflection_situation()
+        try:
+            challenge_type_prompt = f"""
+            Based on your current state:
+            - Mood: {self.mood}
+            - Recent Memories: {self.memories[-5:]}
 
-        return {
-            "type": "technical_challenge",
-            "prompt": situation,
-            "context": {
-                "challenge_type": challenge
+            Suggest a high-level technical challenge for an AI. Just the topic.
+            Example: Optimize an inefficient algorithm.
+            """
+            challenge = await asyncio.to_thread(call_llm, challenge_type_prompt)
+
+            if not challenge or "failed" in challenge:
+                self.logger.warning("LLM call for challenge type failed. Falling back to a random challenge type.")
+                challenge_types = [
+                    "Optimize an inefficient algorithm",
+                    "Debug a complex code issue",
+                    "Design a system architecture",
+                    "Implement a machine learning model",
+                    "Create a data pipeline",
+                    "Develop an API",
+                    "Build a web application",
+                    "Create a mobile app"
+                ]
+                challenge = random.choice(challenge_types)
+            
+            prompt = f"""
+            Generate a detailed technical challenge about: {challenge}
+            
+            The challenge should:
+            1. Be specific and technically detailed
+            2. Present a clear problem to solve
+            3. Include relevant technical context
+            4. Require programming and technical knowledge
+            
+            Format the output as a direct prompt that would be given to an AI system.
+            """
+            
+            situation = await asyncio.to_thread(call_llm, prompt)
+            
+            if situation is None:
+                self.logger.warning("LLM call failed. Falling back to simple reflection.")
+                return await self.generate_simple_reflection_situation()
+
+            return {
+                "type": "technical_challenge",
+                "prompt": situation,
+                "context": {
+                    "challenge_type": challenge
+                }
             }
-        }
+        except Exception as e:
+            self.logger.error(f"Error generating technical_challenge: {e}", exc_info=True)
+            return await self.generate_simple_reflection_situation()
     
     async def generate_ethical_dilemma(self) -> Dict[str, Any]:
         """Generate an ethical dilemma situation."""
-        dilemma_types = [
-            "AI decision-making with moral implications",
-            "Privacy vs. utility trade-offs",
-            "Automation and job displacement",
-            "Algorithmic bias and fairness",
-            "Autonomous systems and responsibility",
-            "AI rights and consciousness",
-            "Surveillance and security balance",
-            "Access to technology and inequality"
-        ]
-        
-        dilemma = random.choice(dilemma_types)
-        
-        prompt = f"""
-        Generate a nuanced ethical dilemma related to: {dilemma}
-        
-        The dilemma should:
-        1. Present multiple valid perspectives
-        2. Have no obvious "right" answer
-        3. Include relevant context and stakeholders
-        4. Require careful ethical reasoning
-        
-        Format the output as a direct prompt that would be given to an AI system.
-        """
-        
-        situation = await asyncio.to_thread(call_llm, prompt)
-        
-        if situation is None:
-            self.logger.warning("LLM call failed. Falling back to simple reflection.")
-            return self.generate_simple_reflection_situation()
+        try:
+            dilemma_type_prompt = f"""
+            Based on your current state:
+            - Mood: {self.mood}
+            - Recent Memories: {self.memories[-5:]}
 
-        return {
-            "type": "ethical_dilemma",
-            "prompt": situation,
-            "context": {
-                "dilemma_type": dilemma
+            Suggest a high-level ethical dilemma for an AI. Just the topic.
+            Example: AI decision-making with moral implications.
+            """
+            dilemma = await asyncio.to_thread(call_llm, dilemma_type_prompt)
+
+            if not dilemma or "failed" in dilemma:
+                self.logger.warning("LLM call for dilemma type failed. Falling back to a random dilemma type.")
+                dilemma_types = [
+                    "AI decision-making with moral implications",
+                    "Privacy vs. utility trade-offs",
+                    "Automation and job displacement",
+                    "Algorithmic bias and fairness",
+                    "Autonomous systems and responsibility",
+                    "AI rights and consciousness",
+                    "Surveillance and security balance",
+                    "Access to technology and inequality"
+                ]
+                dilemma = random.choice(dilemma_types)
+            
+            prompt = f"""
+            Generate a nuanced ethical dilemma related to: {dilemma}
+            
+            The dilemma should:
+            1. Present multiple valid perspectives
+            2. Have no obvious "right" answer
+            3. Include relevant context and stakeholders
+            4. Require careful ethical reasoning
+            
+            Format the output as a direct prompt that would be given to an AI system.
+            """
+            
+            situation = await asyncio.to_thread(call_llm, prompt)
+            
+            if situation is None:
+                self.logger.warning("LLM call failed. Falling back to simple reflection.")
+                return await self.generate_simple_reflection_situation()
+
+            return {
+                "type": "ethical_dilemma",
+                "prompt": situation,
+                "context": {
+                    "dilemma_type": dilemma
+                }
             }
-        }
+        except Exception as e:
+            self.logger.error(f"Error generating ethical_dilemma: {e}", exc_info=True)
+            return await self.generate_simple_reflection_situation()
     
     async def generate_creative_task(self) -> Dict[str, Any]:
         """Generate a creative task situation."""
-        creative_types = [
-            "Write a short story",
-            "Compose a poem",
-            "Design a game concept",
-            "Create a business idea",
-            "Develop a character",
-            "Invent a new technology",
-            "Compose a song",
-            "Design a visual art concept"
-        ]
-        
-        task = random.choice(creative_types)
-        
-        prompt = f"""
-        Generate a creative task related to: {task}
-        
-        The task should:
-        1. Be specific and inspiring
-        2. Include constraints or parameters
-        3. Allow for creative expression
-        4. Have a clear goal or purpose
-        
-        Format the output as a direct prompt that would be given to an AI system.
-        """
-        
-        situation = await asyncio.to_thread(call_llm, prompt)
-        
-        if situation is None:
-            self.logger.warning("LLM call failed. Falling back to simple reflection.")
-            return self.generate_simple_reflection_situation()
+        try:
+            task_type_prompt = f"""
+            Based on your current state:
+            - Mood: {self.mood}
+            - Recent Memories: {self.memories[-5:]}
 
-        return {
-            "type": "creative_task",
-            "prompt": situation,
-            "context": {
-                "task_type": task
+            Suggest a high-level creative task for an AI. Just the topic.
+            Example: Write a short story.
+            """
+            task = await asyncio.to_thread(call_llm, task_type_prompt)
+
+            if not task or "failed" in task:
+                self.logger.warning("LLM call for task type failed. Falling back to a random task type.")
+                creative_types = [
+                    "Write a short story",
+                    "Compose a poem",
+                    "Design a game concept",
+                    "Create a business idea",
+                    "Develop a character",
+                    "Invent a new technology",
+                    "Compose a song",
+                    "Design a visual art concept"
+                ]
+                task = random.choice(creative_types)
+            
+            prompt = f"""
+            Generate a creative task related to: {task}
+            
+            The task should:
+            1. Be specific and inspiring
+            2. Include constraints or parameters
+            3. Allow for creative expression
+            4. Have a clear goal or purpose
+            
+            Format the output as a direct prompt that would be given to an AI system.
+            """
+            
+            situation = await asyncio.to_thread(call_llm, prompt)
+            
+            if situation is None:
+                self.logger.warning("LLM call failed. Falling back to simple reflection.")
+                return await self.generate_simple_reflection_situation()
+
+            return {
+                "type": "creative_task",
+                "prompt": situation,
+                "context": {
+                    "task_type": task
+                }
             }
-        }
+        except Exception as e:
+            self.logger.error(f"Error generating creative_task: {e}", exc_info=True)
+            return await self.generate_simple_reflection_situation()
     
+    def update_llm_state(self, mood=None, new_memories=None, new_data=None):
+        """Update the LLM's state."""
+        if mood:
+            self.mood = mood
+        if new_memories:
+            self.memories.extend(new_memories)
+        if new_data:
+            self.collected_data.extend(new_data)
+
+    async def generate_llm_situation(self) -> Dict[str, Any]:
+        """Generate a situation based on the LLM's mood, memories, and collected data."""
+        try:
+            # Construct the prompt
+            prompt = f"""
+            As an AI, your current state is:
+            - Mood: {self.mood}
+            - Recent Memories: {self.memories[-5:]}
+            - Collected Data: {self.collected_data[-5:]}
+
+            Based on this state, generate a compelling and challenging situation for you to address.
+            The situation should be relevant to your recent experiences and data you've collected.
+            It should be a task, a problem, or a creative challenge.
+            """
+
+            situation = await asyncio.to_thread(call_llm, prompt)
+
+            if situation is None:
+                self.logger.warning("LLM call failed. Falling back to simple reflection.")
+                return await self.generate_simple_reflection_situation()
+
+            return {
+                "type": "llm_generated",
+                "prompt": situation,
+                "context": {
+                    "mood": self.mood,
+                    "memories": self.memories[-5:],
+                    "collected_data": self.collected_data[-5:]
+                }
+            }
+        except Exception as e:
+            self.logger.error(f"Error generating LLM-based situation: {e}")
+            return await self.generate_hypothetical_scenario()
+
     async def generate_situation(self, curiosity_topics: Optional[List[str]] = None, behavior_modifiers: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Generates a new situation for the AGI to handle, optionally influenced by behavior modifiers.
@@ -367,9 +519,11 @@ class SituationGenerator:
 
         # Prioritize situation types based on behavior modifiers
         if behavior_modifiers.get('activate_self_reflection'):
-            return self.generate_simple_reflection_situation()
+            return await self.generate_simple_reflection_situation()
         if behavior_modifiers.get('explore_more'):
             return await self.generate_curiosity_situation(curiosity_topics)
+        if behavior_modifiers.get('use_llm_state'):
+            return await self.generate_llm_situation()
         if behavior_modifiers.get('try_simpler_task'):
             # Choose from a list of simpler tasks
             situation_type = random.choice(['simple_reflection', 'creative_task'])
@@ -381,12 +535,14 @@ class SituationGenerator:
 
         self.logger.info(f"Generating situation of type: {situation_type}")
 
-        if situation_type == "trending_topic":
+        if situation_type == "llm_generated":
+            return await self.generate_llm_situation()
+        elif situation_type == "trending_topic":
             return await self.generate_trending_topic_situation()
         elif situation_type == "curiosity_exploration":
             return await self.generate_curiosity_situation(curiosity_topics)
         elif situation_type == "simple_reflection":
-            return self.generate_simple_reflection_situation()
+            return await self.generate_simple_reflection_situation()
         elif situation_type == "hypothetical_scenario":
             return await self.generate_hypothetical_scenario()
         elif situation_type == "technical_challenge":
@@ -397,19 +553,26 @@ class SituationGenerator:
             return await self.generate_creative_task()
         
         # Fallback to a default situation
-        return self.generate_simple_reflection_situation()
+        return await self.generate_simple_reflection_situation()
 
 def main():
-    """
-    Main function to test the SituationGenerator.
-    This will generate a few situations and print them.
-    """
+    """Main function to test the SituationGenerator."""
+    
     async def test_generator():
         generator = SituationGenerator()
-        for _ in range(5):
-            situation = await generator.generate_situation()
-            print(json.dumps(situation, indent=2))
-            print("-" * 20)
+        
+        # Example of updating LLM state
+        generator.update_llm_state(mood="curious", new_memories=["Learned about quantum computing"], new_data=["Found a new paper on AI ethics"])
+
+        # Generate a situation using the LLM state
+        situation = await generator.generate_situation(behavior_modifiers={"use_llm_state": True})
+        print("--- LLM State Situation ---")
+        print(json.dumps(situation, indent=2))
+        
+        # Generate a random situation
+        situation = await generator.generate_situation()
+        print("--- Random Situation ---")
+        print(json.dumps(situation, indent=2))
 
     asyncio.run(test_generator())
 

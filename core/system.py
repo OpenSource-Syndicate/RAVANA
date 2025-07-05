@@ -5,9 +5,7 @@ from typing import Any, Dict, List
 from sentence_transformers import SentenceTransformer
 from sqlmodel import Session, select
 
-from modules.decision_engine.llm import decision_maker_loop, generate_hypothetical_scenarios, agi_experimentation_engine
-from modules.information_processing.youtube_transcription.youtube_transcription import transcribe_youtube_video
-from modules.information_processing.trend_analysis.trend_engine import analyze_trends
+from modules.decision_engine.llm import decision_maker_loop
 from modules.reflection_module import ReflectionModule
 from modules.experimentation_module import ExperimentationModule
 from modules.situation_generator.situation_generator import SituationGenerator
@@ -45,7 +43,7 @@ class AGISystem:
         self.experimentation_module = ExperimentationModule()
 
         # Initialize action manager
-        self.action_manager = ActionManager(self)
+        self.action_manager = ActionManager(self, self.data_service)
 
         # For graceful shutdown
         self._shutdown = asyncio.Event()
@@ -109,6 +107,11 @@ class AGISystem:
             behavior_modifiers=self.behavior_modifiers
         )
         self.shared_state.current_situation = situation
+        
+        # Log the generated situation
+        situation_id = await asyncio.to_thread(self.data_service.save_situation_log, situation)
+        self.shared_state.current_situation_id = situation_id
+        
         logger.info(f"Generated situation: {situation}")
         return situation
 
@@ -124,12 +127,25 @@ class AGISystem:
 
     async def _make_decision(self, situation: dict):
         logger.info("Making a decision.")
+        
+        # Get available actions from the action manager's registry
+        available_actions = self.action_manager.action_registry.get_action_definitions()
+        
         decision = await asyncio.to_thread(
             decision_maker_loop,
             situation=situation,
             memory=self.shared_state.recent_memories,
-            mood=self.shared_state.mood
+            mood=self.shared_state.mood,
+            actions=available_actions
         )
+        
+        # Log the decision
+        await asyncio.to_thread(
+            self.data_service.save_decision_log,
+            self.shared_state.current_situation_id,
+            decision['raw_response']
+        )
+
         logger.info(f"Made decision: {decision}")
         return decision
 
@@ -150,6 +166,10 @@ class AGISystem:
         self.shared_state.mood = self.emotional_intelligence.get_mood_vector()
         new_mood = self.shared_state.mood
         self.shared_state.mood_history.append(self.shared_state.mood)
+
+        # Log the mood
+        await asyncio.to_thread(self.data_service.save_mood_log, new_mood)
+        
         logger.info("Updated mood.")
 
         self.behavior_modifiers = self.emotional_intelligence.influence_behavior()
@@ -165,6 +185,12 @@ class AGISystem:
                 experiment_results = await asyncio.to_thread(
                     self.experimentation_module.run_experiment_from_prompt,
                     hypothesis
+                )
+                # Log the experiment
+                await asyncio.to_thread(
+                    self.data_service.save_experiment_log,
+                    hypothesis,
+                    experiment_results
                 )
                 logger.info(f"Reflection experiment results: {experiment_results}")
         else:

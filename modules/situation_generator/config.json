@@ -1,0 +1,83 @@
+{
+  "zuki": {
+    "api_key": "zu-ab9fba2aeef85c7ecb217b00ce7ca1fe",
+    "base_url": "https://api.zukijourney.com/v1",
+    "models": [
+      "gpt-4o:online",
+      "gpt-4o",
+      "deepseek-chat",
+      "deepseek-reasoner"
+    ]
+  },
+  "electronhub": {
+    "api_key": "ek-nzrvzzeQG0kmNZVhmkTWrKjgyIyUVY0mQpLwbectvfcPDssXiz",
+    "base_url": "https://api.electronhub.ai",
+    "models": [
+      "deepseek-v3-0324",
+      "gpt-4o-2024-11-20"
+    ]
+  },
+  "zanity": {
+    "api_key": "vc-b1EbB_BekM2TCPol64yDe7FgmOM34d4q",
+    "base_url": "https://api.zanity.xyz/v1",
+    "models": [
+      "deepseek-r1",
+      "deepseek-v3-0324",
+      "gpt-4o:free",
+      "claude-3.5-sonnet:free",
+      "qwen-max-0428"
+    ]
+  },
+  "provider1": {
+    "models": [
+      {
+        "name": "deepseek-ai/DeepSeek-V3-0324",
+        "vision": false
+      },
+      {
+        "name": "deepseek-ai/DeepSeek-R1-0528",
+        "vision": false
+      },
+      {
+        "name": "command-r",
+        "vision": false
+      }
+    ]
+  },
+  "provider2": {
+    "models": [
+      {
+        "name": "gpt-4o",
+        "vision": true
+      },
+      {
+        "name": "llama-4-scout",
+        "vision": false
+      }
+    ]
+  },
+  "provider3": {
+    "models": [
+      {
+        "name": "gpt-4o",
+        "vision": true
+      },
+      {
+        "name": "claude-3.7-sonnet",
+        "vision": false
+      },
+      {
+        "name": "llama-4-scout",
+        "vision": false
+      },
+      {
+        "name": "deepseek-v3-0324",
+        "vision": true
+      }
+    ]
+  },
+  "a4f": {
+    "api_key": "ddc-a4f-7bbefd7518a74b36b1d32cb867b1931f",
+    "base_url": "https://api.a4f.co/v1"
+  }
+}

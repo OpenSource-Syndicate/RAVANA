@@ -18,8 +18,8 @@ class Config:
     ERROR_SLEEP_DURATION = int(os.environ.get("ERROR_SLEEP_DURATION", 60))
 
     # Emotional Intelligence Settings
-    POSITIVE_MOODS = ['Confident', 'Curious', 'Reflective']
-    NEGATIVE_MOODS = ['Frustrated', 'Stuck', 'Low Energy']
+    POSITIVE_MOODS = ['Confident', 'Curious', 'Reflective', 'Excited', 'Content']
+    NEGATIVE_MOODS = ['Frustrated', 'Stuck', 'Low Energy', 'Bored']
 
     # Model Settings
     EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")

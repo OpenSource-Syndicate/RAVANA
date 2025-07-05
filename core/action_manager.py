@@ -1,44 +1,80 @@
-import asyncio
+import json
 import logging
 from typing import Any, Dict
 
-from core.config import Config
-from modules.decision_engine.llm import generate_hypothetical_scenarios
-from modules.information_processing.trend_analysis.trend_engine import analyze_trends
-from modules.information_processing.youtube_transcription.youtube_transcription import transcribe_youtube_video
+from core.actions.exceptions import ActionError
+from core.actions.registry import ActionRegistry
 
 logger = logging.getLogger(__name__)
 
 class ActionManager:
-    def __init__(self, agi_system):
+    def __init__(self, agi_system, data_service):
         self.agi_system = agi_system
-        self.actions = {
-            "fetch_and_analyze_trends": self._action_fetch_and_analyze_trends,
-            "transcribe_youtube": self._action_transcribe_youtube,
-            "run_hypothetical_scenario": self._action_run_hypothetical_scenario,
-            "compress_knowledge": self._action_compress_knowledge,
-        }
+        self.action_registry = ActionRegistry()
+        self.data_service = data_service
+        logger.info(f"ActionManager initialized with {len(self.action_registry.get_all_actions())} actions.")
+        logger.info(self.action_registry.get_action_definitions())
 
     async def execute_action(self, decision: Dict[str, Any]) -> Any:
-        """Executes the action determined by the decision engine."""
-        action_type = decision.get("action")
-        params = decision.get("params", {})
+        """
+        Parses the decision from the LLM, validates it, and executes the chosen action.
+        """
+        raw_response = decision.get("raw_response", "")
+        if not raw_response:
+            logger.warning("Decision engine did not provide a raw_response.")
+            return "No action taken: empty response."
 
-        action_func = self.actions.get(action_type)
-        if action_func:
-            return await action_func(params)
-        else:
-            logger.warning(f"Unknown action type: {action_type}")
-            return "No action taken."
+        try:
+            # Find the JSON block in the raw response
+            json_start = raw_response.find("```json")
+            json_end = raw_response.rfind("```")
 
-    async def _action_fetch_and_analyze_trends(self, params: Dict[str, Any]) -> Any:
-        return await asyncio.to_thread(analyze_trends, Config.FEED_URLS)
+            if json_start == -1 or json_end == -1 or json_start >= json_end:
+                logger.warning("No valid JSON block found in the LLM's response.")
+                # Fallback: try to parse the whole string
+                try:
+                    action_data = json.loads(raw_response)
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to decode JSON from response: {raw_response}")
+                    return f"No action taken: could not parse response."
+            else:
+                json_str = raw_response[json_start + 7:json_end].strip()
+                try:
+                    action_data = json.loads(json_str)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to decode extracted JSON: {json_str}. Error: {e}")
+                    return f"No action taken: could not parse JSON block."
 
-    async def _action_transcribe_youtube(self, params: Dict[str, Any]) -> Any:
-        return await asyncio.to_thread(transcribe_youtube_video, params.get("url"))
+            action_name = action_data.get("action")
+            action_params = action_data.get("params", {})
 
-    async def _action_run_hypothetical_scenario(self, params: Dict[str, Any]) -> Any:
-        return await generate_hypothetical_scenarios(params.get("scenario_description"))
+            if not action_name:
+                logger.warning("No 'action' key found in the parsed JSON.")
+                return "No action taken: 'action' key missing."
 
-    async def _action_compress_knowledge(self, params: Dict[str, Any]) -> Any:
-        return await asyncio.to_thread(self.agi_system.knowledge_service.compress_and_save_knowledge) 
+            action = self.action_registry.get_action(action_name)
+            action.validate_params(action_params)
+            
+            logger.info(f"Executing action '{action_name}' with params: {action_params}")
+            result = await action.execute(**action_params)
+            logger.info(f"Action '{action_name}' executed successfully.")
+            
+            # Log the successful action
+            self.data_service.save_action_log(action_name, action_params, "success", result)
+            
+            return result
+
+        except ActionError as e:
+            logger.error(f"Action execution failed: {e}", exc_info=True)
+            # Log the failed action
+            action_name = locals().get('action_name', 'unknown')
+            action_params = locals().get('action_params', {})
+            self.data_service.save_action_log(action_name, action_params, "failure", str(e))
+            return f"Action failed: {e}"
+        except Exception as e:
+            logger.error(f"An unexpected error occurred during action execution: {e}", exc_info=True)
+            # Log the failed action
+            action_name = locals().get('action_name', 'unknown')
+            action_params = locals().get('action_params', {})
+            self.data_service.save_action_log(action_name, action_params, "failure", str(e))
+            return f"An unexpected error occurred: {e}" 

@@ -19,4 +19,36 @@ class Event(SQLModel, table=True):
 class Summary(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     timestamp: str
-    summary_text: str 
+    summary_text: str
+
+class ActionLog(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    timestamp: str
+    action_name: str
+    params: str  # JSON string of parameters
+    status: str # 'success' or 'failure'
+    result: str # JSON string of the result
+
+class MoodLog(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    timestamp: str
+    mood_vector: str  # JSON string of the mood vector
+
+class SituationLog(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    timestamp: str
+    situation_type: str
+    prompt: str
+    context: str # JSON string of the context
+
+class DecisionLog(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    timestamp: str
+    situation_id: int | None = Field(default=None, foreign_key="situationlog.id")
+    raw_response: str
+
+class ExperimentLog(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    timestamp: str
+    hypothesis: str
+    results: str # JSON string of the results 

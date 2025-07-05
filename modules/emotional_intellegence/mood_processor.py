@@ -19,11 +19,42 @@ class MoodProcessor:
 
         for trigger, is_present in action_result.items():
             if is_present and trigger in mood_updates:
-                for mood, delta in mood_updates[trigger].items():
-                    self.ei.update_mood(mood, delta)
+                update = mood_updates[trigger]
+                if "prompt" in update:
+                    # Use LLM for nuanced update
+                    llm_based_update = self._get_llm_mood_update(update["prompt"], self.ei.get_mood_vector(), action_result)
+                    for mood, delta in llm_based_update.items():
+                        self.ei.update_mood(mood, delta)
+                else:
+                    # Use direct deltas
+                    for mood, delta in update.items():
+                        self.ei.update_mood(mood, delta)
         
         logger.debug(f"Mood vector after update: {self.ei.mood_vector}")
         self.ei.last_action_result = action_result
+
+    def _get_llm_mood_update(self, prompt_template: str, current_mood: Dict[str, float], action_result: dict) -> Dict[str, float]:
+        prompt = f"""
+You are an AI's emotional core. Your task is to update the AI's mood based on its recent action.
+Analyze the action result and the AI's current emotional state to determine a nuanced mood update.
+
+**Current Mood:**
+{json.dumps(current_mood, indent=2)}
+
+**Action Result:**
+{json.dumps(action_result, indent=2)}
+
+**Instructions:**
+{prompt_template}
+
+**Your JSON Response (only a JSON object with mood deltas, e.g., {{"Confident": 0.1, "Frustrated": -0.05}}):**
+"""
+        llm_response = call_llm(prompt)
+        try:
+            return json.loads(llm_response)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing LLM mood update response: {e}")
+            return {}
 
     def process_action_natural(self, action_output: str):
         logger.debug(f"Processing natural action output: {action_output}")

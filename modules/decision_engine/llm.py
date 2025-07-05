@@ -287,33 +287,66 @@ def generate_hypothetical_scenarios(trends=None, interest_areas=None, gap_topics
         return scenarios
     return []
 
-def decision_maker_loop(situation, memory=None, mood=None, model=None, chain_of_thought=True, rag_context=None):
+def decision_maker_loop(situation, memory=None, mood=None, model=None, chain_of_thought=True, rag_context=None, actions=None):
     """
-    The core decision-making loop of the AGI.
-    It now includes mood as a factor in its decision-making process.
+    The main decision-making loop for the AGI.
+
+    Args:
+        situation (dict): The current situation or prompt for the AGI.
+        memory (list, optional): A list of relevant memories. Defaults to None.
+        mood (dict, optional): The current mood of the AGI. Defaults to None.
+        model (str, optional): The LLM model to use. Defaults to None.
+        chain_of_thought (bool, optional): Whether to use chain of thought prompting. Defaults to True.
+        rag_context (str, optional): Additional context from RAG. Defaults to None.
+        actions (str, optional): A formatted string of available actions. Defaults to None.
+
+    Returns:
+        dict: A dictionary containing the decision, including the raw response from the LLM.
     """
-    # 1. Construct the initial prompt
-    prompt = f"Situation: {situation['prompt']}\n"
+    # Construct the prompt
+    prompt = f"**Situation:**\n{situation['prompt']}\n\n"
+
     if memory:
-        prompt += f"Relevant Memories: {json.dumps(memory, indent=2)}\n"
+        prompt += "**Relevant Memories:**\n"
+        for mem in memory:
+            prompt += f"- {mem['content']}\n"
+        prompt += "\n"
+
     if mood:
-        prompt += f"Current Mood: {json.dumps(mood, indent=2)}\n"
+        prompt += f"**Current Mood:**\n{json.dumps(mood, indent=2)}\n\n"
+        
     if rag_context:
-        prompt += f"Retrieved Context: {rag_context}\n"
-    
+        prompt += f"**Additional Context:**\n{rag_context}\n\n"
+
+    if actions:
+        prompt += f"**Available Actions:**\n{actions}\n\n"
+
     prompt += """
-Analyze the situation, memories, and your current mood.
-Determine the best course of action.
-Your response should be a JSON object with 'action' and 'params'.
-Example: {"action": "fetch_and_analyze_trends", "params": {"query": "AI in healthcare"}}
+**Your Task:**
+Based on the situation, memories, and your current mood, decide on the best course of action.
+1.  **Analyze the situation:** Briefly explain your understanding of the current state.
+2.  **Formulate a plan:** Outline a step-by-step plan to address the situation.
+3.  **Choose an action:** Select ONE action from the 'Available Actions' list and format your response as a JSON object within a ```json ... ``` block.
+
+**JSON Output Format:**
+{
+  "action": "action_name",
+  "params": {
+    "param_name_1": "value_1",
+    "param_name_2": "value_2"
+  }
+}
 """
+
     if chain_of_thought:
-        prompt += "\nThink step by step. Draft a plan, list actions, and reflect on possible outcomes."
-    else:
-        prompt += "\nDraft a plan and actions."
-    response = call_llm(prompt, model=model)
-    # Placeholder: parse response into plan/actions/reflection if possible
-    return {'raw_response': response}
+        # This is a simplified representation of CoT.
+        # A more complex implementation might involve multiple LLM calls.
+        prompt += "\n**Chain of Thought:**\n1. Analyze the situation.\n2. Formulate a plan.\n3. Choose an action and format the output.\n"
+
+    # Call the LLM
+    raw_response = call_llm(prompt, model=model)
+
+    return {"raw_response": raw_response}
 
 def agi_experimentation_engine(
     experiment_idea,

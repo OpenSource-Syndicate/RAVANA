@@ -7,6 +7,7 @@ class SharedState:
     def __init__(self, initial_mood: Dict[str, float]):
         self.mood: Dict[str, float] = initial_mood
         self.current_situation: Dict[str, Any] = None
+        self.current_situation_id: int = None
         self.recent_memories: List[Dict[str, Any]] = []
         self.long_term_goals: List[str] = []
         self.mood_history: List[Dict[str, float]] = []

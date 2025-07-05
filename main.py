@@ -14,18 +14,46 @@ from core.config import Config
 
 # Logging setup
 def setup_logging():
+    log_file = 'ravana_agi.log'
+    # Overwrite the log file on each run
+    if os.path.exists(log_file):
+        os.remove(log_file)
+
     if Config.LOG_FORMAT.upper() == 'JSON':
         formatter = jsonlogger.JsonFormatter('%(asctime)s %(name)s %(levelname)s %(message)s')
-        handler = logging.StreamHandler()
-        handler.setFormatter(formatter)
+        
+        # Stream handler for console output
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        
+        # File handler for file output
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(formatter)
         
         root_logger = logging.getLogger()
-        root_logger.addHandler(handler)
+        root_logger.handlers = [] # Clear existing handlers
+        root_logger.addHandler(stream_handler)
+        root_logger.addHandler(file_handler)
         root_logger.setLevel(Config.LOG_LEVEL)
-        # Prevent duplicate logging from the root logger
         root_logger.propagate = False
     else:
-        logging.basicConfig(level=Config.LOG_LEVEL, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        # For text format, configure basicConfig with both stream and file handlers
+        root_logger = logging.getLogger()
+        root_logger.handlers = [] # Clear existing handlers
+        
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        
+        # Stream handler for console output
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        
+        # File handler for file output
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(formatter)
+        
+        root_logger.addHandler(stream_handler)
+        root_logger.addHandler(file_handler)
+        root_logger.setLevel(Config.LOG_LEVEL)
 
 setup_logging()
 logger = logging.getLogger(__name__)
