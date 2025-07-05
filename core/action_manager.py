@@ -1,10 +1,14 @@
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING
 import asyncio
 
 from core.actions.exceptions import ActionError, ActionException
 from core.actions.registry import ActionRegistry
+
+if TYPE_CHECKING:
+    from core.system import AGISystem
+    from services.data_service import DataService
 
 logger = logging.getLogger(__name__)
 
