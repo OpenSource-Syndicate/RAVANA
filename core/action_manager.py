@@ -42,6 +42,8 @@ class ActionManager:
         """
         Parses the decision from the LLM, validates it, and executes the chosen action.
         """
+        action_name = "unknown"
+        action_params = {}
         raw_response = decision.get("raw_response", "")
         if not raw_response:
             logger.warning("Decision engine did not provide a raw_response.")
@@ -117,14 +119,10 @@ class ActionManager:
         except ActionError as e:
             logger.error(f"Action execution failed: {e}", exc_info=True)
             # Log the failed action
-            action_name = locals().get('action_name', 'unknown')
-            action_params = locals().get('action_params', {})
             self.data_service.save_action_log(action_name, action_params, "failure", str(e))
             return f"Action failed: {e}"
         except Exception as e:
             logger.error(f"An unexpected error occurred during action execution: {e}", exc_info=True)
             # Log the failed action
-            action_name = locals().get('action_name', 'unknown')
-            action_params = locals().get('action_params', {})
             self.data_service.save_action_log(action_name, action_params, "failure", str(e))
             return f"An unexpected error occurred: {e}" 

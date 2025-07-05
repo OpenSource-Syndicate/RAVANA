@@ -50,7 +50,7 @@ class WritePythonCodeAction(Action):
         
         try:
             # Using the existing llm_call for code generation
-            response = await call_llm(prompt)
+            response = await asyncio.to_thread(call_llm, prompt)
             code = response
             
             # Clean up the code if it's wrapped in markdown
