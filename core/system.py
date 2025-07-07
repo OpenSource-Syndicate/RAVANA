@@ -22,6 +22,9 @@ from services.knowledge_service import KnowledgeService
 from services.memory_service import MemoryService
 from core.state import SharedState
 from core.action_manager import ActionManager
+from core.enhanced_action_manager import EnhancedActionManager
+from modules.adaptive_learning.learning_engine import AdaptiveLearningEngine
+from services.multi_modal_service import MultiModalService
 from database.models import Event
 from modules.decision_engine.search_result_manager import search_result_manager
 
@@ -55,13 +58,19 @@ class AGISystem:
             sentiment_classifier=self.sentiment_classifier
         )
         self.emotional_intelligence = EmotionalIntelligence()
-        self.curiosity_trigger = CuriosityTrigger()
+        self.curiosity_trigger = CuriosityTrigger()  # Now enhanced with async capabilities
         self.reflection_module = ReflectionModule(self)
         self.experimentation_module = ExperimentationModule(self)
         self.experimentation_engine = AGIExperimentationEngine(self)
 
-        # Initialize action manager
-        self.action_manager = ActionManager(self, self.data_service)
+        # Initialize enhanced action manager
+        self.action_manager = EnhancedActionManager(self, self.data_service)
+        
+        # Initialize adaptive learning engine
+        self.learning_engine = AdaptiveLearningEngine(self)
+        
+        # Initialize multi-modal service
+        self.multi_modal_service = MultiModalService()
 
         # New state for multi-step plans
         self.current_plan: List[Dict] = []
@@ -82,36 +91,48 @@ class AGISystem:
         self.research_results: Dict[str, Any] = {}
 
     async def _check_for_search_results(self):
-        """Checks for and processes any completed search results."""
-        search_result = search_result_manager.get_result()
-        if search_result:
-            logger.info(f"Retrieved search result: {search_result}")
-            
-            # Add to shared state for immediate use
-            if 'search_results' not in self.shared_state:
-                self.shared_state.search_results = []
-            self.shared_state.search_results.append(search_result)
-            
-            # Add to memory for long-term retention
-            try:
-                memory_summary = f"Search result retrieved: {search_result[:200]}..."  # Truncate for memory
-                memories_to_save = await self.memory_service.extract_memories(memory_summary, "")
-                if memories_to_save and memories_to_save.memories:
-                    await self.memory_service.save_memories(memories_to_save.memories)
-                    logger.info(f"Saved {len(memories_to_save.memories)} memories from search result")
-            except Exception as e:
-                logger.error(f"Failed to save search result to memory: {e}", exc_info=True)
-            
-            # Add to knowledge base for future reference
-            try:
-                await self.knowledge_service.add_knowledge(
-                    content=search_result,
-                    source="web_search",
-                    category="search_result"
-                )
-                logger.info("Added search result to knowledge base")
-            except Exception as e:
-                logger.error(f"Failed to add search result to knowledge base: {e}", exc_info=True)
+        """Enhanced search result processing with better error handling."""
+        try:
+            search_result = search_result_manager.get_result()
+            if search_result:
+                logger.info(f"Retrieved search result: {search_result[:100]}...")
+                
+                # Add to shared state for immediate use
+                if not hasattr(self.shared_state, 'search_results'):
+                    self.shared_state.search_results = []
+                self.shared_state.search_results.append(search_result)
+                
+                # Limit search results to prevent memory bloat
+                if len(self.shared_state.search_results) > 10:
+                    self.shared_state.search_results = self.shared_state.search_results[-10:]
+                
+                # Add to memory for long-term retention
+                try:
+                    memory_summary = f"Search result retrieved: {search_result[:300]}..."
+                    memories_to_save = await self.memory_service.extract_memories(memory_summary, "")
+                    if memories_to_save and hasattr(memories_to_save, 'memories') and memories_to_save.memories:
+                        await self.memory_service.save_memories(memories_to_save.memories)
+                        logger.info(f"Saved {len(memories_to_save.memories)} memories from search result")
+                except Exception as e:
+                    logger.warning(f"Failed to save search result to memory: {e}")
+                
+                # Add to knowledge base for future reference (with enhanced error handling)
+                try:
+                    knowledge_result = await asyncio.to_thread(
+                        self.knowledge_service.add_knowledge,
+                        content=search_result,
+                        source="web_search",
+                        category="search_result"
+                    )
+                    if not knowledge_result.get('duplicate', False):
+                        logger.info("Added new search result to knowledge base")
+                    else:
+                        logger.info("Search result already exists in knowledge base")
+                except Exception as e:
+                    logger.warning(f"Failed to add search result to knowledge base: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Error in search result processing: {e}", exc_info=True)
 
     async def stop(self):
         """Gracefully stops the AGI system and its background tasks."""
@@ -149,20 +170,55 @@ class AGISystem:
             self.behavior_modifiers = {}  # Reset modifiers
 
     async def _handle_curiosity(self):
+        """Enhanced curiosity handling with async operations and better context."""
         if random.random() < Config.CURIOSITY_CHANCE:
             logger.info("Curiosity triggered. Generating new topics...")
-            if self.shared_state.recent_memories:
-                # Use a more descriptive name for the context
-                context_for_curiosity = ". ".join([m['content'] for m in self.shared_state.recent_memories])
-            else:
-                context_for_curiosity = "Artificial intelligence, machine learning, and consciousness."
             
-            curiosity_topics = await asyncio.to_thread(
-                self.curiosity_trigger.get_curiosity_topics_llm, 
-                [context_for_curiosity]
-            )
-            self.shared_state.curiosity_topics = curiosity_topics
-            logger.info(f"Generated curiosity topics: {curiosity_topics}")
+            try:
+                # Extract recent topics from memories
+                recent_topics = []
+                if self.shared_state.recent_memories:
+                    for memory in self.shared_state.recent_memories[:10]:  # Last 10 memories
+                        if isinstance(memory, dict):
+                            content = memory.get('content', '')
+                        else:
+                            content = str(memory)
+                        
+                        # Extract key topics from memory content
+                        if content:
+                            recent_topics.append(content[:100])  # Limit length
+                
+                if not recent_topics:
+                    recent_topics = ["artificial intelligence", "machine learning", "consciousness", "creativity"]
+                
+                # Use enhanced async curiosity trigger
+                curiosity_topics = await self.curiosity_trigger.get_curiosity_topics_llm(
+                    recent_topics, 
+                    n=5, 
+                    lateralness=0.8  # High lateralness for creative exploration
+                )
+                
+                self.shared_state.curiosity_topics = curiosity_topics
+                logger.info(f"Generated {len(curiosity_topics)} curiosity topics: {curiosity_topics}")
+                
+                # Occasionally trigger a full curiosity exploration
+                if random.random() < 0.3:  # 30% chance
+                    try:
+                        content, prompt = await self.curiosity_trigger.trigger(recent_topics, lateralness=0.9)
+                        if content and len(content) > 100:
+                            # Add the curiosity content to knowledge base
+                            await self.knowledge_service.add_knowledge(
+                                content=content[:2000],  # Limit size
+                                source="curiosity_trigger",
+                                category="exploration"
+                            )
+                            logger.info("Added curiosity exploration to knowledge base")
+                    except Exception as e:
+                        logger.warning(f"Failed to process curiosity exploration: {e}")
+                
+            except Exception as e:
+                logger.error(f"Curiosity handling failed: {e}", exc_info=True)
+                self.shared_state.curiosity_topics = ["explore new possibilities", "question assumptions"]
         else:
             self.shared_state.curiosity_topics = []
 
@@ -192,38 +248,71 @@ class AGISystem:
             self.shared_state.recent_memories = []
 
     async def _make_decision(self, situation: dict):
-        logger.info("Making a decision.")
+        logger.info("Making enhanced decision with adaptive learning.")
         
         # Get available actions from the action manager's registry
         available_actions = self.action_manager.action_registry.get_action_definitions()
         
+        # Apply adaptive learning to decision context
+        decision_context = {
+            'situation': situation,
+            'mood': self.shared_state.mood,
+            'memory': self.shared_state.recent_memories,
+            'rag_context': getattr(self.shared_state, 'search_results', [])
+        }
+        
+        learning_adaptations = await self.learning_engine.apply_learning_to_decision(decision_context)
+        
+        # Enhanced decision making with learning adaptations
         decision = await asyncio.to_thread(
             decision_maker_loop,
             situation=situation,
             memory=self.shared_state.recent_memories,
             mood=self.shared_state.mood,
             actions=available_actions,
-            rag_context=self.shared_state.search_results
+            rag_context=getattr(self.shared_state, 'search_results', [])
         )
         
-        # Log the decision
+        # Apply learning adaptations to decision
+        if learning_adaptations:
+            # Adjust confidence based on learning
+            confidence_modifier = learning_adaptations.get('confidence_modifier', 1.0)
+            original_confidence = decision.get('confidence', 0.5)
+            decision['confidence'] = min(1.0, max(0.0, original_confidence * confidence_modifier))
+            
+            # Add learning context
+            decision['learning_adaptations'] = learning_adaptations
+            decision['mood_context'] = self.shared_state.mood
+            decision['memory_context'] = self.shared_state.recent_memories[:5]  # Last 5 memories
+        
+        # Log the enhanced decision
         await asyncio.to_thread(
             self.data_service.save_decision_log,
             self.shared_state.current_situation_id,
             decision['raw_response']
         )
 
-        logger.info(f"Made decision: {decision}")
+        logger.info(f"Made enhanced decision with confidence {decision.get('confidence', 0.5):.2f}: {decision.get('action', 'unknown')}")
         return decision
 
     async def _execute_and_memorize(self, situation_prompt: str, decision: dict):
-        logger.info("Executing action.")
-        action_output = await self.action_manager.execute_action(decision)
-        logger.info(f"Action output: {action_output}")
+        logger.info("Executing enhanced action.")
+        
+        # Use enhanced action execution
+        action_output = await self.action_manager.execute_action_enhanced(decision)
+        logger.info(f"Enhanced action output: {action_output}")
+        
+        # Record decision outcome for learning
+        success = not (isinstance(action_output, dict) and action_output.get('error'))
+        await self.learning_engine.record_decision_outcome(decision, action_output, success)
 
         logger.info("Memorizing interaction.")
         await self._memorize_interaction(situation_prompt, decision, action_output)
         logger.info("Memorized interaction.")
+        
+        # Clear action cache periodically
+        self.action_manager.clear_cache()
+        
         return action_output
 
     async def _update_mood_and_reflect(self, action_output: Any):

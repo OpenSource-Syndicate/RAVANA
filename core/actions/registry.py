@@ -28,6 +28,10 @@ class ActionRegistry:
             logger.warning(f"Action '{action.name}' is already registered. Overwriting.")
         self.actions[action.name] = action
 
+    def register_action(self, action: Action) -> None:
+        """Public method to register a new action instance."""
+        self._register_action(action)
+
     def discover_actions(self):
         """Discovers and registers all actions in the 'core.actions' package."""
         actions_package = core.actions
@@ -68,4 +72,4 @@ class ActionRegistry:
                     output += f"    - {param['name']} ({param['type']}): {param['description']}\n"
             else:
                 output += "    - None\n"
-        return output 
+        return output

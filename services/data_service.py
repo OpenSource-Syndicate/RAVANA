@@ -1,5 +1,5 @@
 import asyncio
-from typing import List
+from typing import Any, List
 from sqlmodel import Session, select
 from modules.information_processing.trend_analysis.trend_engine import fetch_feeds
 from modules.event_detection.event_detector import process_data_for_events
@@ -105,13 +105,52 @@ class DataService:
             session.add(decision_log)
             session.commit()
 
-    def save_experiment_log(self, hypothesis: str, results: dict):
-        """Saves a record of a self-reflection experiment."""
+    def save_experiment_log(self, hypothesis: str, *args: Any) -> None:
+        """
+        Saves a record of an experiment.
+
+        Two calling conventions are supported:
+
+          1) save_experiment_log(hypothesis: str, results: dict)
+
+          2) save_experiment_log(
+                 hypothesis: str,
+                 test_plan: str,
+                 final_verdict: str,
+                 execution_result: Any
+             )
+        """
+        # Determine which style was used:
+        if len(args) == 1 and isinstance(args[0], dict):
+            results_dict = args[0]
+        elif len(args) == 3:
+            test_plan, final_verdict, execution_result = args
+            results_dict = {
+                "test_plan":           test_plan,
+                "final_verdict":       final_verdict,
+                "execution_result":    execution_result
+            }
+        else:
+            raise TypeError(
+                f"save_experiment_log takes either "
+                f"(hypothesis, dict) or "
+                f"(hypothesis, test_plan, final_verdict, execution_result), "
+                f"but got {1 + len(args)} arguments."
+            )
+
+        # Safely JSON-encode the results (fallback to str() on errors)
+        try:
+            results_json = json.dumps(results_dict)
+        except TypeError:
+            safe_dict = {k: str(v) for k, v in results_dict.items()}
+            results_json = json.dumps(safe_dict)
+
+        # Persist to DB
         with Session(self.engine) as session:
             experiment_log = ExperimentLog(
                 timestamp=datetime.utcnow().isoformat(),
                 hypothesis=hypothesis,
-                results=json.dumps(results)
+                results=results_json
             )
             session.add(experiment_log)
             session.commit() 

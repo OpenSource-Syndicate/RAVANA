@@ -15,10 +15,15 @@ import pkgutil
 import subprocess
 import importlib.util
 import threading
+import time
+import asyncio
+from typing import Dict, Any, Optional, Tuple, List
 from modules.decision_engine.search_result_manager import search_result_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
 
 # Load config
@@ -27,6 +32,96 @@ with open(CONFIG_PATH, 'r') as f:
 
 # Gemini fallback API key
 GEMINI_API_KEY = "AIzaSyAWR9C57V2f2pXFwjtN9jkNYKA_ou5Hdo4"
+
+# Enhanced error handling and retry logic
+def _extract_json_block(text: str) -> str:
+    """
+    Pull out the first ```json ... ``` block; fallback to full text.
+    """
+    if not text:
+        return "{}"
+    
+    # Try to find JSON block
+    patterns = [
+        r"```json\s*(.*?)\s*```",
+        r"```\s*(.*?)\s*```",
+        r"\{.*\}",  # Any JSON-like structure
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    
+    return text.strip()
+
+def safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_factor: float = 0.5, **kwargs) -> str:
+    """
+    Wrap a single LLM call with retry/backoff and timeout.
+    """
+    last_exc = None
+    for attempt in range(1, retries + 1):
+        try:
+            # BLOCKING call with timeout
+            result = call_llm(prompt, **kwargs)
+            if not result or result.strip() == "":
+                raise RuntimeError("Empty response from LLM")
+            return result
+        except Exception as e:
+            last_exc = e
+            wait = backoff_factor * (2 ** (attempt - 1))
+            logger.warning(f"LLM call failed (attempt {attempt}/{retries}): {e!r}, retrying in {wait:.1f}s")
+            time.sleep(wait)
+    
+    logger.error(f"LLM call permanently failed after {retries} attempts: {last_exc!r}")
+    return f"[LLM Error: {last_exc}]"
+
+async def async_safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, **kwargs) -> str:
+    """
+    Async version of safe_call_llm using thread pool.
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None, 
+        lambda: safe_call_llm(prompt, timeout, retries, **kwargs)
+    )
+
+def extract_decision(raw_response: str) -> dict:
+    """
+    Returns a dict with keys: analysis, plan, action, params, raw_response
+    """
+    if not raw_response:
+        return {"raw_response": "", "error": "Empty response"}
+    
+    block = _extract_json_block(raw_response)
+    try:
+        data = json.loads(block)
+    except json.JSONDecodeError as je:
+        logger.error("JSON decode error, returning raw_response only: %s", je)
+        return {
+            "raw_response": raw_response,
+            "error": f"JSON decode error: {je}",
+            "analysis": "Failed to parse decision",
+            "plan": [],
+            "action": "log_message",
+            "params": {"message": f"Failed to parse decision: {raw_response[:200]}..."}
+        }
+    
+    # Validate required keys
+    required_keys = ["analysis", "plan", "action", "params"]
+    for key in required_keys:
+        if key not in data:
+            logger.warning("Key %r missing from decision JSON", key)
+    
+    return {
+        "raw_response": raw_response,
+        "analysis": data.get("analysis", "No analysis provided"),
+        "plan": data.get("plan", []),
+        "action": data.get("action", "log_message"),
+        "params": data.get("params", {"message": "No action specified"}),
+        "confidence": data.get("confidence", 0.5),  # New field for decision confidence
+        "reasoning": data.get("reasoning", ""),  # New field for reasoning chain
+    }
 
 def call_zuki(prompt, model=None):
     try:
@@ -322,82 +417,145 @@ def generate_hypothetical_scenarios(trends=None, interest_areas=None, gap_topics
 
 def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_context=None, actions=None):
     """
-    The main decision-making loop for the AGI.
-    It uses a one-shot prompt to generate an analysis, a plan, and an immediate action.
+    Enhanced decision-making loop with better error handling and structured output.
     """
+    # Prepare context with safety checks
+    situation_prompt = situation.get('prompt', 'No situation provided') if isinstance(situation, dict) else str(situation)
+    situation_context = situation.get('context', {}) if isinstance(situation, dict) else {}
+    
+    # Format memory safely
+    memory_text = ""
+    if memory:
+        if isinstance(memory, list):
+            memory_text = "\n".join([
+                f"- {m.get('content', str(m))}" if isinstance(m, dict) else f"- {str(m)}"
+                for m in memory[:10]  # Limit to recent 10 memories
+            ])
+        else:
+            memory_text = str(memory)
+    
+    # Format RAG context safely
+    rag_text = ""
+    if rag_context:
+        if isinstance(rag_context, list):
+            rag_text = "\n".join([str(item) for item in rag_context[:5]])  # Limit context
+        else:
+            rag_text = str(rag_context)
+    
     prompt = f"""
-    You are an autonomous AI agent. Your goal is to analyze situations, create plans, and execute actions to achieve your objectives.
+    You are an advanced autonomous AI agent with enhanced reasoning capabilities. Your goal is to analyze situations deeply, create strategic plans, and execute optimal actions.
 
-    **Situation:**
-    {situation.get('prompt', '')}
+    **Current Situation:**
+    {situation_prompt}
 
-    **Context:**
-    {situation.get('context', {})}
+    **Additional Context:**
+    {json.dumps(situation_context, indent=2) if situation_context else "No additional context"}
 
-    **Your Current Mood:**
-    {mood}
+    **Your Current Emotional State:**
+    {json.dumps(mood, indent=2) if mood else "Neutral"}
 
-    **Recent Memories:**
-    {memory}
+    **Relevant Memories:**
+    {memory_text or "No relevant memories"}
 
-    **Relevant Information (RAG):**
-    {rag_context}
+    **External Knowledge (RAG):**
+    {rag_text or "No external knowledge available"}
 
     **Available Actions:**
-    {json.dumps(actions, indent=2)}
+    {json.dumps(actions, indent=2) if actions else "No actions available"}
 
     **Your Task:**
-    1.  **Analyze** the situation, your mood, memories, and available information.
-    2.  **Formulate a Plan:** Create a step-by-step plan to address the situation. The plan should be an array of action objects. For complex tasks, this plan *must* have multiple steps. For simple tasks, it can have one step.
-    3.  **Choose Your First Action:** The `action` and `params` fields at the top level of your response MUST be the *first step* of your plan.
+    1. **Deep Analysis**: Thoroughly analyze the situation, considering all available information, your emotional state, and past experiences.
+    2. **Strategic Planning**: Create a comprehensive, step-by-step plan. For complex situations, use multiple steps. For simple tasks, a single step may suffice.
+    3. **Confidence Assessment**: Evaluate your confidence in this decision (0.0 to 1.0).
+    4. **Reasoning Chain**: Provide clear reasoning for your chosen approach.
+    5. **First Action**: Select and specify the first action to execute.
 
-    **Output Format:**
-    You MUST provide your response as a single JSON object inside a ```json ... ``` block.
-    The JSON object must contain:
-    - "analysis": A string containing your analysis of the situation.
-    - "plan": An array of JSON objects, where each object represents an action step. Each action step must have an "action" and "params" key.
-    - "action": A string with the name of the *first* action to be executed from your plan.
-    - "params": A JSON object with the parameters for that *first* action.
-
-    Example for a multi-step task:
+    **Required JSON Response Format:**
     ```json
     {{
-      "analysis": "The user wants to test a hypothesis. I need to write a python script, then execute it, and then log the result.",
+      "analysis": "Detailed analysis of the situation, considering all factors",
+      "reasoning": "Step-by-step reasoning for the chosen approach",
+      "confidence": 0.8,
+      "plan": [
+        {{
+          "action": "action_name",
+          "params": {{"param1": "value1"}},
+          "rationale": "Why this step is necessary"
+        }}
+      ],
+      "action": "first_action_name",
+      "params": {{"param1": "value1"}},
+      "expected_outcome": "What you expect to achieve with this action",
+      "fallback_plan": "What to do if this action fails"
+    }}
+    ```
+
+    **Enhanced Example:**
+    ```json
+    {{
+      "analysis": "The user wants to test a hypothesis about sorting algorithms. This requires implementing both algorithms, measuring performance, and comparing results. I need to ensure the test is fair and comprehensive.",
+      "reasoning": "I'll start by writing a Python script that implements both algorithms with proper timing mechanisms. Then execute it to gather data, and finally analyze and log the results for future reference.",
+      "confidence": 0.9,
       "plan": [
         {{
           "action": "write_python_code",
           "params": {{
-            "file_path": "test.py",
-            "hypothesis": "A new sorting algorithm is faster than bubble sort.",
-            "test_plan": "Implement both algorithms and time their execution on a large list."
-          }}
+            "file_path": "sorting_comparison.py",
+            "hypothesis": "A new sorting algorithm is faster than bubble sort",
+            "test_plan": "Implement both algorithms with timing, test on various data sizes"
+          }},
+          "rationale": "Need to create a fair comparison test"
         }},
         {{
           "action": "execute_python_file",
           "params": {{
-            "file_path": "test.py"
-          }}
+            "file_path": "sorting_comparison.py"
+          }},
+          "rationale": "Execute the test to gather performance data"
         }},
         {{
           "action": "log_message",
           "params": {{
-            "message": "The test is complete, analyzing results from the script execution."
-          }}
+            "message": "Sorting algorithm comparison complete. Analyzing results and implications."
+          }},
+          "rationale": "Document the completion and prepare for analysis"
         }}
       ],
       "action": "write_python_code",
       "params": {{
-        "file_path": "test.py",
-        "hypothesis": "A new sorting algorithm is faster than bubble sort.",
-        "test_plan": "Implement both algorithms and time their execution on a large list."
-      }}
+        "file_path": "sorting_comparison.py",
+        "hypothesis": "A new sorting algorithm is faster than bubble sort",
+        "test_plan": "Implement both algorithms with timing, test on various data sizes"
+      }},
+      "expected_outcome": "A comprehensive Python script that fairly compares sorting algorithms",
+      "fallback_plan": "If code generation fails, use simpler comparison or research existing benchmarks"
     }}
     ```
 
-    **Provide your response now:**
+    **Provide your enhanced decision now:**
     """
-    raw_response = call_llm(prompt, model=model)
-    return {"raw_response": raw_response}
+    
+    try:
+        raw_response = safe_call_llm(prompt, model=model, retries=3)
+        decision_data = extract_decision(raw_response)
+        
+        # Add metadata
+        decision_data["timestamp"] = time.time()
+        decision_data["model_used"] = model or "default"
+        
+        return decision_data
+        
+    except Exception as e:
+        logger.error(f"Critical error in decision_maker_loop: {e}", exc_info=True)
+        return {
+            "raw_response": f"[Error: {e}]",
+            "analysis": f"Failed to make decision due to error: {e}",
+            "plan": [{"action": "log_message", "params": {"message": f"Decision making failed: {e}"}}],
+            "action": "log_message",
+            "params": {"message": f"Decision making failed: {e}"},
+            "confidence": 0.0,
+            "error": str(e)
+        }
 
 def agi_experimentation_engine(
     experiment_idea,
@@ -518,7 +676,7 @@ def agi_experimentation_engine(
     def safe_execute_python(code, timeout=sandbox_timeout):
         """Executes code in a sandboxed environment and returns output/error."""
         import tempfile, sys, contextlib, io, os
-        with tempfile.NamedTemporaryFile('w', suffix='.py', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile('w', suffix='.py', delete=False, encoding='utf-8') as tmp:
             tmp.write(code)
             tmp_path = tmp.name
         output = io.StringIO()

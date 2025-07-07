@@ -20,6 +20,9 @@ class Summary(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     timestamp: str
     summary_text: str
+    source: str | None = Field(default="unknown")
+    category: str | None = Field(default="misc")
+    content_hash: str | None = Field(default=None)  # For deduplication
 
 class ActionLog(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
