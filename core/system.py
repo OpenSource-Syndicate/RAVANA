@@ -288,39 +288,27 @@ class AGISystem:
 
         # 4. Decide on the next action
         if self.current_plan:
-            # If a plan exists, execute the next step
-            logger.info(f"Continuing with task: '{self.current_task_prompt}'. {len(self.current_plan)} steps remaining.")
+            # Continue with the existing plan
             decision = self.current_plan.pop(0)
+            logger.info(f"Continuing with task: '{self.current_task_prompt}'. {len(self.current_plan)} steps remaining.")
             situation_prompt = self.current_task_prompt
-        # Check for a user-provided task first
         elif self.shared_state.current_task:
-            situation = self.shared_state.current_task
-            self.shared_state.current_task = None # Consume the task
-            logger.info(f"Starting user-provided task: {situation.get('prompt')}")
-            situation_prompt = situation.get('prompt')
+            situation_prompt = self.shared_state.current_task
             await self._retrieve_memories(situation_prompt)
+            situation = {
+                'prompt': situation_prompt,
+                'context': self.shared_state.recent_memories
+            }
             decision = await self._make_decision(situation)
+            self.current_task_prompt = situation_prompt
         else:
-            # Otherwise, generate a new situation
-            logger.info("New loop iteration.")
-            # Get recent events from the database
-            recent_events = await self.get_recent_events()
-            if recent_events:
-                logger.info(f"Found {len(recent_events)} recent events.")
-                self.shared_state.recent_events = recent_events
-            else:
-                logger.info("Found 0 recent events.")
-
+            # Autonomous mode: no specific task, generate a situation
             situation = await self._generate_situation()
-            situation_prompt = situation.get('prompt')
-
-            # Get relevant memories
+            situation_prompt = situation['prompt']
             await self._retrieve_memories(situation_prompt)
-
-            # Make a decision
             decision = await self._make_decision(situation)
 
-        # Execute the action and memorize the interaction
+        # Execute action and update state
         action_output = await self._execute_and_memorize(situation_prompt, decision)
 
         # Check if the decision included a plan
@@ -380,20 +368,15 @@ class AGISystem:
         logger.info("Autonomous loop has been stopped.")
 
     async def run_single_task(self, prompt: str):
-        """Runs the AGI for a single task until the plan is complete."""
+        """Runs the AGI for a single task specified by the prompt."""
         logger.info(f"--- Running Single Task: {prompt} ---")
-
-        # Manually set the first task for the AGI
-        self.shared_state.current_task = {
-            'type': 'user_request',
-            'prompt': prompt,
-            'context': {}
-        }
+        self.shared_state.current_task = prompt
         
-        # Run the AGI loop until the task is complete (plan is empty and task is cleared)
-        for i in range(10): # Max 10 iterations for safety
-            logger.info(f"--- Single Task Iteration {i+1} ---")
-            
+        max_iterations = Config.MAX_ITERATIONS
+        for i in range(max_iterations):
+            if self._shutdown.is_set():
+                logger.info("Task appears to be complete. Ending run.")
+                break
             await self.run_iteration()
 
             if not self.current_plan and not self.current_task_prompt:
@@ -402,7 +385,7 @@ class AGISystem:
             
             await asyncio.sleep(1) # Give a moment for async operations
         else:
-            logger.warning("Single task finished due to reaching max iterations. The plan may not be complete.")
+            logger.warning(f"Task exceeded {max_iterations} iterations. Ending run.")
 
         logger.info("--- Single Task Finished ---")
 

@@ -18,6 +18,7 @@ class Config:
     LOOP_SLEEP_DURATION = int(os.environ.get("LOOP_SLEEP_DURATION", 10))
     ERROR_SLEEP_DURATION = int(os.environ.get("ERROR_SLEEP_DURATION", 60))
     MAX_EXPERIMENT_LOOPS = int(os.environ.get("MAX_EXPERIMENT_LOOPS", 10))
+    MAX_ITERATIONS = int(os.environ.get("MAX_ITERATIONS", 10))
     RESEARCH_TASK_TIMEOUT = int(os.environ.get("RESEARCH_TASK_TIMEOUT", 600)) # 10 minutes
 
     # Emotional Intelligence Settings
