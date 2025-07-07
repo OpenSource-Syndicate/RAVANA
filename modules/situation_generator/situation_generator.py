@@ -169,7 +169,7 @@ class SituationGenerator:
                 article, prompt = await asyncio.to_thread(CuriosityTrigger.from_context, context_str, lateralness=0.5)
             else:
                 # Use the provided topics
-                article, prompt = await asyncio.to_thread(CuriosityTrigger.trigger, curiosity_topics, lateralness=0.8)
+                article, prompt = await asyncio.to_thread(lambda: asyncio.run(CuriosityTrigger().trigger(curiosity_topics, lateralness=0.8)))
 
             if not article or "No article available" in article:
                 self.logger.warning("Could not fetch a curiosity article. Falling back to a hypothetical scenario.")
