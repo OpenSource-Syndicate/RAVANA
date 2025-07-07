@@ -8,9 +8,11 @@ from datetime import datetime
 import json
 
 class DataService:
-    def __init__(self, engine, feed_urls: List[str]):
+    def __init__(self, engine, feed_urls: List[str], embedding_model=None, sentiment_classifier=None):
         self.engine = engine
         self.feed_urls = feed_urls
+        self.embedding_model = embedding_model
+        self.sentiment_classifier = sentiment_classifier
 
     def fetch_and_save_articles(self):
         new_articles = fetch_feeds(self.feed_urls)
@@ -37,7 +39,11 @@ class DataService:
             articles = session.exec(stmt).all()
             if articles:
                 texts = [article.title + " " + article.link for article in articles]
-                result = process_data_for_events(texts)
+                result = process_data_for_events(
+                    texts,
+                    embedding_model=self.embedding_model,
+                    sentiment_classifier=self.sentiment_classifier
+                )
                 events = result.get("events", [])
                 for event in events:
                     event_obj = Event(

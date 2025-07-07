@@ -41,60 +41,15 @@ class Event:
 
 # --- Model Loading ---
 # It's better to load models once and reuse them.
-embedding_model = None
-sentiment_classifier = None
+embedding_model_global = None
+sentiment_classifier_global = None
 
 # Get a logger instance
 logger = logging.getLogger(__name__)
 
-def load_models(embedding_model_instance=None, sentiment_classifier_instance=None):
-    """
-    Load all required models with error handling and retries.
-    If instances are passed, use them directly.
-    """
-    global embedding_model, sentiment_classifier
-
-    if embedding_model_instance:
-        logger.info("Using pre-loaded embedding model.")
-        embedding_model = embedding_model_instance
-    else:
-        logger.warning("No embedding model instance passed. Loading new one.")
-        # Load embedding model with retries and fallback to local cache
-        model_name = 'all-MiniLM-L6-v2'
-        max_retries = 3
-        retry_delay = 5  # seconds
-        
-        for attempt in range(max_retries):
-            try:
-                logger.info(f"Attempting to load embedding model '{model_name}' (Attempt {attempt + 1}/{max_retries})...")
-                embedding_model = SentenceTransformer(model_name)
-                logger.info("Embedding model loaded successfully.")
-                break  # Exit loop on success
-            except Exception as e:
-                logger.error(f"Failed to load embedding model '{model_name}': {e}. Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-                retry_delay *= 2  # Exponential backoff
-        else:
-            logger.error(f"Failed to load embedding model '{model_name}' after {max_retries} attempts. The event detector will be unavailable.")
-            embedding_model = None # Ensure it is None if loading fails
-
-    if sentiment_classifier_instance:
-        logger.info("Using pre-loaded sentiment classifier.")
-        sentiment_classifier = sentiment_classifier_instance
-    else:
-        logger.warning("No sentiment classifier instance passed. Loading new one.")
-        # Load sentiment analysis pipeline with similar retry logic
-        try:
-            logger.info("Loading sentiment analysis pipeline...")
-            sentiment_classifier = pipeline('sentiment-analysis')
-            logger.info("Sentiment analysis pipeline loaded successfully.")
-        except Exception as e:
-            logger.error(f"Failed to load sentiment analysis pipeline: {e}. Some filtering capabilities may be affected.")
-            sentiment_classifier = None
-
 # --- Core Functions ---
 
-def get_embeddings(texts: List[str]) -> np.ndarray:
+def get_embeddings(texts: List[str], embedding_model) -> np.ndarray:
     """Generate embeddings for a list of texts."""
     if not embedding_model:
         raise ValueError("Embedding model not loaded.")
@@ -107,7 +62,7 @@ def cluster_documents(embeddings: np.ndarray, distance_threshold=0.5) -> np.ndar
     clustering_model.fit(embeddings)
     return clustering_model.labels_
 
-def filter_content(documents: List[Document]):
+def filter_content(documents: List[Document], sentiment_classifier):
     """Filter documents based on sentiment or other criteria."""
     if not sentiment_classifier:
         raise ValueError("Sentiment classifier not loaded.")
@@ -142,26 +97,38 @@ def generate_event_alerts(clustered_docs: Dict[int, List[Document]], min_cluster
         
     return alerts
 
-def process_data_for_events(texts: List[str]) -> Dict[str, Any]:
+def process_data_for_events(texts: List[str], embedding_model=None, sentiment_classifier=None) -> Dict[str, Any]:
     """
     Main function to process a batch of texts to detect events.
     
     Args:
         texts: A list of strings (documents) to analyze.
+        embedding_model: A pre-loaded sentence-transformer model.
+        sentiment_classifier: A pre-loaded huggingface pipeline.
         
     Returns:
         A dictionary containing detected events and processed documents.
     """
-    if not embedding_model or not sentiment_classifier:
-        # This is a safeguard. If this happens, it means the models were not passed correctly.
-        logger.error("Models not available. They must be loaded or passed before processing.")
-        return {"events": [], "documents": [], "message": "Critical error: Models not loaded."}
+    global embedding_model_global, sentiment_classifier_global
+    
+    embedding_model_to_use = embedding_model or embedding_model_global
+    sentiment_classifier_to_use = sentiment_classifier or sentiment_classifier_global
+    
+    if not embedding_model_to_use or not sentiment_classifier_to_use:
+        logger.warning("Models not available. Loading them now. For production, pass pre-loaded models.")
+        # Lazy load if not provided
+        if not embedding_model_to_use:
+            embedding_model_to_use = SentenceTransformer('all-MiniLM-L6-v2')
+            embedding_model_global = embedding_model_to_use
+        if not sentiment_classifier_to_use:
+            sentiment_classifier_to_use = pipeline('sentiment-analysis')
+            sentiment_classifier_global = sentiment_classifier_to_use
 
     # 1. Create Document objects
     documents = [Document(text) for text in texts]
     
     # 2. Sentiment & Keyword Filtering (initial pass)
-    filter_content(documents)
+    filter_content(documents, sentiment_classifier_to_use)
     
     relevant_documents = [doc for doc in documents if doc.is_relevant]
     if not relevant_documents:
@@ -171,7 +138,7 @@ def process_data_for_events(texts: List[str]) -> Dict[str, Any]:
 
     # 3. Event Tracking & Filtering Topic Detection
     # Generate embeddings
-    embeddings = get_embeddings(relevant_texts)
+    embeddings = get_embeddings(relevant_texts, embedding_model_to_use)
     for doc, emb in zip(relevant_documents, embeddings):
         doc.embedding = emb
         

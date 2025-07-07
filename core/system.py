@@ -5,6 +5,7 @@ import hashlib
 import json
 from typing import Any, Dict, List
 from sentence_transformers import SentenceTransformer
+from transformers import pipeline
 from sqlmodel import Session, select
 from datetime import datetime, timedelta
 
@@ -14,6 +15,7 @@ from modules.experimentation_module import ExperimentationModule
 from modules.situation_generator.situation_generator import SituationGenerator
 from modules.emotional_intellegence.emotional_intellegence import EmotionalIntelligence
 from modules.curiosity_trigger.curiosity_trigger import CuriosityTrigger
+from modules.agi_experimentation_engine import AGIExperimentationEngine
 from core.config import Config
 from services.data_service import DataService
 from services.knowledge_service import KnowledgeService
@@ -32,20 +34,31 @@ class AGISystem:
         
         self.engine = engine
         self.session = Session(engine)
+        self.config = Config()
         # Load shared models
         self.embedding_model = SentenceTransformer(Config.EMBEDDING_MODEL)
-        
+        self.sentiment_classifier = pipeline('sentiment-analysis')
+
         # Initialize services
-        self.data_service = DataService(engine, Config.FEED_URLS)
+        self.data_service = DataService(
+            engine,
+            Config.FEED_URLS,
+            self.embedding_model,
+            self.sentiment_classifier
+        )
         self.knowledge_service = KnowledgeService(engine)
         self.memory_service = MemoryService()
 
         # Initialize modules
-        self.situation_generator = SituationGenerator()
+        self.situation_generator = SituationGenerator(
+            embedding_model=self.embedding_model,
+            sentiment_classifier=self.sentiment_classifier
+        )
         self.emotional_intelligence = EmotionalIntelligence()
         self.curiosity_trigger = CuriosityTrigger()
-        self.reflection_module = ReflectionModule()
-        self.experimentation_module = ExperimentationModule()
+        self.reflection_module = ReflectionModule(self)
+        self.experimentation_module = ExperimentationModule(self)
+        self.experimentation_engine = AGIExperimentationEngine(self)
 
         # Initialize action manager
         self.action_manager = ActionManager(self, self.data_service)
@@ -234,17 +247,8 @@ class AGISystem:
         # merge it into the behavior modifiers for the next loop.
         if isinstance(action_output, dict) and 'action' in action_output:
             if action_output['action'] == 'initiate_experiment':
-                logger.info(f"Action output contains a directive to '{action_output['action']}'. Merging into behavior modifiers.")
-                # Give priority to the action's directive
-                self.behavior_modifiers.update(action_output)
-                # Rename the 'action' key to 'new_hypothesis' to match what SituationGenerator expects
-                if 'hypothesis' in self.behavior_modifiers:
-                    # Generate a unique key for the hypothesis to track it
-                    hypothesis_text = self.behavior_modifiers['hypothesis']
-                    hypothesis_key = hashlib.sha256(hypothesis_text.encode()).hexdigest()
-                    self.behavior_modifiers['hypothesis_key'] = hypothesis_key
-                    self.behavior_modifiers['new_hypothesis'] = self.behavior_modifiers.pop('hypothesis')
-                    self.behavior_modifiers.pop('action', None) # Clean up the old action key
+                logger.info(f"Action output contains a directive to '{action_output['action']}'. Starting experiment.")
+                self.experimentation_engine.start_experiment(action_output)
 
         mood_changed_for_better = self._did_mood_improve(old_mood, new_mood)
         
@@ -358,7 +362,11 @@ class AGISystem:
 
         while not self._shutdown.is_set():
             try:
-                await self.run_iteration()
+                if self.experimentation_engine.active_experiment:
+                    await self.experimentation_engine.run_experiment_step()
+                else:
+                    await self.run_iteration()
+                
                 logger.info(f"End of loop iteration. Sleeping for {Config.LOOP_SLEEP_DURATION} seconds.")
                 await asyncio.sleep(Config.LOOP_SLEEP_DURATION)
             except Exception as e:

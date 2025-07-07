@@ -37,7 +37,7 @@ try:
     from ..information_processing.trend_analysis.trend_engine import fetch_feeds, setup_db
     
     # Import event_detection
-    from ..event_detection.event_detector import process_data_for_events, load_models as load_event_models
+    from ..event_detection.event_detector import process_data_for_events
     
     # Import agent_self_reflection
     from ..agent_self_reflection.llm import call_llm
@@ -56,7 +56,7 @@ class SituationGenerator:
     Generates situations for the AGI system to tackle without user input.
     """
     
-    def __init__(self, log_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO, embedding_model=None, sentiment_classifier=None):
         # Set up logger
         self.logger = logging.getLogger("SituationGenerator")
         self.logger.setLevel(log_level)
@@ -84,7 +84,8 @@ class SituationGenerator:
         self.collected_data = []
 
         # Initialize event detection models
-        load_event_models()
+        self.embedding_model = embedding_model
+        self.sentiment_classifier = sentiment_classifier
         
         # Initialize trend analysis database
         setup_db()
@@ -125,7 +126,11 @@ class SituationGenerator:
                 return await self.generate_hypothetical_scenario()
             
             # Process articles to detect events
-            events_data = process_data_for_events(articles)
+            events_data = process_data_for_events(
+                articles,
+                embedding_model=self.embedding_model,
+                sentiment_classifier=self.sentiment_classifier
+            )
             events = events_data.get("events", [])
             
             if events:

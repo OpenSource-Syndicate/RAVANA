@@ -1,43 +1,46 @@
 import logging
 from core.state import SharedState
 from core.config import Config
-from modules.decision_engine.llm import call_llm
 
 logger = logging.getLogger(__name__)
 
 class ReflectionModule:
     """
     A module for self-reflection, allowing the AGI to analyze its own performance
-    and generate hypotheses for improvement.
+    and generate insights from experiments.
     """
-    def generate_hypothesis(self, shared_state: SharedState) -> str:
+    def __init__(self, agi_system):
+        self.agi_system = agi_system
+
+    def reflect_on_experiment(self, experiment_results: dict):
         """
-        Analyzes the agent's recent performance and formulates a testable hypothesis.
+        Analyzes the results of an experiment and generates insights.
         """
-        # Example: Analyze mood and decision quality
-        recent_moods = shared_state.mood_history
-        if len(recent_moods) < 10:
-            return None  # Not enough data
+        logger.info(f"Reflecting on experiment: {experiment_results.get('hypothesis')}")
 
-        # A simple heuristic: if mood has been consistently negative, hypothesize that it affects performance.
-        negative_mood_count = 0
-        for mood_vector in recent_moods:
-            if not mood_vector:  # Skip if empty
-                continue
-            # Find the dominant mood in the vector
-            dominant_mood = max(mood_vector, key=mood_vector.get)
-            if dominant_mood in Config.NEGATIVE_MOODS:
-                negative_mood_count += 1
-        
-        if negative_mood_count > 5:
-            return "I hypothesize that my plans are less effective when I am in a negative mood."
+        # This is a placeholder for a more sophisticated analysis.
+        # In a real implementation, this would involve using an LLM to analyze the data.
+        findings = experiment_results.get('findings')
+        if findings:
+            insight = f"The experiment on '{experiment_results.get('hypothesis')}' concluded with the following finding: {findings}"
+            
+            # Add the insight to the knowledge base
+            self.agi_system.knowledge_service.add_knowledge(
+                content=insight,
+                source="reflection",
+                category="insight"
+            )
+            logger.info(f"Generated insight: {insight}")
+        else:
+            logger.info("No significant findings from the experiment to reflect on.")
 
-        if shared_state.search_results:
-            search_summary = " ".join(shared_state.search_results)
-            prompt = f"Based on the following recent search results, what is a hypothesis I could form about the quality or focus of my information gathering?\n\nSearch Results:\n{search_summary}\n\nHypothesis:"
-            hypothesis = call_llm(prompt)
-            # Clear search results after processing
-            shared_state.search_results = []
-            return hypothesis
-
-        return None 
+    def reflect(self, shared_state: SharedState):
+        """
+        General reflection method. For now, it will look at the mood history.
+        """
+        logger.info("Performing general reflection...")
+        # This is where the logic from the old generate_hypothesis method could go.
+        # For now, we'll keep it simple.
+        if len(shared_state.mood_history) > 10:
+            logger.info("Sufficient mood history for reflection.")
+            # In a real implementation, this would do a more detailed analysis. 
