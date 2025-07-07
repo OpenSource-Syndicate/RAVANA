@@ -41,88 +41,87 @@ class ActionManager:
     async def execute_action(self, decision: Dict[str, Any]) -> Dict[str, Any]:
         """
         Parses the decision from the LLM, validates it, and executes the chosen action.
+        This method can handle both a raw LLM response and a pre-defined action dictionary.
         """
         action_name = "unknown"
         action_params = {}
-        raw_response = decision.get("raw_response", "")
-        if not raw_response:
-            logger.warning("Decision engine did not provide a raw_response.")
-            return "No action taken: empty response."
+        action_data = {}
+
+        # Case 1: The decision is already a parsed action dictionary
+        if "action" in decision and "params" in decision:
+            action_data = decision
+            
+        # Case 2: The decision is a raw response from the LLM
+        elif "raw_response" in decision:
+            raw_response = decision.get("raw_response", "")
+            if not raw_response:
+                logger.warning("Decision engine provided an empty raw_response.")
+                return {"error": "No action taken: empty response."}
+
+            try:
+                # Find the JSON block in the raw response
+                json_start = raw_response.find("```json")
+                json_end = raw_response.rfind("```")
+
+                if json_start == -1 or json_end == -1 or json_start >= json_end:
+                    logger.warning("No valid JSON block found in the LLM's response. Trying to parse the whole string.")
+                    action_data = json.loads(raw_response)
+                else:
+                    json_str = raw_response[json_start + 7:json_end].strip()
+                    action_data = json.loads(json_str)
+            
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to decode JSON from response: {raw_response}. Error: {e}")
+                return {"error": "No action taken: could not parse response."}
+        
+        else:
+            logger.error(f"Invalid decision format: {decision}")
+            return {"error": "No action taken: invalid decision format."}
 
         try:
-            # Find the JSON block in the raw response
-            json_start = raw_response.find("```json")
-            json_end = raw_response.rfind("```")
-
-            if json_start == -1 or json_end == -1 or json_start >= json_end:
-                logger.warning("No valid JSON block found in the LLM's response.")
-                # Fallback: try to parse the whole string
-                try:
-                    action_data = json.loads(raw_response)
-                except json.JSONDecodeError:
-                    logger.error(f"Failed to decode JSON from response: {raw_response}")
-                    return f"No action taken: could not parse response."
-            else:
-                json_str = raw_response[json_start + 7:json_end].strip()
-                try:
-                    action_data = json.loads(json_str)
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to decode extracted JSON: {json_str}. Error: {e}")
-                    return f"No action taken: could not parse JSON block."
-
             action_name = action_data.get("action")
             action_params = action_data.get("params", {})
 
             if not action_name:
                 logger.warning("No 'action' key found in the parsed JSON.")
-                return "No action taken: 'action' key missing."
+                return {"error": "No action taken: 'action' key missing."}
 
             action = self.action_registry.get_action(action_name)
             if not action:
                 raise ActionException(f"Action '{action_name}' not found.")
 
-            try:
-                logger.info(f"Executing action '{action_name}' with params: {action_params}")
-                result = await action.execute(**action_params)
-                logger.info(f"Action '{action_name}' executed successfully.")
-                
-                # Log the action to the database
-                await asyncio.to_thread(
-                    self.data_service.save_action_log,
-                    action_name,
-                    action_params,
-                    'success',
-                    str(result) # Convert result to string for logging
-                )
-                return result
-            except ActionException as e:
-                logger.error(f"Action '{action_name}' failed: {e}")
-                await asyncio.to_thread(
-                    self.data_service.save_action_log,
-                    action_name,
-                    action_params,
-                    'error',
-                    str(e)
-                )
-                return {"error": str(e)}
-            except Exception as e:
-                logger.error(f"An unexpected error occurred during execution of action '{action_name}': {e}", exc_info=True)
-                await asyncio.to_thread(
-                    self.data_service.save_action_log,
-                    action_name,
-                    action_params,
-                    'error',
-                    f"Unexpected error: {e}"
-                )
-                return {"error": f"An unexpected error occurred: {e}"}
+            logger.info(f"Executing action '{action_name}' with params: {action_params}")
+            result = await action.execute(**action_params)
+            logger.info(f"Action '{action_name}' executed successfully.")
+            
+            # Log the action to the database
+            await asyncio.to_thread(
+                self.data_service.save_action_log,
+                action_name,
+                action_params,
+                'success',
+                str(result) # Convert result to string for logging
+            )
+            return result
 
-        except ActionError as e:
-            logger.error(f"Action execution failed: {e}", exc_info=True)
-            # Log the failed action
-            self.data_service.save_action_log(action_name, action_params, "failure", str(e))
-            return f"Action failed: {e}"
+        except ActionException as e:
+            logger.error(f"Action '{action_name}' failed: {e}")
+            await asyncio.to_thread(
+                self.data_service.save_action_log,
+                action_name,
+                action_params,
+                'error',
+                str(e)
+            )
+            return {"error": str(e)}
+            
         except Exception as e:
-            logger.error(f"An unexpected error occurred during action execution: {e}", exc_info=True)
-            # Log the failed action
-            self.data_service.save_action_log(action_name, action_params, "failure", str(e))
-            return f"An unexpected error occurred: {e}" 
+            logger.error(f"An unexpected error occurred during execution of action '{action_name}': {e}", exc_info=True)
+            await asyncio.to_thread(
+                self.data_service.save_action_log,
+                action_name,
+                action_params,
+                'error',
+                f"Unexpected error: {e}"
+            )
+            return {"error": f"An unexpected error occurred: {e}"} 

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import subprocess
 from typing import Dict, Any, List
 from core.actions.action import Action
@@ -51,13 +52,14 @@ class WritePythonCodeAction(Action):
         try:
             # Using the existing llm_call for code generation
             response = await asyncio.to_thread(call_llm, prompt)
-            code = response
             
-            # Clean up the code if it's wrapped in markdown
-            if code.startswith("```python"):
-                code = code[len("```python"):].strip()
-            if code.endswith("```"):
-                code = code[:-len("```")].strip()
+            # Extract code from the response using regex
+            code_match = re.search(r"```python\n(.*?)```", response, re.DOTALL)
+            if code_match:
+                code = code_match.group(1).strip()
+            else:
+                # If no markdown block is found, assume the whole response is code
+                code = response.strip()
 
             with open(file_path, "w") as f:
                 f.write(code)

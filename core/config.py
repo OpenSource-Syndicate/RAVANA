@@ -14,6 +14,7 @@ class Config:
 
     # Autonomous Loop Settings
     CURIOSITY_CHANCE = float(os.environ.get("CURIOSITY_CHANCE", 0.3))
+    REFLECTION_CHANCE = float(os.environ.get("REFLECTION_CHANCE", 0.1))
     LOOP_SLEEP_DURATION = int(os.environ.get("LOOP_SLEEP_DURATION", 10))
     ERROR_SLEEP_DURATION = int(os.environ.get("ERROR_SLEEP_DURATION", 60))
     MAX_EXPERIMENT_LOOPS = int(os.environ.get("MAX_EXPERIMENT_LOOPS", 10))

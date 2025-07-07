@@ -248,49 +248,121 @@ class AGISystem:
 
         mood_changed_for_better = self._did_mood_improve(old_mood, new_mood)
         
-        # If mood improved and we were testing a hypothesis, consider it a success.
-        if mood_changed_for_better and self.shared_state.current_hypothesis_key:
-            logger.info(f"Mood improved after testing hypothesis {self.shared_state.current_hypothesis_key}. Considering it a success.")
-            # Reset the counter for this successful hypothesis
-            if self.shared_state.current_hypothesis_key in self.experiment_tracker:
-                del self.experiment_tracker[self.shared_state.current_hypothesis_key]
-            self.shared_state.current_hypothesis_key = None
-
-        if not mood_changed_for_better:
-            logger.info("Mood did not improve. Starting self-reflection cycle...")
-            hypothesis = self.reflection_module.generate_hypothesis(self.shared_state)
-            if hypothesis:
-                experiment_results = await asyncio.to_thread(
-                    self.experimentation_module.run_experiment_from_prompt,
-                    hypothesis
-                )
-                # Log the experiment
-                await asyncio.to_thread(
-                    self.data_service.save_experiment_log,
-                    hypothesis,
-                    experiment_results
-                )
-                logger.info(f"Reflection experiment results: {experiment_results}")
+        if not mood_changed_for_better and random.random() < Config.REFLECTION_CHANCE:
+            logger.info("Mood has not improved. Initiating reflection.")
+            # This is where you can trigger a reflection process
+            # For now, we'll just log it.
+            self.reflection_module.reflect(self.shared_state)
         else:
             logger.info("Mood improved or stayed the same, skipping reflection.")
 
     async def get_recent_events(self, time_limit_seconds: int = 3600) -> List[Event]:
-        """Retrieves recent events from the database."""
-        logger.info("Retrieving recent events...")
+        """
+        Retrieves recent events from the database.
+        """
+        time_limit = datetime.utcnow() - timedelta(seconds=time_limit_seconds)
+        stmt = select(Event).where(Event.timestamp >= time_limit).order_by(Event.timestamp.desc())
+        
+        loop = asyncio.get_running_loop()
         try:
-            time_threshold = datetime.utcnow() - timedelta(seconds=time_limit_seconds)
-            statement = select(Event).where(Event.timestamp >= time_threshold).order_by(Event.timestamp.desc())
-            results = self.session.exec(statement).all()
-            logger.info(f"Found {len(results)} recent events.")
-            return results
+            # Use a thread pool executor for the synchronous DB call
+            result = await loop.run_in_executor(
+                None,  # Uses the default executor
+                lambda: self.session.exec(stmt).all()
+            )
+            return result
         except Exception as e:
-            logger.error(f"Could not retrieve recent events: {e}", exc_info=True)
+            logger.error(f"Database query for recent events failed: {e}", exc_info=True)
             return []
 
-    async def run_autonomous_loop(self):
-        """The main autonomous loop of the AGI system."""
-        logger.info("Starting autonomous loop...")
+    async def run_iteration(self):
+        """Runs a single iteration of the AGI's thought process."""
+        # 1. Check for external data and completed tasks
+        await self._check_for_search_results()
 
+        # 2. Handle any mood-based behavior modifiers from the previous loop
+        await self._handle_behavior_modifiers()
+        
+        # 3. Handle Curiosity
+        await self._handle_curiosity()
+
+        # 4. Decide on the next action
+        if self.current_plan:
+            # If a plan exists, execute the next step
+            logger.info(f"Continuing with task: '{self.current_task_prompt}'. {len(self.current_plan)} steps remaining.")
+            decision = self.current_plan.pop(0)
+            situation_prompt = self.current_task_prompt
+        # Check for a user-provided task first
+        elif self.shared_state.current_task:
+            situation = self.shared_state.current_task
+            self.shared_state.current_task = None # Consume the task
+            logger.info(f"Starting user-provided task: {situation.get('prompt')}")
+            situation_prompt = situation.get('prompt')
+            await self._retrieve_memories(situation_prompt)
+            decision = await self._make_decision(situation)
+        else:
+            # Otherwise, generate a new situation
+            logger.info("New loop iteration.")
+            # Get recent events from the database
+            recent_events = await self.get_recent_events()
+            if recent_events:
+                logger.info(f"Found {len(recent_events)} recent events.")
+                self.shared_state.recent_events = recent_events
+            else:
+                logger.info("Found 0 recent events.")
+
+            situation = await self._generate_situation()
+            situation_prompt = situation.get('prompt')
+
+            # Get relevant memories
+            await self._retrieve_memories(situation_prompt)
+
+            # Make a decision
+            decision = await self._make_decision(situation)
+
+        # Execute the action and memorize the interaction
+        action_output = await self._execute_and_memorize(situation_prompt, decision)
+
+        # Check if the decision included a plan
+        raw_response = decision.get("raw_response", "{}")
+        try:
+            # Find the JSON block in the raw response
+            json_start = raw_response.find("```json")
+            json_end = raw_response.rfind("```")
+            if json_start != -1 and json_end != -1 and json_start < json_end:
+                json_str = raw_response[json_start + 7:json_end].strip()
+                decision_data = json.loads(json_str)
+            else:
+                # Try parsing the whole string if no block is found
+                decision_data = json.loads(raw_response)
+                
+            plan = decision_data.get("plan")
+            if plan and isinstance(plan, list) and len(plan) > 1:
+                # The first step was already chosen as the main action, so store the rest
+                self.current_plan = plan[1:]
+                self.current_task_prompt = situation_prompt
+                logger.info(f"Found and stored a multi-step plan with {len(self.current_plan)} steps remaining.")
+            else:
+                # If the plan is done or was a single step, clear it.
+                self.current_plan = []
+                self.current_task_prompt = None
+                if plan:
+                    logger.info("Plan found, but only had one step which was already executed.")
+
+        except json.JSONDecodeError:
+            logger.warning("Could not parse plan from decision response.")
+            self.current_plan = []
+            self.current_task_prompt = None
+
+
+        # Update mood and reflect
+        await self._update_mood_and_reflect(action_output)
+
+    async def run_autonomous_loop(self):
+        """The main autonomous loop of the AGI."""
+        logger.info("Starting autonomous loop...")
+        
+        # Start background tasks
         self.background_tasks.append(asyncio.create_task(self.data_collection_task()))
         self.background_tasks.append(asyncio.create_task(self.event_detection_task()))
         self.background_tasks.append(asyncio.create_task(self.knowledge_compression_task()))
@@ -298,86 +370,46 @@ class AGISystem:
 
         while not self._shutdown.is_set():
             try:
-                logger.info("New loop iteration.")
-
-                # If a plan is active, execute the next step
-                if self.current_plan:
-                    logger.info(f"Continuing with task: '{self.current_task_prompt}'. {len(self.current_plan)} steps remaining.")
-                    next_step = self.current_plan.pop(0)
-                    
-                    # Forge a decision object for the action manager
-                    forged_decision = {'raw_response': json.dumps(next_step)}
-
-                    action_output = await self._execute_and_memorize(self.current_task_prompt, forged_decision)
-                    await self._update_mood_and_reflect(action_output)
-
-                else: # No plan is active, so generate a new situation and plan
-                    self.current_task_prompt = None
-                    self.shared_state.current_hypothesis_key = None # Reset at the start of the loop
-
-                    # Wait for any research to finish before starting a new cycle
-                    if self.research_in_progress:
-                        logger.info(f"Waiting for {len(self.research_in_progress)} research tasks to complete...")
-                        await asyncio.sleep(Config.LOOP_SLEEP_DURATION)
-                        continue
-
-                    # Check for and handle any completed web search results first
-                    await self._check_for_search_results()
-
-                    await self._handle_behavior_modifiers()
-
-                    if self.behavior_modifiers.get('curiosity_trigger', True):
-                        await self._handle_curiosity()
-                    
-                    recent_events = await self.get_recent_events()
-                    if recent_events:
-                        logger.info(f"Recent events influencing situation: {[e.description for e in recent_events]}")
-
-                    situation = await self._generate_situation()
-                    await self._retrieve_memories(situation['prompt'])
-                    decision = await self._make_decision(situation)
-                    
-                    # Execute the first action from the decision
-                    action_output = await self._execute_and_memorize(situation['prompt'], decision)
-                    
-                    # After executing, check if the decision contained a plan for future steps
-                    try:
-                        raw_response = decision.get("raw_response", "")
-                        if "plan" in raw_response:
-                            json_start = raw_response.find("```json")
-                            json_end = raw_response.rfind("```")
-                            if json_start != -1 and json_end != -1:
-                                json_str = raw_response[json_start + 7:json_end].strip()
-                                action_data = json.loads(json_str)
-                                plan = action_data.get("plan")
-                                if plan and isinstance(plan, list):
-                                    # The executed action was the first step.
-                                    # We assume the LLM includes the first step in the plan array.
-                                    if len(plan) > 1:
-                                        self.current_plan = plan[1:] # Store steps 2, 3, ...
-                                        self.current_task_prompt = situation['prompt']
-                                        logger.info(f"Found and stored a multi-step plan with {len(self.current_plan)} steps remaining.")
-                                    else:
-                                        logger.info("Plan found, but only had one step which was already executed.")
-                                        self.current_plan = []
-                    except (json.JSONDecodeError, IndexError) as e:
-                        logger.warning(f"Could not parse a plan from decision. Error: {e}")
-                        self.current_plan = []
-
-                    await self._update_mood_and_reflect(action_output)
-
+                await self.run_iteration()
                 logger.info(f"End of loop iteration. Sleeping for {Config.LOOP_SLEEP_DURATION} seconds.")
                 await asyncio.sleep(Config.LOOP_SLEEP_DURATION)
-
-            except asyncio.CancelledError:
-                logger.info("Autonomous loop cancelled.")
-                break
             except Exception as e:
-                logger.error(f"Error in autonomous loop: {e}", exc_info=True)
-                await asyncio.sleep(Config.ERROR_SLEEP_DURATION)
+                logger.critical(f"Critical error in autonomous loop: {e}", exc_info=True)
+                await asyncio.sleep(Config.LOOP_SLEEP_DURATION * 5) # Longer sleep after critical error
+        
+        logger.info("Autonomous loop has been stopped.")
+
+    async def run_single_task(self, prompt: str):
+        """Runs the AGI for a single task until the plan is complete."""
+        logger.info(f"--- Running Single Task: {prompt} ---")
+
+        # Manually set the first task for the AGI
+        self.shared_state.current_task = {
+            'type': 'user_request',
+            'prompt': prompt,
+            'context': {}
+        }
+        
+        # Run the AGI loop until the task is complete (plan is empty and task is cleared)
+        for i in range(10): # Max 10 iterations for safety
+            logger.info(f"--- Single Task Iteration {i+1} ---")
+            
+            await self.run_iteration()
+
+            if not self.current_plan and not self.current_task_prompt:
+                logger.info("Task appears to be complete. Ending run.")
+                break
+            
+            await asyncio.sleep(1) # Give a moment for async operations
+        else:
+            logger.warning("Single task finished due to reaching max iterations. The plan may not be complete.")
+
+        logger.info("--- Single Task Finished ---")
 
     def _did_mood_improve(self, old_mood: Dict[str, float], new_mood: Dict[str, float]) -> bool:
-        """Checks if the mood has improved based on a simple score."""
+        """
+        Checks if the overall mood has improved based on positive and negative mood components.
+        """
         old_score = sum(old_mood.get(m, 0) for m in Config.POSITIVE_MOODS) - sum(old_mood.get(m, 0) for m in Config.NEGATIVE_MOODS)
         new_score = sum(new_mood.get(m, 0) for m in Config.POSITIVE_MOODS) - sum(new_mood.get(m, 0) for m in Config.NEGATIVE_MOODS)
         

@@ -4,6 +4,7 @@ import sys
 import os
 import signal
 from pythonjsonlogger import jsonlogger
+import argparse
 
 # Add modules directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -60,6 +61,10 @@ logger = logging.getLogger(__name__)
 
 async def main():
     """Main function to run the AGI system."""
+    parser = argparse.ArgumentParser(description="Ravana AGI")
+    parser.add_argument("--prompt", type=str, help="Run the AGI with a single prompt and then exit.")
+    args = parser.parse_args()
+
     logger.info("Starting Ravana AGI...")
     
     # Create database and tables
@@ -77,7 +82,10 @@ async def main():
         loop.add_signal_handler(signal.SIGTERM, lambda: asyncio.create_task(agi_system.stop()))
     
     try:
-        await agi_system.run_autonomous_loop()
+        if args.prompt:
+            await agi_system.run_single_task(args.prompt)
+        else:
+            await agi_system.run_autonomous_loop()
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("Main task interrupted or cancelled.")
     finally:
