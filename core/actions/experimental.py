@@ -79,7 +79,7 @@ class ProposeAndTestInventionAction(Action):
                 llm_model=None,
                 use_chain_of_thought=True,
                 online_validation=True,
-                sandbox_timeout=20,
+                sandbox_timeout=300,
                 verbose=True
             )
             

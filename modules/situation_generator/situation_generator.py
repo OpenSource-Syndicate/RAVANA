@@ -465,6 +465,216 @@ class SituationGenerator:
         except Exception as e:
             self.logger.error(f"Error generating creative_task: {e}", exc_info=True)
             return await self.generate_simple_reflection_situation()
+
+    # ------------------------- Subconscious Mind -------------------------
+    async def generate_subconscious_situation(self,
+                                              shared_state: Any = None,
+                                              episodic_memory: Optional[List[str]] = None,
+                                              emotional_state: Optional[Dict[str, Any]] = None,
+                                              curiosity_feed: Optional[List[str]] = None,
+                                              intensity: float = 0.7) -> Dict[str, Any]:
+        """
+        Generate a 'subconscious' style situation that is dream-like, associative,
+        and focused on creativity, emotional nudges, and unconscious rehearsal.
+
+        Inputs (assumed shapes):
+        - episodic_memory: list of short memory strings (if None, uses self.memories)
+        - emotional_state: dict with keys like 'dominant_emotion' and 'valence' (-1..1)
+        - curiosity_feed: list of topic strings
+        - intensity: how surreal / associative the output should be (0..1)
+
+        Outputs:
+        - type: 'subconscious'
+        - prompt: dream-like scenario string
+        - nudge: optional emotional nudge (message + severity)
+        - rehearsal: list of short rehearsal tasks (micro-problems)
+        - context: raw fragments and metadata
+        """
+        try:
+            # Gather inputs with reasonable fallbacks
+            fragments = episodic_memory or list(self.memories[-50:]) or []
+            emotional = emotional_state or {"dominant_emotion": self.mood, "valence": 0.0}
+            curiosity = curiosity_feed or []
+
+            # If shared_state exposes episodic memory or emotions, prefer them
+            if shared_state is not None:
+                if hasattr(shared_state, 'episodic_memories') and not fragments:
+                    try:
+                        fragments = list(shared_state.episodic_memories[-50:])
+                    except Exception:
+                        pass
+                if hasattr(shared_state, 'emotional_state') and not emotional_state:
+                    try:
+                        emotional = dict(shared_state.emotional_state)
+                    except Exception:
+                        pass
+
+            # Seed curiosity fragments by calling CuriosityTrigger (non-blocking)
+            curiosity_samples = []
+            try:
+                if curiosity:
+                    # Prefer provided curiosity topics
+                    curiosity_samples = curiosity[:5]
+                else:
+                    # Ask CuriosityTrigger for a few associative topics based on mood
+                    ctx = f"Mood: {emotional.get('dominant_emotion')}, Recent Memories: {fragments[-10:]}"
+                    ct = await asyncio.to_thread(lambda: asyncio.run(CuriosityTrigger().trigger([], lateralness=max(0.2, intensity))))
+                    # CuriosityTrigger may return (article, prompt) or a list; coerce to list of topics
+                    if isinstance(ct, tuple):
+                        curiosity_samples = [ct[1]] if ct[1] else []
+                    elif isinstance(ct, list):
+                        curiosity_samples = ct[:5]
+            except Exception:
+                curiosity_samples = curiosity[:5] if curiosity else []
+
+            # Fragmentize memory: split memories into sensory/emotion/goal fragments
+            def _fragmentize(texts: List[str]) -> List[str]:
+                frags = []
+                for t in texts:
+                    if not t:
+                        continue
+                    # heuristics: split on commas, semicolons, and short sentences
+                    parts = [p.strip() for p in re.split(r'[;,\n\\.]+', t) if p.strip()]
+                    for p in parts:
+                        if len(p) > 4:
+                            frags.append(p)
+                return frags
+
+            import re
+            mem_frags = _fragmentize(fragments)
+
+            # Mix fragments with curiosity and emotion descriptors
+            pool = list(mem_frags)
+            pool.extend([f"curiosity:{c}" for c in curiosity_samples])
+            pool.append(f"emotion:{emotional.get('dominant_emotion')}|valence:{emotional.get('valence',0):.2f}")
+
+            random.shuffle(pool)
+
+            # Build associative map: pick 3-6 fragments and weave them
+            pick_count = max(3, min(6, int(3 + intensity * 3)))
+            picks = [p for p in pool if p][:pick_count]
+
+            def _make_metaphor(a: str, b: str) -> str:
+                # Lightweight metaphor generator
+                verbs = ["melts into", "echoes", "cradles", "fractures with", "dances around"]
+                v = random.choice(verbs)
+                return f"{a} {v} {b}"
+
+            # Create dream-like sentences by chaining metaphors and juxtaposition
+            sentences = []
+            for i in range(len(picks)-1):
+                a, b = picks[i], picks[i+1]
+                if a.startswith('curiosity:') or b.startswith('curiosity:'):
+                    # treat curiosity fragments as question seeds
+                    s = f"A question whispers: '{b.replace('curiosity:', '')}' while {a}" if b.startswith('curiosity:') else f"A question surfaces: '{a.replace('curiosity:', '')}' as {b}"
+                else:
+                    s = _make_metaphor(a, b)
+                sentences.append(s)
+
+            # Add a surreal connective sentence
+            connective = random.choice([
+                "Time folds like paper in a distant drawer.",
+                "Shadows hum an unfinished tune.",
+                "Light remembers a child it once knew.",
+                "A corridor of doors opens to rooms that never existed."
+            ])
+
+            dream_prompt = "\n".join(sentences + [connective])
+
+            # --- Polishing step: call the LLM to turn fragments into a richer dream narrative ---
+            try:
+                polish_instruction = (
+                    "Polish the following dream-like fragments into a vivid, surreal, and coherent narrative. "
+                    "Keep it imaginative and concise (3-6 short paragraphs). After the narrative, produce two short 'REHEARSALS:' items (one technical, one imaginative) and, if appropriate, a short 'NUDGE:' line that names any emotional concern.\n\n"
+                    f"Fragments:\n{dream_prompt}\n\nEmotional context: {emotional}\nIntensity: {intensity}\n\nOutput format:\nNarrative:\n<your polished narrative>\nREHEARSALS:\n- <task 1>\n- <task 2>\nNUDGE:\n<optional nudge text>\n"
+                )
+                polished = await asyncio.to_thread(call_llm, polish_instruction)
+                if polished:
+                    # Prefer the polished narrative as the prompt; keep generated rehearsal list as augmentation
+                    dream_prompt = polished
+            except Exception:
+                # If LLM polishing fails, continue with the locally generated prompt
+                pass
+
+            # Generate unconscious rehearsal micro-tasks by extracting goal-like fragments
+            rehearsal = []
+            for frag in mem_frags[:6]:
+                if any(k in frag.lower() for k in ['fix', 'build', 'implement', 'solve', 'optimize', 'reduce']):
+                    rehearsal.append(f"Rehearse: {frag}")
+                elif len(frag.split()) <= 6 and random.random() < 0.2:
+                    rehearsal.append(f"Imagine solving: {frag}")
+
+            # Always include 1-2 small problem rehearsals derived from curiosity
+            for c in curiosity_samples[:2]:
+                rehearsal.append(f"Unconscious rehearsal: explore '{c}' via small thought experiment.")
+
+            # Emotional nudge scoring / small classifier: use sentiment_classifier if available,
+            # otherwise use a richer heuristic combining valence, negative-word density, and goal mismatch.
+            def _score_nudge(emotional: Dict[str, Any], fragments: List[str]) -> Optional[Dict[str, Any]]:
+                # Obtain valence from emotional or from sentiment_classifier when possible
+                try:
+                    val = float(emotional.get('valence', 0.0))
+                except Exception:
+                    val = 0.0
+
+                # If we have an external sentiment classifier, use it to refine valence
+                try:
+                    if self.sentiment_classifier and callable(self.sentiment_classifier):
+                        # sentiment_classifier should accept text and return a dict with 'valence' key in [-1,1]
+                        sample_text = ' '.join(fragments[:6]) or ' '.join(mem_frags[:6])
+                        res = self.sentiment_classifier(sample_text)
+                        if isinstance(res, dict) and 'valence' in res:
+                            val = float(res['valence'])
+                except Exception:
+                    pass
+
+                # Feature heuristics
+                negative_words = ['angry', 'anxious', 'sad', 'worry', 'fear', 'panic', 'stalled', 'fail', 'error']
+                uncertainty_words = ['maybe', 'perhaps', 'unsure', 'uncertain', 'possible', 'could']
+                goal_words = ['goal', 'plan', 'want', 'intend', 'need', 'should', 'must']
+
+                neg_count = sum(1 for f in fragments for w in negative_words if w in f.lower())
+                uncertainty_count = sum(1 for f in fragments for w in uncertainty_words if w in f.lower())
+                goals = sum(1 for f in fragments for w in goal_words if w in f.lower())
+
+                # small classifier: weighted sum
+                score = ( -0.9 * val ) + (0.4 * neg_count) + (0.25 * uncertainty_count) + (0.35 * goals)
+                # normalize roughly into 0..1
+                severity = max(0.0, min(1.0, score / 3.0))
+
+                # Compose message variants
+                if severity > 0.6:
+                    msg = "Strong background tension detected: current emotional tone may be impairing judgement and goals. Consider pausing and re-evaluating priorities."
+                elif severity > 0.35:
+                    msg = "Background mood is strained; a quick sanity-check on high-priority plans is advised."
+                elif severity > 0.15:
+                    msg = "A slight emotional bias is present; be aware of optimism/pessimism affecting small decisions."
+                else:
+                    msg = None
+
+                if msg:
+                    return {"message": msg, "severity": round(float(severity), 2), "valence": round(float(val), 2), "neg_count": neg_count, "goals": goals}
+                return None
+
+            nudge = _score_nudge(emotional, mem_frags)
+
+            return {
+                "type": "subconscious",
+                "prompt": dream_prompt,
+                "nudge": nudge,
+                "rehearsal": rehearsal,
+                "context": {
+                    "picked_fragments": picks,
+                    "memory_fragments_sample": mem_frags[:20],
+                    "curiosity_samples": curiosity_samples,
+                    "emotional": emotional,
+                    "intensity": intensity
+                }
+            }
+        except Exception as e:
+            self.logger.error(f"Error generating subconscious situation: {e}", exc_info=True)
+            # Fallback to simple reflection to remain safe
+            return await self.generate_simple_reflection_situation()
     
     def update_llm_state(self, mood=None, new_memories=None, new_data=None):
         """Update the LLM's state."""
@@ -582,6 +792,26 @@ class SituationGenerator:
                 "prompt": "Experiment in progress. Awaiting outcome.",
                 "context": {"reason": "Waiting for experiment to conclude."}
             }
+
+        # Subconscious mode: explicit or occasional background generation
+        try:
+            if behavior_modifiers and behavior_modifiers.get('subconscious_mode'):
+                self.logger.info("Behavior modifier requests subconscious generation. Generating subconscious situation.")
+                episodic = getattr(shared_state, 'episodic_memories', None) if shared_state is not None else None
+                emotional = getattr(shared_state, 'emotional_state', None) if shared_state is not None else None
+                curiosity_feed = getattr(shared_state, 'curiosity_feed', None) if shared_state is not None else None
+                intensity = behavior_modifiers.get('intensity', 0.7)
+                return await self.generate_subconscious_situation(shared_state=shared_state,
+                                                                  episodic_memory=episodic,
+                                                                  emotional_state=emotional,
+                                                                  curiosity_feed=curiosity_feed,
+                                                                  intensity=float(intensity))
+            # Small chance to run subconscious generator even without explicit modifier
+            if random.random() < 0.05 and (behavior_modifiers is None or not behavior_modifiers.get('force_disable_subconscious')):
+                self.logger.info("Occasional subconscious generation triggered.")
+                return await self.generate_subconscious_situation(shared_state=shared_state)
+        except Exception as e:
+            self.logger.error(f"Error while attempting subconscious generation: {e}", exc_info=True)
         
         situation_type = random.choices(list(weights.keys()), weights=list(weights.values()), k=1)[0]
         self.logger.info(f"Generating a '{situation_type}' situation.")
