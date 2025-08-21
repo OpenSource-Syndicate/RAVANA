@@ -40,7 +40,7 @@ try:
     from ..event_detection.event_detector import process_data_for_events
     
     # Import agent_self_reflection
-    from ..agent_self_reflection.llm import call_llm
+    from core.llm import call_llm
     from ..agent_self_reflection.self_modification import generate_hypothesis, analyze_experiment_outcome
     
     # Import config

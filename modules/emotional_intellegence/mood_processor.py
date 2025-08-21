@@ -2,7 +2,7 @@ import logging
 from typing import Dict
 import json
 import re
-from .llm import call_llm
+from core.llm import call_llm
 
 logger = logging.getLogger(__name__)
 

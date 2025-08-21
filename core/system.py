@@ -9,7 +9,7 @@ from transformers import pipeline
 from sqlmodel import Session, select
 from datetime import datetime, timedelta
 
-from modules.decision_engine.llm import decision_maker_loop
+from core.llm import decision_maker_loop
 from modules.reflection_module import ReflectionModule
 from modules.experimentation_module import ExperimentationModule
 from modules.situation_generator.situation_generator import SituationGenerator

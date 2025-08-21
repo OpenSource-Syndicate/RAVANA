@@ -10,7 +10,7 @@ import time
 # Add modules directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from modules.decision_engine.llm import agi_experimentation_engine
+from core.llm import agi_experimentation_engine
 
 def test_unicode_fix():
     """Test that Unicode characters in generated code don't cause crashes."""

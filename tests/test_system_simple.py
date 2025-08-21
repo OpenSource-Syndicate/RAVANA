@@ -22,7 +22,7 @@ def test_imports():
         print(f"[OK] Physics prompts loaded: {len(ADVANCED_PHYSICS_EXPERIMENTS)} experiments, {len(DISCOVERY_PROMPTS)} discovery prompts")
         
         # Test LLM module
-        from modules.decision_engine.llm import agi_experimentation_engine, call_llm
+        from core.llm import agi_experimentation_engine, call_llm
         print("[OK] LLM experimentation engine imported successfully")
         
         # Test core components (without initializing)
@@ -72,7 +72,7 @@ def test_llm_config():
     print("\nTesting LLM configuration...")
     
     try:
-        from modules.decision_engine.llm import PROVIDERS, config
+        from core.llm import PROVIDERS, config
         
         print(f"[OK] LLM config loaded with {len(PROVIDERS)} providers")
         
@@ -125,7 +125,7 @@ def run_basic_experiment_test():
         print(f"[INFO] Experiment prompt: {experiment_idea[:100]}...")
         
         # Import the experimentation engine
-        from modules.decision_engine.llm import agi_experimentation_engine
+        from core.llm import agi_experimentation_engine
         
         print("[INFO] Starting experimentation engine...")
         print("[WARNING] This will make API calls and may take time...")

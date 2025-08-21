@@ -9,7 +9,7 @@ import hashlib
 from typing import List, Tuple, Dict, Optional
 from cachetools import TTLCache
 from sentence_transformers import SentenceTransformer, util
-from .llm import call_llm  # Import the LLM utility
+from core.llm import call_llm  # Import the LLM utility
 import wikipedia
 
 logger = logging.getLogger(__name__)

@@ -1,4 +1,4 @@
-from llm import generate_hypothetical_scenarios, decision_maker_loop
+from core.llm import generate_hypothetical_scenarios, decision_maker_loop
 
 def test_generate_hypothetical_scenarios():
     print("=== Testing generate_hypothetical_scenarios ===")

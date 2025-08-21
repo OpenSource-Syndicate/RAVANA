@@ -13,7 +13,7 @@ from core.system import AGISystem
 from database.engine import create_db_and_tables, engine
 from core.config import Config
 from physics_experiment_prompts import ADVANCED_PHYSICS_EXPERIMENTS, DISCOVERY_PROMPTS
-from modules.decision_engine.llm import agi_experimentation_engine
+from core.llm import agi_experimentation_engine
 
 # Logging setup
 def setup_logging():

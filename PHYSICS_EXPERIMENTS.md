@@ -78,7 +78,7 @@ python main.py --prompt "I want to explore quantum tunneling effects"
 ### **Programmatic Usage**
 
 ```python
-from modules.decision_engine.llm import agi_experimentation_engine
+from core.llm import agi_experimentation_engine
 
 # Run any physics experiment
 result = agi_experimentation_engine(

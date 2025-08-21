@@ -3,7 +3,7 @@ import sys
 import json
 from datetime import datetime, timezone
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../episodic_memory')))
-from llm import call_llm, run_langchain_reflection
+from core.llm import call_llm, run_langchain_reflection
 from reflection_prompts import REFLECTION_PROMPT
 from reflection_db import save_reflection, load_reflections
 

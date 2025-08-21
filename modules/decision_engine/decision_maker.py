@@ -3,7 +3,7 @@ import json
 import re
 import random
 from modules.decision_engine.planner import GoalPlanner, plan_from_context
-from modules.decision_engine.llm import call_llm
+from core.llm import call_llm
 from ..agent_self_reflection.self_modification import generate_hypothesis, analyze_experiment_outcome
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

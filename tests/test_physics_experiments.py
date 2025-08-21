@@ -17,7 +17,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from core.system import AGISystem
 from database.engine import create_db_and_tables
-from modules.decision_engine.llm import agi_experimentation_engine
+from core.llm import agi_experimentation_engine
 from physics_experiment_prompts import (
     ADVANCED_PHYSICS_EXPERIMENTS, 
     DISCOVERY_PROMPTS,

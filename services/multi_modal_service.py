@@ -9,7 +9,7 @@ import asyncio
 import tempfile
 from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
-from modules.decision_engine.llm import call_gemini_image_caption, call_gemini_audio_description, call_gemini_with_function_calling
+from core.llm import call_gemini_image_caption, call_gemini_audio_description, call_gemini_with_function_calling
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +179,7 @@ class MultiModalService:
             
             # Use LLM for cross-modal analysis
             loop = asyncio.get_event_loop()
-            from modules.decision_engine.llm import safe_call_llm
+            from core.llm import safe_call_llm
             analysis = await loop.run_in_executor(
                 None,
                 safe_call_llm,

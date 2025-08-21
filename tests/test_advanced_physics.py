@@ -13,7 +13,7 @@ from datetime import datetime
 # Add modules directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from modules.decision_engine.llm import agi_experimentation_engine
+from core.llm import agi_experimentation_engine
 from physics_experiment_prompts import ADVANCED_PHYSICS_EXPERIMENTS
 
 def test_quantum_tunneling_experiment():

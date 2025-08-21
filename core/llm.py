@@ -743,6 +743,74 @@ def agi_experimentation_engine(
 
     return result
 
+
+def is_lazy_llm_response(text):
+    """
+    Detects if the LLM response is lazy, generic, or incomplete.
+    Returns True if the response is not actionable.
+    """
+    lazy_phrases = [
+        "as an ai language model",
+        "i'm unable to",
+        "i cannot",
+        "i apologize",
+        "here is a function",
+        "here's an example",
+        "please see below",
+        "unfortunately",
+        "i do not have",
+        "i don't have",
+        "i am not able",
+        "i am unable",
+        "i suggest",
+        "you can use",
+        "to do this, you can",
+        "this is a placeholder",
+        "[insert",
+        "[code block]",
+        "[python code]",
+        "[insert code here]",
+        "[insert explanation here]",
+        "[unsupported code language",
+        "[python execution error",
+        "[shell execution error",
+        "[gemini",
+        "[error",
+        "[exception",
+        "[output",
+        "[result",
+        "[python code result]:\n[python execution error",
+    ]
+    if not text:
+        return True
+    text_lower = str(text).strip().lower()
+    if not text_lower or len(text_lower) < 10:
+        return True
+    for phrase in lazy_phrases:
+        if phrase in text_lower:
+            return True
+    # If the response is just a code block marker or empty
+    if text_lower in ("```", "```"):
+        return True
+    return False
+
+
+def is_valid_code_patch(original_code, new_code):
+    """
+    Checks if the new_code is non-trivial and not just a copy of the original_code.
+    Returns True if the patch is likely meaningful.
+    """
+    if not new_code or str(new_code).strip() == "":
+        return False
+    # If the new code is identical to the original, it's not a real patch
+    if original_code is not None and str(original_code).strip() == str(new_code).strip():
+        return False
+    # If the new code is just a comment or a single line, it's likely not useful
+    lines = [l for l in str(new_code).strip().splitlines() if l.strip() and not l.strip().startswith("#")]
+    if len(lines) < 2:
+        return False
+    return True
+
 # Example usage:
 if __name__ == "__main__":
     # Uncomment the line below to test all providers

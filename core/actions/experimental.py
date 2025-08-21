@@ -1,5 +1,10 @@
 from core.actions.action import Action
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Imported only for type checking to avoid runtime circular imports
+    from core.system import AGISystem
+    from services.data_service import DataService
 
 class ProposeAndTestInventionAction(Action):
     def __init__(self, system: 'AGISystem', data_service: 'DataService'):
@@ -54,7 +59,7 @@ class ProposeAndTestInventionAction(Action):
         print(f"Action triggered: Proposing new invention for testing. Hypothesis: {hypothesis}")
 
         # Import the experimentation engine
-        from modules.decision_engine.llm import agi_experimentation_engine
+        from core.llm import agi_experimentation_engine
         import asyncio
         import logging
         

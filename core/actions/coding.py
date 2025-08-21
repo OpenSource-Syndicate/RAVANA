@@ -5,7 +5,7 @@ import subprocess
 from typing import Dict, Any, List
 from core.actions.action import Action
 from core.actions.exceptions import ActionException
-from modules.decision_engine.llm import call_llm
+from core.llm import call_llm
 
 logger = logging.getLogger(__name__)
 

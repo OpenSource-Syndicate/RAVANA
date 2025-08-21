@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import os
 import uuid
 import asyncio
-from .llm import call_llm
+from core.llm import call_llm
 import json # For storing embeddings as JSON strings
 import numpy as np
 from sentence_transformers import SentenceTransformer # For generating embeddings

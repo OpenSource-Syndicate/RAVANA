@@ -1,7 +1,7 @@
 import os
 import json
 from datetime import datetime
-from .llm import call_llm
+from core.llm import call_llm
 from .compression_prompts import COMPRESSION_PROMPT
 from .compressed_memory import save_summary, load_summaries
 
