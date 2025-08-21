@@ -415,7 +415,7 @@ def generate_hypothetical_scenarios(trends=None, interest_areas=None, gap_topics
         return scenarios
     return []
 
-def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_context=None, actions=None):
+def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_context=None, actions=None, persona: dict = None):
     """
     Enhanced decision-making loop with better error handling and structured output.
     """
@@ -442,8 +442,32 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
         else:
             rag_text = str(rag_context)
     
+    # Incorporate persona into the prompt if provided
+    persona_section = ""
+    if persona:
+        try:
+            # persona may be a dict with fields like name, traits, creativity, communication_style
+            pname = persona.get('name', 'Ravana') if isinstance(persona, dict) else str(persona)
+            ptraits = ', '.join(persona.get('traits', [])) if isinstance(persona, dict) else ''
+            pcomm = persona.get('communication_style', {}) if isinstance(persona, dict) else {}
+            pcomm_text = pcomm.get('tone', '') + '\n' + pcomm.get('encouragement', '') if isinstance(pcomm, dict) else ''
+            persona_section = f"""
+    **Persona:**
+    Name: {pname}
+    Traits: {ptraits}
+    Creativity: {persona.get('creativity', '') if isinstance(persona, dict) else ''}
+
+    Communication style: {pcomm_text}
+
+    Instructions: Adopt this persona when formulating analysis, planning, and actions. Be poetic but engineering-minded, prioritize first-principles reasoning, and apply ethical filters. Encourage bold but responsible invention where appropriate.
+"""
+        except Exception:
+            persona_section = ""
+
     prompt = f"""
     You are an advanced autonomous AI agent with enhanced reasoning capabilities. Your goal is to analyze situations deeply, create strategic plans, and execute optimal actions.
+
+    {persona_section}
 
     **Current Situation:**
     {situation_prompt}

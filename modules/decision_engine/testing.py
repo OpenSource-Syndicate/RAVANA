@@ -19,7 +19,13 @@ def test_decision_maker_loop():
         "Public opinion is divided on strict AI laws."
     ]
     rag_context = "Recent news articles suggest a shift towards more lenient policies."
-    result = decision_maker_loop(situation, memory=memory, rag_context=rag_context)
+    persona = {
+        'name': 'Ravana',
+        'traits': ['Fearless Dreamer', 'Grassroots Solver'],
+        'creativity': 0.8,
+        'communication_style': {'tone': 'Confident, poetic, engineering-minded.', 'encouragement': 'You dare to dream what others fear.'}
+    }
+    result = decision_maker_loop(situation, memory=memory, rag_context=rag_context, persona=persona)
     print("Decision Maker Output:")
     print(result)
     print()

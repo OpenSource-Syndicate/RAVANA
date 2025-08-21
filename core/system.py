@@ -17,6 +17,7 @@ from modules.emotional_intellegence.emotional_intellegence import EmotionalIntel
 from modules.curiosity_trigger.curiosity_trigger import CuriosityTrigger
 from modules.agi_experimentation_engine import AGIExperimentationEngine
 from core.config import Config
+from modules.personality.personality import Personality
 from services.data_service import DataService
 from services.knowledge_service import KnowledgeService
 from services.memory_service import MemoryService
@@ -72,6 +73,13 @@ class AGISystem:
         # Initialize multi-modal service
         self.multi_modal_service = MultiModalService()
 
+        # Initialize personality
+        self.personality = Personality(
+            name=Config.PERSONA_NAME,
+            origin=Config.PERSONA_ORIGIN,
+            creativity=Config.PERSONA_CREATIVITY
+        )
+
         # New state for multi-step plans
         self.current_plan: List[Dict] = []
         self.current_task_prompt: str = None
@@ -89,6 +97,8 @@ class AGISystem:
         self.experiment_tracker: Dict[str, int] = {}
         self.research_in_progress: Dict[str, asyncio.Task] = {}
         self.research_results: Dict[str, Any] = {}
+        # Invention tracking
+        self.invention_history = []
 
     async def _check_for_search_results(self):
         """Enhanced search result processing with better error handling."""
@@ -200,6 +210,18 @@ class AGISystem:
                 
                 self.shared_state.curiosity_topics = curiosity_topics
                 logger.info(f"Generated {len(curiosity_topics)} curiosity topics: {curiosity_topics}")
+
+                # Personality-influenced invention generation: sometimes create invention ideas
+                try:
+                    if random.random() < 0.4:  # 40% of curiosity events produce invention ideas
+                        ideas = self.personality.invent_ideas(curiosity_topics, n=3)
+                        self.shared_state.invention_ideas = ideas
+                        # Persist a short log
+                        for idea in ideas:
+                            self.invention_history.append({"idea": idea, "ts": datetime.utcnow().isoformat()})
+                        logger.info(f"Personality generated {len(ideas)} invention ideas.")
+                except Exception as e:
+                    logger.warning(f"Personality invention generation failed: {e}")
                 
                 # Occasionally trigger a full curiosity exploration
                 if random.random() < 0.3:  # 30% chance
@@ -262,6 +284,15 @@ class AGISystem:
         }
         
         learning_adaptations = await self.learning_engine.apply_learning_to_decision(decision_context)
+
+        # Let personality influence decision context
+        try:
+            persona_mods = self.personality.influence_decision(decision_context)
+            if persona_mods:
+                decision_context['persona_mods'] = persona_mods
+                logger.info(f"Applied persona modifiers to decision: {persona_mods}")
+        except Exception as e:
+            logger.debug(f"Personality influence failed: {e}")
         
         # Enhanced decision making with learning adaptations
         decision = await asyncio.to_thread(
@@ -270,7 +301,13 @@ class AGISystem:
             memory=self.shared_state.recent_memories,
             mood=self.shared_state.mood,
             actions=available_actions,
-            rag_context=getattr(self.shared_state, 'search_results', [])
+            rag_context=getattr(self.shared_state, 'search_results', []),
+            persona={
+                'name': self.personality.name,
+                'traits': self.personality.traits,
+                'creativity': self.personality.creativity,
+                'communication_style': self.personality.get_communication_style()
+            }
         )
         
         # Apply learning adaptations to decision
@@ -294,6 +331,31 @@ class AGISystem:
 
         logger.info(f"Made enhanced decision with confidence {decision.get('confidence', 0.5):.2f}: {decision.get('action', 'unknown')}")
         return decision
+
+    async def invention_task(self):
+        """Background task where the personality occasionally picks an idea to pursue and records a lightweight outcome."""
+        while not self._shutdown.is_set():
+            try:
+                # Only attempt occasionally
+                await asyncio.sleep(Config.INVENTION_INTERVAL)
+                ideas = getattr(self.shared_state, 'invention_ideas', None) or []
+                if not ideas:
+                    # generate seed ideas from recent memories or curiosity topics
+                    topics = getattr(self.shared_state, 'curiosity_topics', []) or []
+                    ideas = self.personality.invent_ideas(topics, n=2)
+
+                if ideas:
+                    chosen = self.personality.pick_idea_to_pursue(ideas)
+                    # Simulate a lightweight experiment/outcome
+                    outcome = {"success": random.random() < chosen.get('confidence', 0.5)}
+                    self.personality.record_invention_outcome(chosen.get('id'), outcome)
+                    self.invention_history.append({"idea": chosen, "outcome": outcome, "ts": datetime.utcnow().isoformat()})
+                    logger.info(f"Personality pursued invention '{chosen.get('title')}' with outcome: {outcome}")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in invention task: {e}", exc_info=True)
+        logger.info("Invention task shut down.")
 
     async def _execute_and_memorize(self, situation_prompt: str, decision: dict):
         logger.info("Executing enhanced action.")

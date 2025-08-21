@@ -33,4 +33,9 @@ class Config:
     DATA_COLLECTION_INTERVAL = int(os.environ.get("DATA_COLLECTION_INTERVAL", 3600))
     EVENT_DETECTION_INTERVAL = int(os.environ.get("EVENT_DETECTION_INTERVAL", 600))
     KNOWLEDGE_COMPRESSION_INTERVAL = int(os.environ.get("KNOWLEDGE_COMPRESSION_INTERVAL", 3600)) 
+    # Personality / Invention settings
+    PERSONA_NAME = os.environ.get("PERSONA_NAME", "Ravana")
+    PERSONA_ORIGIN = os.environ.get("PERSONA_ORIGIN", "Ancient Sri Lanka")
+    PERSONA_CREATIVITY = float(os.environ.get("PERSONA_CREATIVITY", 0.7))
+    INVENTION_INTERVAL = int(os.environ.get("INVENTION_INTERVAL", 7200))  # seconds between invention attempts
 

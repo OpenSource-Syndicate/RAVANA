@@ -3,6 +3,7 @@ import logging
 import sys
 import os
 import signal
+import io
 from pythonjsonlogger import jsonlogger
 import argparse
 
@@ -21,42 +22,29 @@ def setup_logging():
     # Overwrite the log file on each run
     if os.path.exists(log_file):
         os.remove(log_file)
+    root_logger = logging.getLogger()
+    root_logger.handlers = []  # Clear existing handlers
 
+    # Choose formatter based on config
     if Config.LOG_FORMAT.upper() == 'JSON':
         formatter = jsonlogger.JsonFormatter('%(asctime)s %(name)s %(levelname)s %(message)s')
-        
-        # Stream handler for console output
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(formatter)
-        
-        # File handler for file output
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(formatter)
-        
-        root_logger = logging.getLogger()
-        root_logger.handlers = [] # Clear existing handlers
-        root_logger.addHandler(stream_handler)
-        root_logger.addHandler(file_handler)
-        root_logger.setLevel(Config.LOG_LEVEL)
-        root_logger.propagate = False
     else:
-        # For text format, configure basicConfig with both stream and file handlers
-        root_logger = logging.getLogger()
-        root_logger.handlers = [] # Clear existing handlers
-        
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        
-        # Stream handler for console output
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(formatter)
-        
-        # File handler for file output
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(formatter)
-        
-        root_logger.addHandler(stream_handler)
-        root_logger.addHandler(file_handler)
-        root_logger.setLevel(Config.LOG_LEVEL)
+
+    # Wrap stdout to ensure UTF-8 encoding and safe error handling on Windows consoles
+    safe_stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+    stream_handler = logging.StreamHandler(stream=safe_stdout)
+    stream_handler.setFormatter(formatter)
+
+    # File handler ensures UTF-8 encoding
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setFormatter(formatter)
+
+    root_logger.addHandler(stream_handler)
+    root_logger.addHandler(file_handler)
+    root_logger.setLevel(Config.LOG_LEVEL)
+    if Config.LOG_FORMAT.upper() == 'JSON':
+        root_logger.propagate = False
 
 setup_logging()
 logger = logging.getLogger(__name__)
