@@ -30,6 +30,12 @@ from services.multi_modal_service import MultiModalService
 from database.models import Event
 from modules.decision_engine.search_result_manager import search_result_manager
 
+# Import Snake Agent state for restoration (conditionally)
+try:
+    from core.snake_agent import SnakeAgentState
+except ImportError:
+    SnakeAgentState = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,6 +86,31 @@ class AGISystem:
             origin=Config.PERSONA_ORIGIN,
             creativity=Config.PERSONA_CREATIVITY
         )
+        
+        # Initialize Snake Agent if enabled (Enhanced Version)
+        self.snake_agent = None
+        if Config.SNAKE_AGENT_ENABLED:
+            try:
+                # Try enhanced version first, fall back to original if needed
+                enhanced_mode = getattr(Config, 'SNAKE_ENHANCED_MODE', True)
+                if enhanced_mode:
+                    from core.snake_agent_enhanced import EnhancedSnakeAgent
+                    self.snake_agent = EnhancedSnakeAgent(self)
+                    logger.info("Enhanced Snake Agent initialized and ready")
+                else:
+                    from core.snake_agent import SnakeAgent
+                    self.snake_agent = SnakeAgent(self)
+                    logger.info("Standard Snake Agent initialized and ready")
+            except Exception as e:
+                logger.error(f"Failed to initialize Snake Agent: {e}")
+                # Fallback to standard version if enhanced fails
+                try:
+                    from core.snake_agent import SnakeAgent
+                    self.snake_agent = SnakeAgent(self)
+                    logger.info("Fallback to standard Snake Agent successful")
+                except Exception as fallback_error:
+                    logger.error(f"Fallback Snake Agent also failed: {fallback_error}")
+                    self.snake_agent = None
 
         # New state for multi-step plans
         self.current_plan: List[Dict] = []
@@ -94,6 +125,10 @@ class AGISystem:
         self.shutdown_coordinator.register_cleanup_handler(self._cleanup_database_session)
         self.shutdown_coordinator.register_cleanup_handler(self._cleanup_models)
         self.shutdown_coordinator.register_cleanup_handler(self._save_final_state, is_async=True)
+        
+        # Register Snake Agent cleanup if enabled
+        if self.snake_agent:
+            self.shutdown_coordinator.register_cleanup_handler(self._cleanup_snake_agent, is_async=True)
 
         # Shared state
         self.shared_state = SharedState(
@@ -194,6 +229,37 @@ class AGISystem:
         except Exception as e:
             logger.error(f"Error saving final state: {e}")
     
+    async def _cleanup_snake_agent(self):
+        """Clean up Snake Agent resources."""
+        try:
+            if self.snake_agent:
+                await self.snake_agent.stop()
+                logger.info("Snake Agent stopped and cleaned up")
+        except Exception as e:
+            logger.error(f"Error cleaning up Snake Agent: {e}")
+    
+    async def start_snake_agent(self):
+        """Start Snake Agent background operation."""
+        if self.snake_agent and Config.SNAKE_AGENT_ENABLED:
+            try:
+                logger.info("Starting Snake Agent background operation...")
+                snake_task = asyncio.create_task(self.snake_agent.start_autonomous_operation())
+                self.background_tasks.append(snake_task)
+                logger.info("Snake Agent started successfully")
+            except Exception as e:
+                logger.error(f"Failed to start Snake Agent: {e}")
+    
+    def get_snake_agent_status(self) -> Dict[str, Any]:
+        """Get Snake Agent status information."""
+        if not self.snake_agent:
+            return {"enabled": False, "status": "not_initialized"}
+        
+        return {
+            "enabled": Config.SNAKE_AGENT_ENABLED,
+            "status": "active" if self.snake_agent.running else "inactive",
+            **self.snake_agent.get_status()
+        }
+    
     async def _load_previous_state(self):
         """Load previous system state if available."""
         try:
@@ -235,6 +301,24 @@ class AGISystem:
             if "invention_history" in agi_state:
                 self.invention_history = agi_state["invention_history"]
                 logger.info(f"Restored {len(self.invention_history)} invention history entries")
+            
+            # Restore Snake Agent state
+            if "snake_agent" in agi_state and self.snake_agent and SnakeAgentState:
+                try:
+                    snake_data = agi_state["snake_agent"]
+                    if "state" in snake_data:
+                        # Restore Snake Agent state
+                        restored_state = SnakeAgentState.from_dict(snake_data["state"])
+                        self.snake_agent.state = restored_state
+                        
+                        # Restore counters
+                        self.snake_agent.analysis_count = snake_data.get("analysis_count", 0)
+                        self.snake_agent.experiment_count = snake_data.get("experiment_count", 0)
+                        self.snake_agent.communication_count = snake_data.get("communication_count", 0)
+                        
+                        logger.info(f"Restored Snake Agent state: {len(restored_state.pending_experiments)} pending experiments, {len(restored_state.communication_queue)} queued communications")
+                except Exception as e:
+                    logger.warning(f"Could not restore Snake Agent state: {e}")
             
             logger.info("✅ Previous system state restored successfully")
             
@@ -594,6 +678,10 @@ class AGISystem:
         self.background_tasks.append(asyncio.create_task(self.event_detection_task()))
         self.background_tasks.append(asyncio.create_task(self.knowledge_compression_task()))
         self.background_tasks.append(asyncio.create_task(self.memory_consolidation_task()))
+        
+        # Start Snake Agent if enabled
+        if Config.SNAKE_AGENT_ENABLED and self.snake_agent:
+            await self.start_snake_agent()
 
         while not self._shutdown.is_set():
             try:

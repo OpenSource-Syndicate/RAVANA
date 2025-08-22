@@ -341,6 +341,22 @@ class ShutdownCoordinator:
             if hasattr(self.agi_system, 'invention_history'):
                 agi_state["invention_history"] = self.agi_system.invention_history[-10:]  # Last 10
             
+            # Snake Agent state
+            if hasattr(self.agi_system, 'snake_agent') and self.agi_system.snake_agent:
+                try:
+                    snake_state = self.agi_system.snake_agent.state.to_dict()
+                    agi_state["snake_agent"] = {
+                        "state": snake_state,
+                        "running": self.agi_system.snake_agent.running,
+                        "analysis_count": getattr(self.agi_system.snake_agent, 'analysis_count', 0),
+                        "experiment_count": getattr(self.agi_system.snake_agent, 'experiment_count', 0),
+                        "communication_count": getattr(self.agi_system.snake_agent, 'communication_count', 0)
+                    }
+                    logger.info("Snake Agent state collected for persistence")
+                except Exception as e:
+                    logger.error(f"Error collecting Snake Agent state: {e}")
+                    agi_state["snake_agent"] = {"error": str(e)}
+            
             state_data["agi_system"] = agi_state
             
         except Exception as e:

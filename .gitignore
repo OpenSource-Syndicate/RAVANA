@@ -66,3 +66,6 @@ modules/knowledge_compression/compressed_memory.json
 shutdown_log.json
 shutdown_state.json
 .qoder/quests/graceful-shutdown.md
+.qoder/quests/experiment-rate-attribute.md
+.qoder/quests/snake-agent-system.md
+.qoder/quests/snake-ravana-threading-logs.md
