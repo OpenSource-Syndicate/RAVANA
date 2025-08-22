@@ -69,3 +69,10 @@ shutdown_state.json
 .qoder/quests/experiment-rate-attribute.md
 .qoder/quests/snake-agent-system.md
 .qoder/quests/snake-ravana-threading-logs.md
+.qoder/
+
+shutdown_log.json
+shutdown_state.json
+knowledge_id_map.pkl
+knowledge_index.faiss
+snake_agent_state.json

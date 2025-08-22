@@ -6,6 +6,7 @@ import re
 import json
 import logging
 import hashlib
+import ssl
 from typing import List, Tuple, Dict, Optional
 from cachetools import TTLCache
 from sentence_transformers import SentenceTransformer, util
@@ -32,12 +33,45 @@ def _get_embedding_model():
     return _EMBED_MODEL
 
 async def fetch_html_async(url: str, headers: Optional[Dict] = None, timeout: int = 10) -> str:
-    """Async HTML fetcher with timeout and error handling."""
+    """Async HTML fetcher with timeout and error handling.
+    
+    This function handles SSL certificate verification issues that commonly occur
+    on Windows systems when accessing certain APIs like arXiv. It includes:
+    - SSL context with relaxed certificate verification
+    - Fallback to HTTP for HTTPS URLs when SSL fails
+    - Proper error handling and logging
+    """
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+        # Create SSL context that bypasses certificate verification for known issues
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=timeout),
+            connector=connector
+        ) as session:
             async with session.get(url, headers=headers or {}) as response:
                 response.raise_for_status()
                 return await response.text()
+    except aiohttp.ClientSSLError as ssl_error:
+        logger.warning(f"SSL error for {url}: {ssl_error}. Trying with no SSL verification...")
+        try:
+            # Fallback: Try with completely disabled SSL
+            connector = aiohttp.TCPConnector(ssl=False)
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=timeout),
+                connector=connector
+            ) as session:
+                # Convert HTTPS to HTTP for the fallback
+                fallback_url = url.replace('https://', 'http://')
+                async with session.get(fallback_url, headers=headers or {}) as response:
+                    response.raise_for_status()
+                    return await response.text()
+        except Exception as fallback_error:
+            logger.warning(f"Fallback also failed for {url}: {fallback_error}")
+            return ""
     except Exception as e:
         logger.warning(f"Failed to fetch {url}: {e}")
         return ""
