@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, File, UploadFile, Form
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import uvicorn # For running the server
@@ -15,6 +15,22 @@ import logging
 import chromadb
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
+import tempfile
+from pathlib import Path
+
+# Import new multi-modal components
+try:
+    from .models import (
+        MemoryRecord as NewMemoryRecord, ContentType, MemoryType, 
+        SearchRequest, SearchResponse, ConversationRequest as NewConversationRequest,
+        MemoriesList as NewMemoriesList, ProcessingResult, BatchProcessRequest,
+        BatchProcessResult, CrossModalSearchRequest, HealthCheckResponse
+    )
+    from .multi_modal_service import MultiModalMemoryService
+    MULTIMODAL_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"Multi-modal components not available: {e}")
+    MULTIMODAL_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -140,10 +156,21 @@ chroma_collection = chroma_client.get_or_create_collection(
     embedding_function=sentence_transformer_ef
 )
 
+# Multi-modal service initialization
+multimodal_service: Optional[MultiModalMemoryService] = None
+
+def get_database_url() -> str:
+    """Get PostgreSQL database URL from environment or use default."""
+    return os.getenv(
+        "POSTGRES_URL", 
+        "postgresql://postgres:password@localhost:5432/ravana_memory"
+    )
+
 @app.on_event("startup")
 async def startup_event():
     """Actions to perform on application startup."""
-    global embedding_model
+    global embedding_model, multimodal_service
+    
     # The embedding model might be passed from the main app for consistency
     embedding_model = app.embedding_model if hasattr(app, "embedding_model") else None
     if not embedding_model:
@@ -152,7 +179,24 @@ async def startup_event():
         # For integrated use, it's passed from main.py
     else:
         logging.info("Embedding model loaded from main application.")
+    
     logging.info("ChromaDB client initialized and collection is ready.")
+    
+    # Initialize multi-modal service if available
+    if MULTIMODAL_AVAILABLE:
+        try:
+            database_url = get_database_url()
+            multimodal_service = MultiModalMemoryService(
+                database_url=database_url,
+                text_model_name="all-MiniLM-L6-v2"
+            )
+            await multimodal_service.initialize()
+            logging.info("Multi-modal memory service initialized successfully")
+        except Exception as e:
+            logging.warning(f"Multi-modal service initialization failed: {e}")
+            multimodal_service = None
+    else:
+        logging.info("Multi-modal components not available, using legacy mode")
 
 def get_embedding(text):
     """Generates an embedding for the given text using the globally set model."""
@@ -387,14 +431,217 @@ async def health_check():
     try:
         # Check ChromaDB connection
         count = chroma_collection.count()
-        return StatusResponse(status="ok", message="Service is healthy.", details={"memory_count": count})
+        
+        # Check multi-modal service if available
+        multimodal_status = {}
+        if multimodal_service:
+            multimodal_status = await multimodal_service.health_check()
+        
+        return StatusResponse(
+            status="ok", 
+            message="Service is healthy.", 
+            details={
+                "chroma_memory_count": count,
+                "multimodal_service": multimodal_status
+            }
+        )
     except Exception as e:
         logging.error(f"Health check failed: {e}", exc_info=True)
         raise HTTPException(status_code=503, detail=f"Service unavailable: {e}")
+
+# ===== NEW MULTI-MODAL ENDPOINTS =====
+
+@app.post("/memories/audio/", response_model=ProcessingResult, tags=["Multi-Modal"])
+async def process_audio_memory(
+    audio_file: UploadFile = File(...),
+    context: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None)
+):
+    """Process audio file with Whisper transcription and store as memory."""
+    if not multimodal_service:
+        raise HTTPException(status_code=501, detail="Multi-modal service not available")
+    
+    try:
+        # Save uploaded file temporarily
+        temp_dir = Path(tempfile.gettempdir()) / "ravana_audio"
+        temp_dir.mkdir(exist_ok=True)
+        
+        file_path = temp_dir / f"{uuid.uuid4()}_{audio_file.filename}"
+        
+        with open(file_path, "wb") as f:
+            content = await audio_file.read()
+            f.write(content)
+        
+        # Parse tags
+        tag_list = [tag.strip() for tag in tags.split(",")] if tags else []
+        
+        # Process audio
+        memory_record = await multimodal_service.process_audio_memory(
+            audio_path=str(file_path),
+            context=context,
+            tags=tag_list
+        )
+        
+        # Clean up temp file
+        file_path.unlink(missing_ok=True)
+        
+        return ProcessingResult(
+            memory_record=memory_record,
+            processing_time_ms=0,  # Would be calculated
+            success=True
+        )
+        
+    except Exception as e:
+        logging.error(f"Audio processing failed: {e}")
+        # Clean up temp file on error
+        if 'file_path' in locals():
+            file_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/memories/image/", response_model=ProcessingResult, tags=["Multi-Modal"])
+async def process_image_memory(
+    image_file: UploadFile = File(...),
+    description: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None)
+):
+    """Process image file and store as memory."""
+    if not multimodal_service:
+        raise HTTPException(status_code=501, detail="Multi-modal service not available")
+    
+    try:
+        # Save uploaded file temporarily
+        temp_dir = Path(tempfile.gettempdir()) / "ravana_images"
+        temp_dir.mkdir(exist_ok=True)
+        
+        file_path = temp_dir / f"{uuid.uuid4()}_{image_file.filename}"
+        
+        with open(file_path, "wb") as f:
+            content = await image_file.read()
+            f.write(content)
+        
+        # Parse tags
+        tag_list = [tag.strip() for tag in tags.split(",")] if tags else []
+        
+        # Process image
+        memory_record = await multimodal_service.process_image_memory(
+            image_path=str(file_path),
+            description=description,
+            tags=tag_list
+        )
+        
+        # Clean up temp file
+        file_path.unlink(missing_ok=True)
+        
+        return ProcessingResult(
+            memory_record=memory_record,
+            processing_time_ms=0,  # Would be calculated
+            success=True
+        )
+        
+    except Exception as e:
+        logging.error(f"Image processing failed: {e}")
+        # Clean up temp file on error
+        if 'file_path' in locals():
+            file_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/search/advanced/", response_model=SearchResponse, tags=["Search"])
+async def advanced_search(request: SearchRequest):
+    """Perform advanced search with multiple modes."""
+    if not multimodal_service:
+        raise HTTPException(status_code=501, detail="Multi-modal service not available")
+    
+    try:
+        return await multimodal_service.search_memories(request)
+    except Exception as e:
+        logging.error(f"Advanced search failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/search/cross-modal/", response_model=List[NewMemoryRecord], tags=["Search"])
+async def cross_modal_search(request: CrossModalSearchRequest):
+    """Perform cross-modal search across different content types."""
+    if not multimodal_service:
+        raise HTTPException(status_code=501, detail="Multi-modal service not available")
+    
+    try:
+        search_results = await multimodal_service.search_engine.cross_modal_search(request)
+        return [result.memory_record for result in search_results]
+    except Exception as e:
+        logging.error(f"Cross-modal search failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/memories/{memory_id}/similar", response_model=List[NewMemoryRecord], tags=["Search"])
+async def find_similar_memories(
+    memory_id: str,
+    limit: int = 10,
+    similarity_threshold: float = 0.7
+):
+    """Find memories similar to a given memory."""
+    if not multimodal_service:
+        raise HTTPException(status_code=501, detail="Multi-modal service not available")
+    
+    try:
+        memory_uuid = uuid.UUID(memory_id)
+        similar_memories = await multimodal_service.find_similar_memories(
+            memory_uuid, limit, similarity_threshold
+        )
+        return similar_memories
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid memory ID format")
+    except Exception as e:
+        logging.error(f"Similar memories search failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/batch/process/", response_model=BatchProcessResult, tags=["Batch"])
+async def batch_process_files(request: BatchProcessRequest):
+    """Process multiple files in batch."""
+    if not multimodal_service:
+        raise HTTPException(status_code=501, detail="Multi-modal service not available")
+    
+    try:
+        return await multimodal_service.batch_process_files(request)
+    except Exception as e:
+        logging.error(f"Batch processing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/statistics/", response_model=Dict[str, Any], tags=["Statistics"])
+async def get_memory_statistics():
+    """Get comprehensive memory statistics."""
+    try:
+        # Get ChromaDB stats
+        chroma_count = chroma_collection.count()
+        
+        stats = {
+            "chroma_memory_count": chroma_count,
+            "service_mode": "legacy" if not multimodal_service else "multimodal"
+        }
+        
+        # Get multi-modal stats if available
+        if multimodal_service:
+            multimodal_stats = await multimodal_service.get_memory_statistics()
+            stats["multimodal_stats"] = multimodal_stats
+        
+        return stats
+        
+    except Exception as e:
+        logging.error(f"Statistics retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Actions to perform on application shutdown."""
+    if multimodal_service:
+        await multimodal_service.close()
+        logging.info("Multi-modal service closed")
 
 # This allows running the memory service independently for debugging or as a microservice
 if __name__ == "__main__":
     # For standalone execution, we need to load a model.
     # In the integrated AGI, the model is passed via app state.
     app.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+    
+    # Set up environment for multi-modal service
+    if not os.getenv("POSTGRES_URL"):
+        logging.warning("POSTGRES_URL not set, multi-modal features may not work")
+    
     uvicorn.run(app, host="0.0.0.0", port=8001)

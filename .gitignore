@@ -62,3 +62,4 @@ pytest_cache/
 .pyright/
 
 modules/knowledge_compression/compressed_memory.json
+.qoder/quests/multi-model-memory-system.md
