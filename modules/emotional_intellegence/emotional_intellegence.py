@@ -61,6 +61,16 @@ class EmotionalIntelligence:
 
     def get_mood_vector(self) -> Dict[str, float]:
         return dict(self.mood_vector)
+    
+    def set_mood_vector(self, mood_vector: Dict[str, float]):
+        """Set the mood vector for state recovery."""
+        try:
+            for mood, value in mood_vector.items():
+                if mood in self.mood_vector:
+                    self.mood_vector[mood] = max(0.0, float(value))
+            logger.info("Mood vector restored from previous state")
+        except Exception as e:
+            logger.error(f"Error setting mood vector: {e}")
 
     def influence_behavior(self) -> dict:
         mood = self.get_dominant_mood()

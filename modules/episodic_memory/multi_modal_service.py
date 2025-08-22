@@ -22,6 +22,7 @@ from .postgresql_store import PostgreSQLStore
 from .embedding_service import EmbeddingService
 from .whisper_processor import WhisperAudioProcessor
 from .search_engine import AdvancedSearchEngine
+from core.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -81,14 +82,47 @@ class MultiModalMemoryService:
             raise
     
     async def close(self):
-        """Close all service components."""
+        """Close all service components gracefully."""
+        logger.info("Initiating MultiModalMemoryService shutdown...")
+        
         try:
-            await self.postgres_store.close()
-            self.embedding_service.cleanup()
-            self.whisper_processor.cleanup()
-            logger.info("MultiModalMemoryService closed")
+            # Close PostgreSQL store first (database connections)
+            if hasattr(self, 'postgres_store'):
+                await asyncio.wait_for(
+                    self.postgres_store.close(), 
+                    timeout=Config.POSTGRES_CONNECTION_TIMEOUT
+                )
+                logger.info("PostgreSQL store closed")
+        except asyncio.TimeoutError:
+            logger.warning("PostgreSQL store close exceeded timeout")
         except Exception as e:
-            logger.error(f"Service cleanup failed: {e}")
+            logger.error(f"Error closing PostgreSQL store: {e}")
+        
+        try:
+            # Clean up embedding service
+            if hasattr(self, 'embedding_service'):
+                self.embedding_service.cleanup()
+                logger.info("Embedding service cleaned up")
+        except Exception as e:
+            logger.error(f"Error cleaning up embedding service: {e}")
+        
+        try:
+            # Clean up Whisper processor
+            if hasattr(self, 'whisper_processor'):
+                self.whisper_processor.cleanup()
+                logger.info("Whisper processor cleaned up")
+        except Exception as e:
+            logger.error(f"Error cleaning up whisper processor: {e}")
+        
+        try:
+            # Clean up temporary files if enabled
+            if Config.TEMP_FILE_CLEANUP_ENABLED:
+                await self._cleanup_temp_files()
+        except Exception as e:
+            logger.error(f"Error cleaning up temp files: {e}")
+        
+        self.initialized = False
+        logger.info("MultiModalMemoryService shutdown completed")
     
     async def process_text_memory(self, 
                                 text: str,
@@ -588,3 +622,36 @@ class MultiModalMemoryService:
                 "error": str(e),
                 "initialized": self.initialized
             }
+    
+    async def _cleanup_temp_files(self):
+        """Clean up temporary files created during processing."""
+        try:
+            import tempfile
+            temp_dirs = [
+                Path(tempfile.gettempdir()) / "ravana_audio",
+                Path(tempfile.gettempdir()) / "ravana_images"
+            ]
+            
+            for temp_dir in temp_dirs:
+                if temp_dir.exists():
+                    file_count = 0
+                    for file_path in temp_dir.iterdir():
+                        try:
+                            if file_path.is_file():
+                                file_path.unlink()
+                                file_count += 1
+                        except Exception as e:
+                            logger.warning(f"Could not remove temp file {file_path}: {e}")
+                    
+                    if file_count > 0:
+                        logger.info(f"Cleaned up {file_count} temporary files from {temp_dir}")
+                    
+                    # Try to remove empty directory
+                    try:
+                        if not any(temp_dir.iterdir()):
+                            temp_dir.rmdir()
+                    except OSError:
+                        pass  # Directory not empty or already removed
+                        
+        except Exception as e:
+            logger.error(f"Error during temp file cleanup: {e}")

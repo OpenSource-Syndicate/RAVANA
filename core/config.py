@@ -39,3 +39,21 @@ class Config:
     PERSONA_CREATIVITY = float(os.environ.get("PERSONA_CREATIVITY", 0.7))
     INVENTION_INTERVAL = int(os.environ.get("INVENTION_INTERVAL", 7200))  # seconds between invention attempts
 
+    # Graceful Shutdown Configuration
+    SHUTDOWN_TIMEOUT = int(os.environ.get("SHUTDOWN_TIMEOUT", 30))  # seconds
+    GRACEFUL_SHUTDOWN_ENABLED = bool(os.environ.get("GRACEFUL_SHUTDOWN_ENABLED", "True").lower() in ["true", "1", "yes"])
+    STATE_PERSISTENCE_ENABLED = bool(os.environ.get("STATE_PERSISTENCE_ENABLED", "True").lower() in ["true", "1", "yes"])
+    SHUTDOWN_STATE_FILE = os.environ.get("SHUTDOWN_STATE_FILE", "shutdown_state.json")
+    FORCE_SHUTDOWN_AFTER = int(os.environ.get("FORCE_SHUTDOWN_AFTER", 60))  # seconds
+    
+    # Memory Service Shutdown Configuration
+    MEMORY_SERVICE_SHUTDOWN_TIMEOUT = int(os.environ.get("MEMORY_SERVICE_SHUTDOWN_TIMEOUT", 15))
+    POSTGRES_CONNECTION_TIMEOUT = int(os.environ.get("POSTGRES_CONNECTION_TIMEOUT", 10))
+    CHROMADB_PERSIST_ON_SHUTDOWN = bool(os.environ.get("CHROMADB_PERSIST_ON_SHUTDOWN", "True").lower() in ["true", "1", "yes"])
+    TEMP_FILE_CLEANUP_ENABLED = bool(os.environ.get("TEMP_FILE_CLEANUP_ENABLED", "True").lower() in ["true", "1", "yes"])
+    
+    # Resource Cleanup Configuration
+    ACTION_CACHE_PERSIST = bool(os.environ.get("ACTION_CACHE_PERSIST", "True").lower() in ["true", "1", "yes"])
+    RESOURCE_CLEANUP_TIMEOUT = int(os.environ.get("RESOURCE_CLEANUP_TIMEOUT", 10))
+    DATABASE_CLEANUP_TIMEOUT = int(os.environ.get("DATABASE_CLEANUP_TIMEOUT", 15))
+

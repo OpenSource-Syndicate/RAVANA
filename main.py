@@ -6,6 +6,9 @@ import signal
 import io
 from pythonjsonlogger import jsonlogger
 import argparse
+import platform
+import threading
+from typing import Optional
 
 # Add modules directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -48,6 +51,81 @@ def setup_logging():
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
+# Global shutdown event for cross-platform signal handling
+shutdown_event = asyncio.Event()
+agi_system_instance: Optional[AGISystem] = None
+
+
+def setup_signal_handlers():
+    """Set up cross-platform signal handlers for graceful shutdown."""
+    try:
+        if platform.system() == "Windows":
+            # Windows signal handling
+            import signal
+            
+            def windows_signal_handler(signum, frame):
+                logger.info(f"🛑 Received signal {signum} on Windows")
+                if agi_system_instance:
+                    # Use thread to call async shutdown
+                    threading.Thread(
+                        target=lambda: asyncio.run(agi_system_instance.stop("signal")),
+                        daemon=True
+                    ).start()
+                shutdown_event.set()
+            
+            signal.signal(signal.SIGINT, windows_signal_handler)
+            signal.signal(signal.SIGTERM, windows_signal_handler)
+            
+            # Windows-specific: Handle console control events
+            try:
+                import win32api
+                def console_ctrl_handler(ctrl_type):
+                    if ctrl_type in (win32api.CTRL_C_EVENT, win32api.CTRL_BREAK_EVENT, 
+                                   win32api.CTRL_CLOSE_EVENT, win32api.CTRL_SHUTDOWN_EVENT):
+                        logger.info(f"🛑 Received Windows console control event: {ctrl_type}")
+                        if agi_system_instance:
+                            threading.Thread(
+                                target=lambda: asyncio.run(agi_system_instance.stop("console_event")),
+                                daemon=True
+                            ).start()
+                        shutdown_event.set()
+                        return True
+                    return False
+                
+                win32api.SetConsoleCtrlHandler(console_ctrl_handler, True)
+                logger.info("✅ Windows console control handler registered")
+                
+            except ImportError:
+                logger.info("ℹ️  pywin32 not available, using basic Windows signal handling")
+            
+            logger.info("✅ Windows signal handlers configured")
+            
+        else:
+            # POSIX signal handling (Linux, macOS, etc.)
+            def posix_signal_handler():
+                logger.info("🛑 Received shutdown signal on POSIX system")
+                if agi_system_instance:
+                    asyncio.create_task(agi_system_instance.stop("signal"))
+                shutdown_event.set()
+            
+            # Get current event loop
+            loop = asyncio.get_event_loop()
+            
+            # Add signal handlers to the event loop
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(sig, posix_signal_handler)
+            
+            # Additional POSIX signals
+            try:
+                loop.add_signal_handler(signal.SIGHUP, posix_signal_handler)
+                logger.info("✅ POSIX signal handlers configured (SIGINT, SIGTERM, SIGHUP)")
+            except (AttributeError, NotImplementedError):
+                logger.info("✅ POSIX signal handlers configured (SIGINT, SIGTERM)")
+    
+    except Exception as e:
+        logger.error(f"❌ Error setting up signal handlers: {e}")
+        logger.info("⚠️  Continuing without enhanced signal handling")
 
 async def run_physics_experiment(agi_system, experiment_name):
     """Run a specific physics experiment through the AGI system."""
@@ -145,51 +223,198 @@ async def run_experiment_tests(agi_system):
     logger.info("All experimentation tests completed")
 
 async def main():
-    """Main function to run the AGI system."""
+    """Main function to run the AGI system with enhanced shutdown handling."""
+    global agi_system_instance
+    
     parser = argparse.ArgumentParser(description="Ravana AGI")
     parser.add_argument("--prompt", type=str, help="Run the AGI with a single prompt and then exit.")
     parser.add_argument("--physics-experiment", type=str, help="Run a specific physics experiment by name.")
     parser.add_argument("--discovery-mode", action="store_true", help="Run in discovery mode to explore novel physics concepts.")
     parser.add_argument("--test-experiments", action="store_true", help="Run physics experimentation test suite.")
+    parser.add_argument("--skip-state-recovery", action="store_true", help="Skip loading previous state on startup.")
     args = parser.parse_args()
 
-    logger.info("Starting Ravana AGI...")
+    logger.info("🚀 Starting Ravana AGI System...")
+    logger.info(f"💻 Platform: {platform.system()} {platform.release()}")
+    logger.info(f"🐍 Python: {sys.version}")
     
     # Create database and tables
+    logger.info("🗄 Initializing database...")
     create_db_and_tables()
 
     # Initialize the AGI system
-    agi_system = AGISystem(engine)
+    logger.info("🧠 Initializing AGI system...")
+    agi_system_instance = AGISystem(engine)
     
-    # Handle graceful shutdown
-    loop = asyncio.get_event_loop()
+    # Set up signal handlers after AGI system is initialized
+    setup_signal_handlers()
     
-    # Add signal handlers for POSIX-based systems
-    if os.name != 'nt':
-        loop.add_signal_handler(signal.SIGINT, lambda: asyncio.create_task(agi_system.stop()))
-        loop.add_signal_handler(signal.SIGTERM, lambda: asyncio.create_task(agi_system.stop()))
+    # Log startup configuration
+    from core.config import Config
+    logger.info(f"⚙️  Graceful shutdown: {'enabled' if Config.GRACEFUL_SHUTDOWN_ENABLED else 'disabled'}")
+    logger.info(f"💾 State persistence: {'enabled' if Config.STATE_PERSISTENCE_ENABLED else 'disabled'}")
+    logger.info(f"⏱️  Shutdown timeout: {Config.SHUTDOWN_TIMEOUT}s")
     
     try:
+        # Run the appropriate mode
         if args.physics_experiment:
-            await run_physics_experiment(agi_system, args.physics_experiment)
+            logger.info(f"🔬 Running physics experiment: {args.physics_experiment}")
+            await run_physics_experiment(agi_system_instance, args.physics_experiment)
+            
         elif args.discovery_mode:
-            await run_discovery_mode(agi_system)
+            logger.info("🔍 Running in discovery mode")
+            await run_discovery_mode(agi_system_instance)
+            
         elif args.test_experiments:
-            await run_experiment_tests(agi_system)
+            logger.info("🧪 Running physics experimentation test suite")
+            await run_experiment_tests(agi_system_instance)
+            
         elif args.prompt:
-            await agi_system.run_single_task(args.prompt)
+            logger.info(f"📝 Running single task: {args.prompt[:100]}...")
+            await run_single_task_with_shutdown(agi_system_instance, args.prompt)
+            
         else:
-            await agi_system.run_autonomous_loop()
-    except (KeyboardInterrupt, asyncio.CancelledError):
-        logger.info("Main task interrupted or cancelled.")
+            logger.info("🔄 Starting autonomous loop")
+            await run_autonomous_with_shutdown(agi_system_instance)
+            
+    except KeyboardInterrupt:
+        logger.info("⚡ Keyboard interrupt received")
+        await shutdown_agi_system(agi_system_instance, "keyboard_interrupt")
+        
+    except asyncio.CancelledError:
+        logger.info("⚡ Async task cancelled")
+        await shutdown_agi_system(agi_system_instance, "task_cancelled")
+        
+    except Exception as e:
+        logger.error(f"❌ Critical error in main: {e}", exc_info=True)
+        await shutdown_agi_system(agi_system_instance, "critical_error")
+        raise
+        
     finally:
-        logger.info("Shutting down...")
-        if not agi_system._shutdown.is_set():
-            await agi_system.stop()
-        logger.info("Shutdown complete.")
+        logger.info("📋 Final cleanup in main()")
+        if agi_system_instance and not agi_system_instance._shutdown.is_set():
+            try:
+                await shutdown_agi_system(agi_system_instance, "finally_block")
+            except Exception as e:
+                logger.error(f"Error in final cleanup: {e}")
+        
+        logger.info("✅ Ravana AGI shutdown sequence completed")
+
+
+async def run_single_task_with_shutdown(agi_system: AGISystem, prompt: str):
+    """Run a single task with shutdown monitoring."""
+    try:
+        # Create a task for the single task execution
+        task = asyncio.create_task(agi_system.run_single_task(prompt))
+        
+        # Wait for either task completion or shutdown signal
+        done, pending = await asyncio.wait(
+            [task, asyncio.create_task(shutdown_event.wait())],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+        
+        # Cancel pending tasks
+        for pending_task in pending:
+            pending_task.cancel()
+        
+        # Check if shutdown was requested
+        if shutdown_event.is_set():
+            logger.info("🛑 Shutdown requested during single task execution")
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        
+    except Exception as e:
+        logger.error(f"Error in single task execution: {e}")
+        raise
+
+
+async def run_autonomous_with_shutdown(agi_system: AGISystem):
+    """Run autonomous loop with shutdown monitoring."""
+    try:
+        # Create a task for the autonomous loop
+        loop_task = asyncio.create_task(agi_system.run_autonomous_loop())
+        
+        # Wait for either loop completion or shutdown signal
+        done, pending = await asyncio.wait(
+            [loop_task, asyncio.create_task(shutdown_event.wait())],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+        
+        # Cancel pending tasks
+        for pending_task in pending:
+            pending_task.cancel()
+        
+        # Check if shutdown was requested
+        if shutdown_event.is_set():
+            logger.info("🛑 Shutdown requested during autonomous loop")
+            # The loop should already be stopping due to the shutdown event being set
+            try:
+                await asyncio.wait_for(loop_task, timeout=Config.SHUTDOWN_TIMEOUT)
+            except asyncio.TimeoutError:
+                logger.warning("⚠️  Autonomous loop did not stop within timeout")
+                loop_task.cancel()
+                try:
+                    await loop_task
+                except asyncio.CancelledError:
+                    pass
+        
+    except Exception as e:
+        logger.error(f"Error in autonomous loop execution: {e}")
+        raise
+
+
+async def shutdown_agi_system(agi_system: AGISystem, reason: str):
+    """Shutdown the AGI system gracefully."""
+    if not agi_system:
+        logger.warning("No AGI system instance to shutdown")
+        return
+    
+    try:
+        logger.info(f"🛑 Initiating AGI system shutdown - Reason: {reason}")
+        
+        # Check if graceful shutdown is enabled
+        from core.config import Config
+        if Config.GRACEFUL_SHUTDOWN_ENABLED:
+            await agi_system.stop(reason)
+        else:
+            logger.info("⚡ Graceful shutdown disabled, performing basic shutdown")
+            agi_system._shutdown.set()
+            
+            # Cancel background tasks
+            for task in agi_system.background_tasks:
+                task.cancel()
+            
+            # Wait briefly for tasks to complete
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*agi_system.background_tasks, return_exceptions=True),
+                    timeout=5
+                )
+            except asyncio.TimeoutError:
+                logger.warning("Some background tasks did not complete within timeout")
+            
+            # Close database session
+            if hasattr(agi_system, 'session'):
+                agi_system.session.close()
+        
+        logger.info("✅ AGI system shutdown completed")
+        
+    except Exception as e:
+        logger.error(f"❌ Error during AGI system shutdown: {e}", exc_info=True)
 
 if __name__ == "__main__":
     try:
+        logger.info("🚀 Ravana AGI System starting up...")
         asyncio.run(main())
-    except SystemExit:
-        logger.info("Ravana AGI stopped.")
+    except SystemExit as e:
+        logger.info(f"📊 System exit requested: {e}")
+    except KeyboardInterrupt:
+        logger.info("⚡ Process interrupted by user")
+    except Exception as e:
+        logger.critical(f"❌ Critical startup error: {e}", exc_info=True)
+        sys.exit(1)
+    finally:
+        logger.info("👋 Ravana AGI process terminated.")

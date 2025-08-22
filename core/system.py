@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 from datetime import datetime, timedelta
 
 from core.llm import decision_maker_loop
+from core.shutdown_coordinator import ShutdownCoordinator, load_previous_state, cleanup_state_file
 from modules.reflection_module import ReflectionModule
 from modules.experimentation_module import ExperimentationModule
 from modules.situation_generator.situation_generator import SituationGenerator
@@ -87,6 +88,12 @@ class AGISystem:
         # For graceful shutdown
         self._shutdown = asyncio.Event()
         self.background_tasks = []
+        self.shutdown_coordinator = ShutdownCoordinator(self)
+        
+        # Register cleanup handlers
+        self.shutdown_coordinator.register_cleanup_handler(self._cleanup_database_session)
+        self.shutdown_coordinator.register_cleanup_handler(self._cleanup_models)
+        self.shutdown_coordinator.register_cleanup_handler(self._save_final_state, is_async=True)
 
         # Shared state
         self.shared_state = SharedState(
@@ -99,6 +106,9 @@ class AGISystem:
         self.research_results: Dict[str, Any] = {}
         # Invention tracking
         self.invention_history = []
+        
+        # Load previous state if available
+        asyncio.create_task(self._load_previous_state())
 
     async def _check_for_search_results(self):
         """Enhanced search result processing with better error handling."""
@@ -144,22 +154,96 @@ class AGISystem:
         except Exception as e:
             logger.error(f"Error in search result processing: {e}", exc_info=True)
 
-    async def stop(self):
-        """Gracefully stops the AGI system and its background tasks."""
+    async def stop(self, reason: str = "manual"):
+        """Gracefully stops the AGI system using the shutdown coordinator."""
         if self._shutdown.is_set():
+            logger.warning("Stop already called, ignoring duplicate request")
             return
             
-        logger.info("Initiating graceful shutdown...")
-        self._shutdown.set()
-
-        logger.info(f"Cancelling {len(self.background_tasks)} background tasks...")
-        for task in self.background_tasks:
-            task.cancel()
-        
-        await asyncio.gather(*self.background_tasks, return_exceptions=True)
-        
-        logger.info("All background tasks stopped.")
-        self.session.close()
+        logger.info(f"AGI System stop requested - Reason: {reason}")
+        await self.shutdown_coordinator.initiate_shutdown(reason)
+    
+    def _cleanup_database_session(self):
+        """Clean up database session."""
+        try:
+            if hasattr(self, 'session') and self.session:
+                self.session.close()
+                logger.info("Database session closed")
+        except Exception as e:
+            logger.error(f"Error closing database session: {e}")
+    
+    def _cleanup_models(self):
+        """Clean up loaded models and free memory."""
+        try:
+            # Clear model references to help with memory cleanup
+            if hasattr(self, 'embedding_model'):
+                del self.embedding_model
+            if hasattr(self, 'sentiment_classifier'):
+                del self.sentiment_classifier
+            logger.info("Model references cleared")
+        except Exception as e:
+            logger.error(f"Error cleaning up models: {e}")
+    
+    async def _save_final_state(self):
+        """Save final system state before shutdown."""
+        try:
+            if Config.STATE_PERSISTENCE_ENABLED:
+                # This is handled by the shutdown coordinator
+                # but we can add any AGI-specific state saving here
+                logger.info("Final state saving handled by shutdown coordinator")
+        except Exception as e:
+            logger.error(f"Error saving final state: {e}")
+    
+    async def _load_previous_state(self):
+        """Load previous system state if available."""
+        try:
+            previous_state = await load_previous_state()
+            if not previous_state:
+                logger.info("No previous state found, starting fresh")
+                return
+            
+            logger.info("Attempting to restore previous system state...")
+            
+            # Extract AGI system state
+            agi_state = previous_state.get("agi_system", {})
+            
+            # Restore mood if available
+            if "mood" in agi_state and hasattr(self, 'emotional_intelligence'):
+                try:
+                    self.emotional_intelligence.set_mood_vector(agi_state["mood"])
+                    logger.info("Restored previous mood state")
+                except Exception as e:
+                    logger.warning(f"Could not restore mood state: {e}")
+            
+            # Restore current plans
+            if "current_plan" in agi_state:
+                self.current_plan = agi_state["current_plan"]
+                self.current_task_prompt = agi_state.get("current_task_prompt")
+                if self.current_plan:
+                    logger.info(f"Restored plan with {len(self.current_plan)} remaining steps")
+            
+            # Restore shared state
+            if "shared_state" in agi_state and hasattr(self, 'shared_state'):
+                shared_data = agi_state["shared_state"]
+                if "current_task" in shared_data:
+                    self.shared_state.current_task = shared_data["current_task"]
+                if "current_situation_id" in shared_data:
+                    self.shared_state.current_situation_id = shared_data["current_situation_id"]
+                logger.info("Restored shared state")
+            
+            # Restore invention history
+            if "invention_history" in agi_state:
+                self.invention_history = agi_state["invention_history"]
+                logger.info(f"Restored {len(self.invention_history)} invention history entries")
+            
+            logger.info("✅ Previous system state restored successfully")
+            
+            # Clean up the state file after successful recovery
+            cleanup_state_file()
+            
+        except Exception as e:
+            logger.error(f"Error loading previous state: {e}")
+            logger.info("Continuing with fresh initialization")
 
     async def _memorize_interaction(self, situation_prompt: str, decision: dict, action_output: Any):
         """Extracts and saves memories from an interaction."""

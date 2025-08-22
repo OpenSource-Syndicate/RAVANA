@@ -63,3 +63,6 @@ pytest_cache/
 
 modules/knowledge_compression/compressed_memory.json
 .qoder/quests/multi-model-memory-system.md
+shutdown_log.json
+shutdown_state.json
+.qoder/quests/graceful-shutdown.md

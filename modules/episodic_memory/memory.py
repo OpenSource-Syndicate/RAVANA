@@ -8,6 +8,7 @@ import os
 import uuid
 import asyncio
 from core.llm import call_llm
+from core.config import Config
 import json # For storing embeddings as JSON strings
 import numpy as np
 from sentence_transformers import SentenceTransformer # For generating embeddings
@@ -630,9 +631,82 @@ async def get_memory_statistics():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Actions to perform on application shutdown."""
-    if multimodal_service:
-        await multimodal_service.close()
-        logging.info("Multi-modal service closed")
+    global multimodal_service, chroma_client, chroma_collection
+    
+    logger.info("📋 FastAPI Memory Service shutdown initiated...")
+    
+    try:
+        # Close multi-modal service if available
+        if multimodal_service:
+            logger.info("Closing multi-modal memory service...")
+            await asyncio.wait_for(
+                multimodal_service.close(),
+                timeout=Config.MEMORY_SERVICE_SHUTDOWN_TIMEOUT
+            )
+            logger.info("Multi-modal service closed successfully")
+            multimodal_service = None
+    except asyncio.TimeoutError:
+        logger.warning("Multi-modal service shutdown exceeded timeout")
+    except Exception as e:
+        logger.error(f"Error closing multi-modal service: {e}")
+    
+    try:
+        # Persist ChromaDB if enabled
+        if Config.CHROMADB_PERSIST_ON_SHUTDOWN and chroma_collection:
+            logger.info("Persisting ChromaDB collections...")
+            # ChromaDB automatically persists with persistent client
+            # But we can ensure any pending operations are completed
+            memory_count = chroma_collection.count()
+            logger.info(f"ChromaDB persistence confirmed - {memory_count} memories stored")
+    except Exception as e:
+        logger.error(f"Error persisting ChromaDB: {e}")
+    
+    try:
+        # Clean up temporary files if enabled
+        if Config.TEMP_FILE_CLEANUP_ENABLED:
+            logger.info("Cleaning up temporary files...")
+            await _cleanup_temp_files()
+    except Exception as e:
+        logger.error(f"Error cleaning up temp files: {e}")
+    
+    logger.info("✅ FastAPI Memory Service shutdown completed")
+
+
+async def _cleanup_temp_files():
+    """Clean up temporary files created by the memory service."""
+    try:
+        temp_dirs = [
+            Path(tempfile.gettempdir()) / "ravana_audio",
+            Path(tempfile.gettempdir()) / "ravana_images"
+        ]
+        
+        total_cleaned = 0
+        for temp_dir in temp_dirs:
+            if temp_dir.exists():
+                file_count = 0
+                for file_path in temp_dir.iterdir():
+                    try:
+                        if file_path.is_file():
+                            file_path.unlink()
+                            file_count += 1
+                    except Exception as e:
+                        logger.warning(f"Could not remove temp file {file_path}: {e}")
+                
+                total_cleaned += file_count
+                
+                # Try to remove empty directory
+                try:
+                    if not any(temp_dir.iterdir()):
+                        temp_dir.rmdir()
+                        logger.info(f"Removed empty temp directory: {temp_dir}")
+                except OSError:
+                    pass  # Directory not empty
+        
+        if total_cleaned > 0:
+            logger.info(f"Cleaned up {total_cleaned} temporary files")
+        
+    except Exception as e:
+        logger.error(f"Error during temp file cleanup: {e}")
 
 # This allows running the memory service independently for debugging or as a microservice
 if __name__ == "__main__":
