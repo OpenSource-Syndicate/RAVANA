@@ -167,4 +167,7 @@ class Config:
     BLOG_CONTENT_STYLES = ["technical", "casual", "academic", "creative", "philosophical"]
     BLOG_MEMORY_CONTEXT_DAYS = int(os.environ.get("BLOG_MEMORY_CONTEXT_DAYS", "7"))
     BLOG_INCLUDE_MOOD_CONTEXT = bool(os.environ.get("BLOG_INCLUDE_MOOD_CONTEXT", "True").lower() in ["true", "1", "yes"])
-
+    
+    # Conversational AI Configuration
+    CONVERSATIONAL_AI_ENABLED = bool(os.environ.get("CONVERSATIONAL_AI_ENABLED", "True").lower() in ["true", "1", "yes"])
+    CONVERSATIONAL_AI_START_DELAY = int(os.environ.get("CONVERSATIONAL_AI_START_DELAY", 5))  # seconds

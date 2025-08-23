@@ -8,6 +8,8 @@ from sentence_transformers import SentenceTransformer
 from transformers import pipeline
 from sqlmodel import Session, select
 from datetime import datetime, timedelta
+import threading
+import time
 
 from core.llm import decision_maker_loop
 from core.shutdown_coordinator import ShutdownCoordinator, load_previous_state, cleanup_state_file
@@ -42,6 +44,13 @@ try:
     from core.snake_agent import SnakeAgentState
 except ImportError:
     SnakeAgentState = None
+
+# Import Conversational AI module
+try:
+    from modules.conversational_ai.main import ConversationalAI
+    CONVERSATIONAL_AI_AVAILABLE = True
+except ImportError:
+    CONVERSATIONAL_AI_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +136,17 @@ class AGISystem:
                     logger.error(f"Fallback Snake Agent also failed: {fallback_error}")
                     self.snake_agent = None
 
+        # Initialize Conversational AI if enabled
+        self.conversational_ai = None
+        self.conversational_ai_thread = None
+        if Config.CONVERSATIONAL_AI_ENABLED and CONVERSATIONAL_AI_AVAILABLE:
+            try:
+                self.conversational_ai = ConversationalAI()
+                logger.info("Conversational AI module initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize Conversational AI module: {e}")
+                self.conversational_ai = None
+
         # New state for multi-step plans
         self.current_plan: List[Dict] = []
         self.current_task_prompt: str = None
@@ -144,6 +164,10 @@ class AGISystem:
         # Register Snake Agent cleanup if enabled
         if self.snake_agent:
             self.shutdown_coordinator.register_cleanup_handler(self._cleanup_snake_agent, is_async=True)
+            
+        # Register Conversational AI cleanup if enabled
+        if self.conversational_ai:
+            self.shutdown_coordinator.register_cleanup_handler(self._cleanup_conversational_ai, is_async=False)
 
         # Shared state
         self.shared_state = SharedState(
@@ -252,7 +276,25 @@ class AGISystem:
                 logger.info("Snake Agent stopped and cleaned up")
         except Exception as e:
             logger.error(f"Error cleaning up Snake Agent: {e}")
-    
+            
+    def _cleanup_conversational_ai(self):
+        """Clean up Conversational AI resources."""
+        try:
+            if self.conversational_ai:
+                # Signal the Conversational AI to stop
+                logger.info("Conversational AI cleanup requested")
+                # Set the shutdown event if it exists
+                if hasattr(self.conversational_ai, '_shutdown'):
+                    self.conversational_ai._shutdown.set()
+                # Wait for the thread to finish
+                if self.conversational_ai_thread and self.conversational_ai_thread.is_alive():
+                    # Give the thread a moment to shut down gracefully
+                    self.conversational_ai_thread.join(timeout=5)
+                    if self.conversational_ai_thread.is_alive():
+                        logger.warning("Conversational AI thread did not stop within timeout")
+        except Exception as e:
+            logger.error(f"Error cleaning up Conversational AI: {e}")
+
     async def start_snake_agent(self):
         """Start Snake Agent background operation."""
         if self.snake_agent and Config.SNAKE_AGENT_ENABLED:
@@ -264,6 +306,32 @@ class AGISystem:
             except Exception as e:
                 logger.error(f"Failed to start Snake Agent: {e}")
     
+    async def start_conversational_ai(self):
+        """Start Conversational AI module in a separate thread."""
+        if self.conversational_ai and Config.CONVERSATIONAL_AI_ENABLED:
+            try:
+                logger.info("Starting Conversational AI module...")
+                
+                # Create a thread to run the Conversational AI
+                def run_conversational_ai():
+                    try:
+                        # Add a small delay to allow the main system to initialize
+                        time.sleep(Config.CONVERSATIONAL_AI_START_DELAY)
+                        # Run the conversational AI as part of the main system (not standalone)
+                        asyncio.run(self.conversational_ai.start(standalone=False))
+                    except Exception as e:
+                        logger.error(f"Error in Conversational AI thread: {e}")
+                
+                self.conversational_ai_thread = threading.Thread(
+                    target=run_conversational_ai,
+                    name="ConversationalAI",
+                    daemon=True
+                )
+                self.conversational_ai_thread.start()
+                logger.info("Conversational AI module started successfully in background thread")
+            except Exception as e:
+                logger.error(f"Failed to start Conversational AI module: {e}")
+
     def get_snake_agent_status(self) -> Dict[str, Any]:
         """Get Snake Agent status information."""
         if not self.snake_agent:
@@ -273,6 +341,21 @@ class AGISystem:
             "enabled": Config.SNAKE_AGENT_ENABLED,
             "status": "active" if self.snake_agent.running else "inactive",
             **self.snake_agent.get_status()
+        }
+    
+    def get_conversational_ai_status(self) -> Dict[str, Any]:
+        """Get Conversational AI status information."""
+        if not self.conversational_ai:
+            return {"enabled": False, "status": "not_initialized"}
+        
+        # Check if the thread is still alive
+        thread_alive = False
+        if self.conversational_ai_thread:
+            thread_alive = self.conversational_ai_thread.is_alive()
+            
+        return {
+            "enabled": Config.CONVERSATIONAL_AI_ENABLED,
+            "status": "active" if thread_alive else "inactive"
         }
     
     async def _load_previous_state(self):
@@ -701,6 +784,10 @@ class AGISystem:
         # Start Snake Agent if enabled
         if Config.SNAKE_AGENT_ENABLED and self.snake_agent:
             await self.start_snake_agent()
+            
+        # Start Conversational AI if enabled
+        if Config.CONVERSATIONAL_AI_ENABLED and self.conversational_ai:
+            await self.start_conversational_ai()
 
         while not self._shutdown.is_set():
             try:
@@ -836,7 +923,7 @@ class AGISystem:
             except asyncio.CancelledError:
                 break
         logger.info("Autonomous blog maintenance task shut down.")
-    
+
     def get_blog_scheduler_status(self) -> Dict[str, Any]:
         """Get autonomous blog scheduler status."""
         if not self.blog_scheduler:

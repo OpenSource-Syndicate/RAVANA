@@ -192,15 +192,16 @@ class ShutdownCoordinator:
                 task.cancel()
         
         # Wait for tasks to complete with timeout
-        try:
-            await asyncio.wait_for(
-                asyncio.gather(*self.agi_system.background_tasks, return_exceptions=True),
-                timeout=Config.SHUTDOWN_TIMEOUT // 2
-            )
-            logger.info("All background tasks stopped successfully")
-            
-        except asyncio.TimeoutError:
-            logger.warning("Some background tasks did not stop within timeout")
+        if self.agi_system.background_tasks:
+            try:
+                # Use asyncio.gather with return_exceptions=True to avoid loop issues
+                await asyncio.wait_for(
+                    asyncio.gather(*self.agi_system.background_tasks, return_exceptions=True),
+                    timeout=Config.SHUTDOWN_TIMEOUT // 2
+                )
+                logger.info("All background tasks stopped successfully")
+            except asyncio.TimeoutError:
+                logger.warning("Some background tasks did not stop within timeout")
     
     async def _phase_memory_service_cleanup(self):
         """Phase 3: Clean up episodic memory service."""

@@ -66,12 +66,7 @@ def setup_signal_handlers():
             
             def windows_signal_handler(signum, frame):
                 logger.info(f"🛑 Received signal {signum} on Windows")
-                if agi_system_instance:
-                    # Use thread to call async shutdown
-                    threading.Thread(
-                        target=lambda: asyncio.run(agi_system_instance.stop("signal")),
-                        daemon=True
-                    ).start()
+                # Set the shutdown event directly instead of calling async code
                 shutdown_event.set()
             
             signal.signal(signal.SIGINT, windows_signal_handler)
@@ -84,11 +79,6 @@ def setup_signal_handlers():
                     if ctrl_type in (win32api.CTRL_C_EVENT, win32api.CTRL_BREAK_EVENT, 
                                    win32api.CTRL_CLOSE_EVENT, win32api.CTRL_SHUTDOWN_EVENT):
                         logger.info(f"🛑 Received Windows console control event: {ctrl_type}")
-                        if agi_system_instance:
-                            threading.Thread(
-                                target=lambda: asyncio.run(agi_system_instance.stop("console_event")),
-                                daemon=True
-                            ).start()
                         shutdown_event.set()
                         return True
                     return False
@@ -103,10 +93,8 @@ def setup_signal_handlers():
             
         else:
             # POSIX signal handling (Linux, macOS, etc.)
-            def posix_signal_handler():
-                logger.info("🛑 Received shutdown signal on POSIX system")
-                if agi_system_instance:
-                    asyncio.create_task(agi_system_instance.stop("signal"))
+            def posix_signal_handler(signum, frame):
+                logger.info(f"🛑 Received signal {signum} on POSIX system")
                 shutdown_event.set()
             
             # Get current event loop
@@ -114,11 +102,11 @@ def setup_signal_handlers():
             
             # Add signal handlers to the event loop
             for sig in (signal.SIGINT, signal.SIGTERM):
-                loop.add_signal_handler(sig, posix_signal_handler)
+                loop.add_signal_handler(sig, lambda s=sig: posix_signal_handler(s, None))
             
             # Additional POSIX signals
             try:
-                loop.add_signal_handler(signal.SIGHUP, posix_signal_handler)
+                loop.add_signal_handler(signal.SIGHUP, lambda: posix_signal_handler(signal.SIGHUP, None))
                 logger.info("✅ POSIX signal handlers configured (SIGINT, SIGTERM, SIGHUP)")
             except (AttributeError, NotImplementedError):
                 logger.info("✅ POSIX signal handlers configured (SIGINT, SIGTERM)")
@@ -378,7 +366,11 @@ async def shutdown_agi_system(agi_system: AGISystem, reason: str):
         # Check if graceful shutdown is enabled
         from core.config import Config
         if Config.GRACEFUL_SHUTDOWN_ENABLED:
-            await agi_system.stop(reason)
+            # Use the shutdown coordinator directly instead of calling stop
+            if hasattr(agi_system, 'shutdown_coordinator') and agi_system.shutdown_coordinator:
+                await agi_system.shutdown_coordinator.initiate_shutdown(reason)
+            else:
+                await agi_system.stop(reason)
         else:
             logger.info("⚡ Graceful shutdown disabled, performing basic shutdown")
             agi_system._shutdown.set()

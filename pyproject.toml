@@ -46,5 +46,11 @@ dependencies = [
     "wikipedia>=1.4.0",
 ]
 
+[project.optional-dependencies]
+conversational-ai = [
+    "discord.py>=2.0.0",
+    "python-telegram-bot>=20.0",
+]
+
 [tool.uv.sources]
 openai-whisper = { git = "https://github.com/openai/whisper.git" }

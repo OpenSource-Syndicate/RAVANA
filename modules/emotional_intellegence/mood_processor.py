@@ -2,7 +2,7 @@ import logging
 from typing import Dict
 import json
 import re
-from core.llm import call_llm
+from core.llm import call_llm, safe_call_llm
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,60 @@ class MoodProcessor:
         logger.debug(f"Mood vector after update: {self.ei.mood_vector}")
         self.ei.last_action_result = action_result
 
+    def _extract_json_from_response(self, response: str) -> Dict:
+        """
+        Extract JSON from LLM response with multiple fallback strategies.
+        
+        Args:
+            response: Raw LLM response string
+            
+        Returns:
+            Dictionary parsed from JSON, or empty dict if parsing fails
+        """
+        if not response or not response.strip():
+            logger.error("Empty response received from LLM")
+            return {}
+            
+        response = response.strip()
+        
+        # Strategy 1: Try to parse the entire response as JSON
+        try:
+            return json.loads(response)
+        except json.JSONDecodeError:
+            pass
+            
+        # Strategy 2: Look for JSON in markdown code blocks
+        json_match = re.search(r'```(?:json)?\s*({.*?})\s*```', response, re.DOTALL)
+        if json_match:
+            try:
+                json_str = json_match.group(1)
+                return json.loads(json_str)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse JSON from code block: {e}")
+                
+        # Strategy 3: Look for any JSON-like structure
+        json_match = re.search(r'({.*})', response, re.DOTALL)
+        if json_match:
+            try:
+                json_str = json_match.group(1)
+                return json.loads(json_str)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse extracted JSON structure: {e}")
+                
+        # Strategy 4: Handle common LLM response patterns
+        # Remove common prefixes/suffixes
+        cleaned_response = re.sub(r'^[^{]*', '', response)  # Remove everything before first {
+        cleaned_response = re.sub(r'[^}]*$', '', cleaned_response)  # Remove everything after last }
+        
+        if cleaned_response:
+            try:
+                return json.loads(cleaned_response)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse cleaned response: {e}")
+                
+        logger.error(f"Could not extract valid JSON from LLM response: {response}")
+        return {}
+
     def _get_llm_mood_update(self, prompt_template: str, current_mood: Dict[str, float], action_result: dict) -> Dict[str, float]:
         # Enhanced prompt with emotional context
         prompt = f"""
@@ -60,12 +114,11 @@ Analyze the action result and the AI's current emotional state to determine a nu
 
 **Your JSON Response (only a JSON object with mood deltas, e.g., {{"Confident": 0.1, "Frustrated": -0.05}}):**
 """
-        llm_response = call_llm(prompt)
-        try:
-            return json.loads(llm_response)
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing LLM mood update response: {e}")
-            return {}
+        # Use safe_call_llm instead of call_llm for better error handling
+        llm_response = safe_call_llm(prompt, timeout=30, retries=3)
+        
+        # Extract JSON from the response
+        return self._extract_json_from_response(llm_response)
 
     def process_action_natural(self, action_output: str):
         logger.debug(f"Processing natural action output: {action_output}")
@@ -93,26 +146,10 @@ Be nuanced: an action can trigger multiple categories. For example, discovering 
 **Your JSON Response (only the JSON object):**
 """
         
-        llm_response = call_llm(prompt)
+        # Use safe_call_llm instead of call_llm for better error handling
+        llm_response = safe_call_llm(prompt, timeout=30, retries=3)
         logger.debug(f"LLM response: {llm_response}")
 
-        triggers = {}
-        try:
-            # The LLM should return only a valid JSON object, so we can parse it directly.
-            triggers = json.loads(llm_response)
-            logger.debug(f"Parsed triggers: {triggers}")
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing LLM response JSON: {e}")
-            # Fallback to regex if direct parsing fails, just in case.
-            json_match = re.search(r'\{.*\}', llm_response, re.DOTALL)
-            if json_match:
-                try:
-                    json_str = json_match.group(0)
-                    triggers = json.loads(json_str)
-                    logger.debug(f"Parsed triggers with regex fallback: {triggers}")
-                except json.JSONDecodeError as fallback_e:
-                    logger.error(f"Error parsing LLM response JSON with regex fallback: {fallback_e}")
-        except Exception as e:
-            logger.error(f"An unexpected error occurred during parsing: {e}")
-
+        # Extract JSON from the response
+        triggers = self._extract_json_from_response(llm_response)
         self.process_action_result(triggers)

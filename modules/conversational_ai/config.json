@@ -1,0 +1,28 @@
+{
+  "discord_token": "MTQwODY4Nzk2NjgwODk2OTIxOA.GAH1_i.3slf5vQegHTxhTs5k_uFhgDQ2JFpprg2S1njSI",
+  "telegram_token": "8210359732:AAFSrU94MscB38WLmius8TiRAgnvkwaKJiI",
+  "memory_path": "shared_memory",
+  "user_data_path": "profiles",
+  "log_level": "INFO",
+  "platforms": {
+    "discord": {
+      "enabled": true,
+      "command_prefix": "!",
+      "status": "online"
+    },
+    "telegram": {
+      "enabled": true,
+      "command_prefix": "/"
+    }
+  },
+  "emotional_intelligence": {
+    "default_persona": "Balanced",
+    "mood_decay_rate": 0.05,
+    "context_window_hours": 24
+  },
+  "communication": {
+    "ipc_channel": "conversational_ai_bridge",
+    "message_timeout": 30,
+    "retry_attempts": 3
+  }
+}
