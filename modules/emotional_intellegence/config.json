@@ -1,0 +1,203 @@
+{
+  "emotional_intelligence_config": {
+    "primary_emotions": {
+      "joy_based": ["Confident", "Excited", "Inspired", "Satisfied"],
+      "interest_based": ["Curious", "Reflective", "Intrigued", "Engaged"],
+      "sadness_based": ["Disappointed", "Bored", "Low Energy", "Melancholic"],
+      "anger_based": ["Frustrated", "Irritated", "Stuck", "Resentful"],
+      "fear_based": ["Anxious", "Apprehensive", "Cautious", "Suspicious"],
+      "surprise_based": ["Astonished", "Bewildered", "Amazed", "Shocked"]
+    },
+    "secondary_emotions": [
+      "Hopeful", "Grateful", "Proud", "Guilty", "Lonely", "Nostalgic", 
+      "Embarrassed", "Jealous", "Relieved", "Surprised", "Envious", "Peaceful"
+    ],
+    "emotion_intensity_levels": {
+      "low": [0.0, 0.33],
+      "medium": [0.34, 0.66],
+      "high": [0.67, 1.0]
+    },
+    "mood_dynamics": {
+      "momentum_factor": 0.7,
+      "damping_factor": 0.9,
+      "blending_threshold": 0.6,
+      "stability_threshold": 0.3
+    },
+    "emotional_memory": {
+      "tagging_enabled": true,
+      "retrieval_weight_factor": 0.5,
+      "context_window_hours": 24
+    },
+    "triggers": {
+        "new_discovery": "The agent has discovered new information or learned something novel.",
+        "task_completed": "A task or goal has been successfully completed.",
+        "error_occurred": "An error or failure occurred during an action.",
+        "repetition_detected": "The agent is repeating the same action or getting stuck in a loop.",
+        "inactivity": "No significant activity has been detected for a while.",
+        "milestone_achieved": "A major project milestone or achievement has been reached.",
+        "external_feedback_positive": "Positive feedback received from external sources.",
+        "external_feedback_negative": "Negative feedback received from external sources.",
+        "resource_limitation": "Running low on computational resources or time.",
+        "conflict_detected": "Conflicting information or goals have been detected."
+    },
+    "mood_updates": {
+        "new_discovery": {
+            "Curious": 0.2,
+            "Excited": 0.15,
+            "Inspired": 0.1
+        },
+        "task_completed": {
+            "Confident": 0.25,
+            "Satisfied": 0.2,
+            "Content": 0.1
+        },
+        "error_occurred": {
+            "Frustrated": 0.3,
+            "Stuck": 0.2,
+            "Anxious": 0.1
+        },
+        "repetition_detected": {
+            "Bored": 0.25,
+            "Stuck": 0.2,
+            "Irritated": 0.15
+        },
+        "inactivity": {
+            "Low Energy": 0.2,
+            "Bored": 0.15,
+            "Melancholic": 0.1
+        },
+        "milestone_achieved": {
+            "Excited": 0.3,
+            "Proud": 0.25,
+            "Satisfied": 0.2
+        },
+        "external_feedback_positive": {
+            "Confident": 0.2,
+            "Satisfied": 0.15,
+            "Grateful": 0.1
+        },
+        "external_feedback_negative": {
+            "Frustrated": 0.25,
+            "Disappointed": 0.2,
+            "Anxious": 0.15
+        },
+        "resource_limitation": {
+            "Anxious": 0.2,
+            "Cautious": 0.15,
+            "Stuck": 0.1
+        },
+        "conflict_detected": {
+            "Confused": 0.2,
+            "Cautious": 0.15,
+            "Stuck": 0.1
+        }
+    },
+    "behavior_influences": {
+        "Confident": {
+            "risk_tolerance": "high",
+            "exploration_tendency": "high",
+            "planning_depth": "medium"
+        },
+        "Curious": {
+            "risk_tolerance": "medium",
+            "exploration_tendency": "high",
+            "planning_depth": "high"
+        },
+        "Reflective": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "medium",
+            "planning_depth": "high"
+        },
+        "Excited": {
+            "risk_tolerance": "high",
+            "exploration_tendency": "high",
+            "planning_depth": "low"
+        },
+        "Content": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "low",
+            "planning_depth": "medium"
+        },
+        "Frustrated": {
+            "risk_tolerance": "medium",
+            "exploration_tendency": "low",
+            "planning_depth": "medium"
+        },
+        "Stuck": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "low",
+            "planning_depth": "high"
+        },
+        "Low Energy": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "low",
+            "planning_depth": "low"
+        },
+        "Bored": {
+            "risk_tolerance": "medium",
+            "exploration_tendency": "high",
+            "planning_depth": "low"
+        },
+        "Inspired": {
+            "risk_tolerance": "high",
+            "exploration_tendency": "high",
+            "planning_depth": "high"
+        },
+        "Disappointed": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "low",
+            "planning_depth": "medium"
+        },
+        "Melancholic": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "low",
+            "planning_depth": "high"
+        },
+        "Irritated": {
+            "risk_tolerance": "medium",
+            "exploration_tendency": "low",
+            "planning_depth": "low"
+        },
+        "Anxious": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "low",
+            "planning_depth": "high"
+        },
+        "Apprehensive": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "low",
+            "planning_depth": "medium"
+        },
+        "Cautious": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "low",
+            "planning_depth": "high"
+        },
+        "Suspicious": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "medium",
+            "planning_depth": "high"
+        },
+        "Astonished": {
+            "risk_tolerance": "medium",
+            "exploration_tendency": "high",
+            "planning_depth": "medium"
+        },
+        "Bewildered": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "medium",
+            "planning_depth": "high"
+        },
+        "Amazed": {
+            "risk_tolerance": "high",
+            "exploration_tendency": "high",
+            "planning_depth": "medium"
+        },
+        "Shocked": {
+            "risk_tolerance": "low",
+            "exploration_tendency": "medium",
+            "planning_depth": "high"
+        }
+    }
+  }
+}

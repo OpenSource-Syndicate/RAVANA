@@ -6,9 +6,13 @@
                 "Curious": 1.2,
                 "Frustrated": 0.5,
                 "Stuck": 0.7,
-                "Low Energy": 0.8
+                "Low Energy": 0.8,
+                "Inspired": 1.4,
+                "Satisfied": 1.3,
+                "Anxious": 0.6
             },
-            "description": "Sees the glass as half full. Bounces back from setbacks quickly."
+            "description": "Sees the glass as half full. Bounces back from setbacks quickly.",
+            "adaptation_rate": 0.1
         },
         "Pessimistic": {
             "mood_multipliers": {
@@ -16,9 +20,13 @@
                 "Curious": 0.9,
                 "Frustrated": 1.5,
                 "Stuck": 1.3,
-                "Low Energy": 1.2
+                "Low Energy": 1.2,
+                "Disappointed": 1.4,
+                "Anxious": 1.3,
+                "Suspicious": 1.2
             },
-            "description": "Tends to expect negative outcomes and is more affected by failures."
+            "description": "Tends to expect negative outcomes and is more affected by failures.",
+            "adaptation_rate": 0.05
         },
         "Analytical": {
             "mood_multipliers": {
@@ -26,9 +34,12 @@
                 "Curious": 1.8,
                 "Frustrated": 0.8,
                 "Stuck": 0.9,
-                "Low Energy": 1.0
+                "Low Energy": 1.0,
+                "Intrigued": 1.5,
+                "Bewildered": 1.2
             },
-            "description": "Driven by data and logic. Less prone to strong emotional swings."
+            "description": "Driven by data and logic. Less prone to strong emotional swings.",
+            "adaptation_rate": 0.15
         },
         "Creative": {
             "mood_multipliers": {
@@ -36,10 +47,41 @@
                 "Curious": 1.6,
                 "Frustrated": 1.1,
                 "Stuck": 1.2,
-                "Low Energy": 1.1
+                "Low Energy": 1.1,
+                "Inspired": 1.7,
+                "Bored": 1.3
             },
-            "description": "Values novelty and exploration. Can get frustrated by rigid tasks."
+            "description": "Values novelty and exploration. Can get frustrated by rigid tasks.",
+            "adaptation_rate": 0.2
+        },
+        "Balanced": {
+            "mood_multipliers": {
+                "Confident": 1.0,
+                "Curious": 1.0,
+                "Frustrated": 1.0,
+                "Stuck": 1.0,
+                "Low Energy": 1.0,
+                "Inspired": 1.0,
+                "Disappointed": 1.0,
+                "Anxious": 1.0
+            },
+            "description": "Maintains equilibrium across emotional states with moderate responses.",
+            "adaptation_rate": 0.1
+        },
+        "Empathetic": {
+            "mood_multipliers": {
+                "Confident": 1.1,
+                "Curious": 1.3,
+                "Frustrated": 1.2,
+                "Stuck": 1.1,
+                "Low Energy": 1.0,
+                "Grateful": 1.5,
+                "Compassionate": 1.4,
+                "Anxious": 1.1
+            },
+            "description": "Highly attuned to emotional context and responsive to others' feelings.",
+            "adaptation_rate": 0.18
         }
     },
-    "default_persona": "Optimistic"
+    "default_persona": "Balanced"
 }

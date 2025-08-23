@@ -34,6 +34,7 @@ class MoodProcessor:
         self.ei.last_action_result = action_result
 
     def _get_llm_mood_update(self, prompt_template: str, current_mood: Dict[str, float], action_result: dict) -> Dict[str, float]:
+        # Enhanced prompt with emotional context
         prompt = f"""
 You are an AI's emotional core. Your task is to update the AI's mood based on its recent action.
 Analyze the action result and the AI's current emotional state to determine a nuanced mood update.
@@ -41,8 +42,18 @@ Analyze the action result and the AI's current emotional state to determine a nu
 **Current Mood:**
 {json.dumps(current_mood, indent=2)}
 
+**Recent Emotional Events:**
+{json.dumps([{
+    "timestamp": event.timestamp.isoformat(),
+    "triggers": event.triggers,
+    "intensity": event.intensity
+} for event in self.ei.emotional_events[-3:]], indent=2)}
+
 **Action Result:**
 {json.dumps(action_result, indent=2)}
+
+**All Possible Moods:**
+{json.dumps(self.ei.ALL_MOODS, indent=2)}
 
 **Instructions:**
 {prompt_template}
@@ -61,6 +72,7 @@ Analyze the action result and the AI's current emotional state to determine a nu
 
         definitions = self.ei.config["triggers"]
         
+        # Enhanced prompt with emotional context
         prompt = f"""
 You are an AI analysis system. Your task is to classify an AI agent's action output based on predefined triggers.
 Analyze the action output below and respond with only a valid JSON object mapping each trigger to a boolean value.
@@ -68,7 +80,9 @@ Be nuanced: an action can trigger multiple categories. For example, discovering 
 
 **Context:**
 - Dominant Mood: {self.ei.get_dominant_mood()}
+- Mood Intensity Level: {self.ei.get_mood_intensity_level(self.ei.get_dominant_mood())}
 - Persona: {self.ei.persona.get('name', 'default')}
+- Recent Emotional Events Count: {len(self.ei.emotional_events)}
 
 **Trigger Definitions:**
 {json.dumps(definitions, indent=2)}
@@ -101,4 +115,4 @@ Be nuanced: an action can trigger multiple categories. For example, discovering 
         except Exception as e:
             logger.error(f"An unexpected error occurred during parsing: {e}")
 
-        self.process_action_result(triggers) 
+        self.process_action_result(triggers)
