@@ -9,6 +9,7 @@ import core.actions
 from core.actions.experimental import ProposeAndTestInventionAction
 from core.actions.io import LogMessageAction
 from core.actions.coding import WritePythonCodeAction, ExecutePythonFileAction
+from core.actions.blog import BlogPublishAction
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class ActionRegistry:
         self._register_action(LogMessageAction(system, data_service))
         self._register_action(WritePythonCodeAction(system, data_service))
         self._register_action(ExecutePythonFileAction(system, data_service))
+        self._register_action(BlogPublishAction(system, data_service))
 
     def _register_action(self, action: Action) -> None:
         if action.name in self.actions:

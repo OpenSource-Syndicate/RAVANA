@@ -63,7 +63,7 @@ class Config:
     
     # Ollama Configuration for Snake Agent
     SNAKE_OLLAMA_BASE_URL = os.environ.get("SNAKE_OLLAMA_BASE_URL", "http://localhost:11434")
-    SNAKE_OLLAMA_TIMEOUT = int(os.environ.get("SNAKE_OLLAMA_TIMEOUT", 120))  # seconds
+    SNAKE_OLLAMA_TIMEOUT = int(os.environ.get("SNAKE_OLLAMA_TIMEOUT", 3000))  # 50 minutes
     SNAKE_OLLAMA_KEEP_ALIVE = os.environ.get("SNAKE_OLLAMA_KEEP_ALIVE", "5m")
     
     # Dual LLM Models for Snake Agent (Ollama-based)
@@ -75,7 +75,7 @@ class Config:
         "max_tokens": None if os.environ.get("SNAKE_CODING_MAX_TOKENS", "unlimited").lower() in ["unlimited", "none", "-1"] else int(os.environ.get("SNAKE_CODING_MAX_TOKENS", "4096")),
         "unlimited_mode": bool(os.environ.get("SNAKE_UNLIMITED_MODE", "True").lower() in ["true", "1", "yes"]),
         "chunk_size": int(os.environ.get("SNAKE_CHUNK_SIZE", "4096")),
-        "timeout": int(os.environ.get("SNAKE_OLLAMA_TIMEOUT", 300)),  # Extended for longer responses
+        "timeout": int(os.environ.get("SNAKE_OLLAMA_TIMEOUT", 3000)),  # Extended for longer responses (50 minutes)
         "keep_alive": os.environ.get("SNAKE_OLLAMA_KEEP_ALIVE", "10m")  # Extended keep alive
     }
     
@@ -87,7 +87,7 @@ class Config:
         "max_tokens": None if os.environ.get("SNAKE_REASONING_MAX_TOKENS", "unlimited").lower() in ["unlimited", "none", "-1"] else int(os.environ.get("SNAKE_REASONING_MAX_TOKENS", "2048")),
         "unlimited_mode": bool(os.environ.get("SNAKE_UNLIMITED_MODE", "True").lower() in ["true", "1", "yes"]),
         "chunk_size": int(os.environ.get("SNAKE_CHUNK_SIZE", "2048")),
-        "timeout": int(os.environ.get("SNAKE_OLLAMA_TIMEOUT", 300)),  # Extended for longer responses
+        "timeout": int(os.environ.get("SNAKE_OLLAMA_TIMEOUT", 3000)),  # Extended for longer responses (50 minutes)
         "keep_alive": os.environ.get("SNAKE_OLLAMA_KEEP_ALIVE", "10m")  # Extended keep alive
     }
     
@@ -139,4 +139,32 @@ class Config:
     SNAKE_HEARTBEAT_INTERVAL = float(os.environ.get("SNAKE_HEARTBEAT_INTERVAL", "10.0"))  # seconds
     SNAKE_MAX_QUEUE_SIZE = int(os.environ.get("SNAKE_MAX_QUEUE_SIZE", "1000"))
     SNAKE_CLEANUP_INTERVAL = float(os.environ.get("SNAKE_CLEANUP_INTERVAL", "3600.0"))  # 1 hour
+
+    # Blog Integration Configuration
+    BLOG_ENABLED = bool(os.environ.get("RAVANA_BLOG_ENABLED", "True").lower() in ["true", "1", "yes"])
+    BLOG_API_URL = os.environ.get("RAVANA_BLOG_API_URL", "https://ravana-blog.netlify.app/api/publish")
+    BLOG_AUTH_TOKEN = os.environ.get("RAVANA_BLOG_AUTH_TOKEN", "ravana_secret_token_2024")
+    
+    # Content Generation Settings
+    BLOG_DEFAULT_STYLE = os.environ.get("BLOG_DEFAULT_STYLE", "technical")
+    BLOG_MAX_CONTENT_LENGTH = int(os.environ.get("BLOG_MAX_CONTENT_LENGTH", "5000"))
+    BLOG_MIN_CONTENT_LENGTH = int(os.environ.get("BLOG_MIN_CONTENT_LENGTH", "500"))
+    BLOG_AUTO_TAGGING_ENABLED = bool(os.environ.get("BLOG_AUTO_TAGGING_ENABLED", "True").lower() in ["true", "1", "yes"])
+    BLOG_MAX_TAGS = int(os.environ.get("BLOG_MAX_TAGS", "10"))
+    
+    # Publishing Behavior
+    BLOG_AUTO_PUBLISH_ENABLED = bool(os.environ.get("BLOG_AUTO_PUBLISH_ENABLED", "False").lower() in ["true", "1", "yes"])
+    BLOG_REQUIRE_APPROVAL = bool(os.environ.get("BLOG_REQUIRE_APPROVAL", "True").lower() in ["true", "1", "yes"])
+    BLOG_PUBLISH_FREQUENCY_HOURS = int(os.environ.get("BLOG_PUBLISH_FREQUENCY_HOURS", "24"))
+    
+    # API Communication Settings
+    BLOG_TIMEOUT_SECONDS = int(os.environ.get("BLOG_TIMEOUT_SECONDS", "30"))
+    BLOG_RETRY_ATTEMPTS = int(os.environ.get("BLOG_RETRY_ATTEMPTS", "3"))
+    BLOG_RETRY_BACKOFF_FACTOR = float(os.environ.get("BLOG_RETRY_BACKOFF_FACTOR", "2.0"))
+    BLOG_MAX_RETRY_DELAY = int(os.environ.get("BLOG_MAX_RETRY_DELAY", "60"))  # seconds
+    
+    # Content Quality Settings
+    BLOG_CONTENT_STYLES = ["technical", "casual", "academic", "creative", "philosophical"]
+    BLOG_MEMORY_CONTEXT_DAYS = int(os.environ.get("BLOG_MEMORY_CONTEXT_DAYS", "7"))
+    BLOG_INCLUDE_MOOD_CONTEXT = bool(os.environ.get("BLOG_INCLUDE_MOOD_CONTEXT", "True").lower() in ["true", "1", "yes"])
 

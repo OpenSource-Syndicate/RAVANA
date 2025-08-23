@@ -90,7 +90,7 @@ export SNAKE_AGENT_INTERVAL=300  # Analysis interval in seconds (5 minutes)
 
 # Ollama Configuration
 export SNAKE_OLLAMA_BASE_URL=http://localhost:11434
-export SNAKE_OLLAMA_TIMEOUT=120
+export SNAKE_OLLAMA_TIMEOUT=3000
 export SNAKE_OLLAMA_KEEP_ALIVE=5m
 
 # Model Selection
@@ -126,7 +126,7 @@ For Windows, create a `snake_config.bat` file:
 set SNAKE_AGENT_ENABLED=True
 set SNAKE_AGENT_INTERVAL=300
 set SNAKE_OLLAMA_BASE_URL=http://localhost:11434
-set SNAKE_OLLAMA_TIMEOUT=120
+set SNAKE_OLLAMA_TIMEOUT=3000
 set SNAKE_OLLAMA_KEEP_ALIVE=5m
 set SNAKE_CODING_MODEL=deepseek-coder:6.7b
 set SNAKE_REASONING_MODEL=llama3.1:8b
@@ -160,7 +160,7 @@ Create a `snake_config.sh` file:
 export SNAKE_AGENT_ENABLED=True
 export SNAKE_AGENT_INTERVAL=300
 export SNAKE_OLLAMA_BASE_URL=http://localhost:11434
-export SNAKE_OLLAMA_TIMEOUT=120
+export SNAKE_OLLAMA_TIMEOUT=3000
 export SNAKE_OLLAMA_KEEP_ALIVE=5m
 export SNAKE_CODING_MODEL=deepseek-coder:6.7b
 export SNAKE_REASONING_MODEL=llama3.1:8b

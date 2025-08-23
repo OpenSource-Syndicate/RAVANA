@@ -30,6 +30,13 @@ from services.multi_modal_service import MultiModalService
 from database.models import Event
 from modules.decision_engine.search_result_manager import search_result_manager
 
+# Import autonomous blog scheduler
+try:
+    from core.services.autonomous_blog_scheduler import AutonomousBlogScheduler
+    BLOG_SCHEDULER_AVAILABLE = True
+except ImportError:
+    BLOG_SCHEDULER_AVAILABLE = False
+
 # Import Snake Agent state for restoration (conditionally)
 try:
     from core.snake_agent import SnakeAgentState
@@ -59,23 +66,31 @@ class AGISystem:
         )
         self.knowledge_service = KnowledgeService(engine)
         self.memory_service = MemoryService()
+        
+        # Initialize autonomous blog scheduler
+        if BLOG_SCHEDULER_AVAILABLE:
+            self.blog_scheduler = AutonomousBlogScheduler(self)
+            logger.info("Autonomous blog scheduler initialized")
+        else:
+            self.blog_scheduler = None
+            logger.info("Autonomous blog scheduler not available")
 
-        # Initialize modules
+        # Initialize modules with blog scheduler integration
         self.situation_generator = SituationGenerator(
             embedding_model=self.embedding_model,
             sentiment_classifier=self.sentiment_classifier
         )
         self.emotional_intelligence = EmotionalIntelligence()
-        self.curiosity_trigger = CuriosityTrigger()  # Now enhanced with async capabilities
-        self.reflection_module = ReflectionModule(self)
-        self.experimentation_module = ExperimentationModule(self)
-        self.experimentation_engine = AGIExperimentationEngine(self)
+        self.curiosity_trigger = CuriosityTrigger(blog_scheduler=self.blog_scheduler)  # Enhanced with blog integration
+        self.reflection_module = ReflectionModule(self, blog_scheduler=self.blog_scheduler)
+        self.experimentation_module = ExperimentationModule(self, blog_scheduler=self.blog_scheduler)
+        self.experimentation_engine = AGIExperimentationEngine(self, blog_scheduler=self.blog_scheduler)
 
         # Initialize enhanced action manager
         self.action_manager = EnhancedActionManager(self, self.data_service)
         
-        # Initialize adaptive learning engine
-        self.learning_engine = AdaptiveLearningEngine(self)
+        # Initialize adaptive learning engine with blog scheduler
+        self.learning_engine = AdaptiveLearningEngine(self, blog_scheduler=self.blog_scheduler)
         
         # Initialize multi-modal service
         self.multi_modal_service = MultiModalService()
@@ -679,6 +694,10 @@ class AGISystem:
         self.background_tasks.append(asyncio.create_task(self.knowledge_compression_task()))
         self.background_tasks.append(asyncio.create_task(self.memory_consolidation_task()))
         
+        # Start autonomous blog scheduler maintenance task
+        if self.blog_scheduler:
+            self.background_tasks.append(asyncio.create_task(self.autonomous_blog_maintenance_task()))
+        
         # Start Snake Agent if enabled
         if Config.SNAKE_AGENT_ENABLED and self.snake_agent:
             await self.start_snake_agent()
@@ -794,4 +813,37 @@ class AGISystem:
                 await asyncio.sleep(21600)
             except asyncio.CancelledError:
                 break
-        logger.info("Memory consolidation task shut down.") 
+        logger.info("Memory consolidation task shut down.")
+    
+    async def autonomous_blog_maintenance_task(self):
+        """Background task to maintain the autonomous blog scheduler."""
+        while not self._shutdown.is_set():
+            try:
+                if self.blog_scheduler:
+                    # Clear old events periodically
+                    self.blog_scheduler.clear_old_events(hours=48)
+                    
+                    # Log status periodically
+                    status = self.blog_scheduler.get_status()
+                    logger.info(f"Blog scheduler status: {status['pending_events']} pending, {status['recent_posts']} recent posts")
+                
+            except Exception as e:
+                logger.error(f"Error in autonomous blog maintenance: {e}", exc_info=True)
+            
+            try:
+                # Run maintenance every 6 hours
+                await asyncio.sleep(21600)
+            except asyncio.CancelledError:
+                break
+        logger.info("Autonomous blog maintenance task shut down.")
+    
+    def get_blog_scheduler_status(self) -> Dict[str, Any]:
+        """Get autonomous blog scheduler status."""
+        if not self.blog_scheduler:
+            return {"enabled": False, "status": "not_available"}
+        
+        return {
+            "enabled": True,
+            "status": "active",
+            **self.blog_scheduler.get_status()
+        }

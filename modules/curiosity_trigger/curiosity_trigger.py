@@ -13,6 +13,13 @@ from sentence_transformers import SentenceTransformer, util
 from core.llm import call_llm  # Import the LLM utility
 import wikipedia
 
+# Import autonomous blog scheduler
+try:
+    from core.services.autonomous_blog_scheduler import AutonomousBlogScheduler, BlogTriggerType
+    BLOG_SCHEDULER_AVAILABLE = True
+except ImportError:
+    BLOG_SCHEDULER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Global caches and models
@@ -111,13 +118,15 @@ class CuriosityTrigger:
     USER_AGENT = {'User-agent': 'CuriosityTriggerBot/0.3'}
     WIKI_SUMMARY_API = "https://en.wikipedia.org/api/rest_v1/page/summary/{}"
     
-    def __init__(self):
+    def __init__(self, blog_scheduler=None):
         self.sources = {
             'wikipedia': self.fetch_wikipedia_dyk_async,
             'reddit': self.fetch_reddit_til_async,
             'hackernews': self.fetch_hackernews_async,
             'arxiv': self.fetch_arxiv_async
         }
+        self.blog_scheduler = blog_scheduler
+        self.discovery_count = 0  # Track discoveries for importance scoring
 
     async def fetch_wikipedia_dyk_async(self) -> List[str]:
         """Async fetch of Wikipedia 'Did you know?' facts."""
@@ -401,10 +410,14 @@ class CuriosityTrigger:
             return ''
 
     async def trigger(self, recent_topics: List[str], lateralness: float = 1.0) -> Tuple[str, str]:
-        """Enhanced async trigger with multiple content sources."""
+        """Enhanced async trigger with multiple content sources and autonomous blog integration."""
         try:
             curiosity_topics = await self.get_curiosity_topics_llm(recent_topics, n=10, lateralness=lateralness)
             random.shuffle(curiosity_topics)
+            
+            selected_topic = None
+            selected_content = None
+            selected_prompt = None
             
             for topic in curiosity_topics:
                 # Try multiple content sources
@@ -420,17 +433,32 @@ class CuriosityTrigger:
                         if content and len(content) > 200:
                             prompt = self._create_exploration_prompt(topic, lateralness, len(content))
                             logger.info(f"Successfully triggered curiosity for topic: {topic}")
-                            return content, prompt
+                            selected_topic = topic
+                            selected_content = content
+                            selected_prompt = prompt
+                            break
                     except Exception as e:
                         logger.warning(f"Content source failed for {topic}: {e}")
                         continue
+                
+                if selected_topic:
+                    break
             
-            # Fallback to a general exploration prompt
-            fallback_topic = curiosity_topics[0] if curiosity_topics else "the nature of curiosity itself"
-            fallback_content = await self._generate_topic_exploration_async(fallback_topic)
-            fallback_prompt = self._create_exploration_prompt(fallback_topic, lateralness, len(fallback_content))
+            # Fallback if no topic worked
+            if not selected_topic:
+                selected_topic = curiosity_topics[0] if curiosity_topics else "the nature of curiosity itself"
+                selected_content = await self._generate_topic_exploration_async(selected_topic)
+                selected_prompt = self._create_exploration_prompt(selected_topic, lateralness, len(selected_content))
             
-            return fallback_content, fallback_prompt
+            # Register autonomous blog trigger for curiosity discovery
+            await self._register_curiosity_blog_trigger(
+                selected_topic, 
+                selected_content, 
+                recent_topics, 
+                lateralness
+            )
+            
+            return selected_content, selected_prompt
             
         except Exception as e:
             logger.error(f"Curiosity trigger failed: {e}")
@@ -564,6 +592,79 @@ class CuriosityTrigger:
         except Exception as e:
             logger.error(f"Context-based curiosity trigger failed: {e}")
             return await self.trigger([], lateralness=lateralness)
+    
+    async def _register_curiosity_blog_trigger(
+        self, 
+        topic: str, 
+        content: str, 
+        recent_topics: List[str], 
+        lateralness: float
+    ):
+        """Register a blog trigger for curiosity discovery."""
+        if not BLOG_SCHEDULER_AVAILABLE or not self.blog_scheduler:
+            return
+        
+        try:
+            self.discovery_count += 1
+            
+            # Calculate importance based on lateralness and content quality
+            importance_score = min(0.9, 0.4 + (lateralness * 0.3) + (len(content) / 2000) * 0.2)
+            
+            # Higher importance for creative/unexpected discoveries
+            if lateralness > 0.75:
+                importance_score += 0.1
+            
+            # Determine emotional valence (curiosity is generally positive)
+            emotional_valence = 0.3 + (lateralness * 0.4)  # 0.3 to 0.7 range
+            
+            # Create reasoning
+            reasoning_why = f"""Curiosity was triggered about '{topic}' because it represents a fascinating area 
+of exploration that could expand my understanding and spark new connections. The lateralness level 
+of {lateralness:.1f} suggests this is {'a highly creative and unexpected' if lateralness > 0.75 else 'a connected and thoughtful'} discovery."""
+            
+            reasoning_how = f"""This discovery happened through my curiosity trigger system, which analyzed 
+my recent topics ({', '.join(recent_topics[:3])}{'...' if len(recent_topics) > 3 else ''}) and generated 
+novel exploration areas. The content was sourced and validated to ensure it provides valuable 
+learning opportunities."""
+            
+            # Extract meaningful tags
+            topic_words = re.findall(r'\b\w{4,}\b', topic.lower())
+            tags = ['curiosity', 'discovery', 'learning'] + topic_words[:5]
+            
+            await self.blog_scheduler.register_learning_event(
+                trigger_type=BlogTriggerType.CURIOSITY_DISCOVERY,
+                topic=f"Curiosity Discovery: {topic}",
+                context=f"Lateral exploration level: {lateralness:.1f}, Recent context: {', '.join(recent_topics[:5])}",
+                learning_content=content[:500] + ("..." if len(content) > 500 else ""),
+                reasoning_why=reasoning_why,
+                reasoning_how=reasoning_how,
+                emotional_valence=emotional_valence,
+                importance_score=importance_score,
+                tags=tags,
+                metadata={
+                    'lateralness': lateralness,
+                    'discovery_count': self.discovery_count,
+                    'recent_topics': recent_topics,
+                    'content_length': len(content)
+                }
+            )
+            
+            logger.info(f"Registered curiosity blog trigger for: {topic} (importance: {importance_score:.2f})")
+            
+        except Exception as e:
+            logger.warning(f"Failed to register curiosity blog trigger: {e}")
+    
+    @staticmethod
+    def from_context(context: str, lateralness: float = 1.0, blog_scheduler=None) -> Tuple[str, str]:
+        """Synchronous version for compatibility."""
+        trigger = CuriosityTrigger(blog_scheduler=blog_scheduler)
+        return asyncio.run(trigger.from_context_async(context, lateralness))
+
+    @staticmethod  
+    def trigger_sync(recent_topics: List[str], lateralness: float = 1.0, blog_scheduler=None) -> Tuple[str, str]:
+        """Synchronous version for compatibility."""
+        trigger = CuriosityTrigger(blog_scheduler=blog_scheduler)
+        return asyncio.run(trigger.trigger(recent_topics, lateralness))
 
 # --- Example usage ---
 if __name__ == "__main__":
@@ -574,12 +675,21 @@ if __name__ == "__main__":
         "natural language processing", "reinforcement learning",
         "computer vision", "robotics"
     ]
-    fact, prompt = CuriosityTrigger.trigger(recent_topics, lateralness=1.0)
+    
+    # Create curiosity trigger with blog scheduler
+    if BLOG_SCHEDULER_AVAILABLE:
+        from core.services.autonomous_blog_scheduler import AutonomousBlogScheduler
+        blog_scheduler = AutonomousBlogScheduler()
+        curiosity_trigger = CuriosityTrigger(blog_scheduler=blog_scheduler)
+    else:
+        curiosity_trigger = CuriosityTrigger()
+    
+    fact, prompt = asyncio.run(curiosity_trigger.trigger(recent_topics, lateralness=1.0))
     print(prompt)
     print(fact)
 
     # Example: using full AGI context
     agi_context = """The AGI has recently studied neural networks, deep learning, reinforcement learning,\ncomputer vision, natural language processing, robotics, and data science. It has also explored\nthe basics of quantum computing and ethical AI."""
-    curiosity_prompt, article = CuriosityTrigger.from_context(agi_context, lateralness=0.5)
+    curiosity_prompt, article = asyncio.run(curiosity_trigger.from_context_async(agi_context, lateralness=0.5))
     print("\n[From Context]", curiosity_prompt)
     print(article[:500]) 

@@ -17,6 +17,8 @@ import importlib.util
 import threading
 import time
 import asyncio
+from datetime import datetime, timedelta
+from dataclasses import dataclass, asdict
 from typing import Dict, Any, Optional, Tuple, List
 from modules.decision_engine.search_result_manager import search_result_manager
 
@@ -30,8 +32,330 @@ CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
 with open(CONFIG_PATH, 'r') as f:
     config = json.load(f)
 
-# Gemini fallback API key
-GEMINI_API_KEY = "AIzaSyAWR9C57V2f2pXFwjtN9jkNYKA_ou5Hdo4"
+@dataclass
+class GeminiKeyStatus:
+    """Track status and metadata for individual Gemini API keys."""
+    key_id: str
+    api_key: str
+    priority: int
+    is_available: bool = True
+    rate_limit_reset_time: Optional[datetime] = None
+    failure_count: int = 0
+    last_success: Optional[datetime] = None
+    consecutive_failures: int = 0
+    total_requests: int = 0
+
+class GeminiKeyManager:
+    """Manages multiple Gemini API keys with fallback and rate limiting."""
+    
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._keys: Dict[str, GeminiKeyStatus] = {}
+        self._load_keys_from_config()
+        
+        # Rate limiting patterns to detect
+        self.rate_limit_indicators = [
+            "quota exceeded",
+            "rate limit exceeded", 
+            "too many requests",
+            "429",
+            "resource_exhausted",
+            "quota_exceeded",
+            "rate_limit_exceeded"
+        ]
+    
+    def _load_keys_from_config(self):
+        """Load API keys from configuration file."""
+        try:
+            gemini_config = config.get('gemini', {})
+            api_keys = gemini_config.get('api_keys', [])
+            
+            # Also check environment variables for additional keys
+            env_keys = []
+            for i in range(1, 21):  # Check for up to 20 environment variables
+                env_key = os.getenv(f"GEMINI_API_KEY_{i}")
+                if env_key:
+                    env_keys.append({
+                        "id": f"gemini_env_key_{i}",
+                        "key": env_key,
+                        "priority": 100 + i  # Lower priority than config keys
+                    })
+            
+            all_keys = api_keys + env_keys
+            
+            for key_data in all_keys:
+                key_status = GeminiKeyStatus(
+                    key_id=key_data['id'],
+                    api_key=key_data['key'],
+                    priority=key_data.get('priority', 999)
+                )
+                self._keys[key_status.key_id] = key_status
+                
+            logger.info(f"Loaded {len(self._keys)} Gemini API keys")
+            
+        except Exception as e:
+            logger.error(f"Failed to load Gemini keys from config: {e}")
+            # Fallback to hardcoded key if config fails
+            fallback_key = GeminiKeyStatus(
+                key_id="fallback_key",
+                api_key="AIzaSyAWR9C57V2f2pXFwjtN9jkNYKA_ou5Hdo4",
+                priority=999
+            )
+            self._keys["fallback_key"] = fallback_key
+    
+    def get_available_key(self) -> Optional[GeminiKeyStatus]:
+        """Get the next available API key based on priority and availability."""
+        with self._lock:
+            # Reset keys that have passed their cooldown period
+            self._reset_cooldown_keys()
+            
+            # Sort keys by priority and availability
+            available_keys = [
+                key for key in self._keys.values()
+                if key.is_available and (key.rate_limit_reset_time is None or 
+                                        key.rate_limit_reset_time <= datetime.now())
+            ]
+            
+            if not available_keys:
+                logger.warning("No Gemini API keys available")
+                return None
+                
+            # Sort by priority (lower number = higher priority), then by success rate
+            available_keys.sort(key=lambda k: (k.priority, k.consecutive_failures))
+            return available_keys[0]
+    
+    def mark_key_rate_limited(self, key_id: str, reset_time: Optional[datetime] = None):
+        """Mark a key as rate limited with optional reset time."""
+        with self._lock:
+            if key_id in self._keys:
+                key = self._keys[key_id]
+                key.is_available = False
+                key.rate_limit_reset_time = reset_time or (datetime.now() + timedelta(minutes=5))
+                key.consecutive_failures += 1
+                logger.warning(f"Gemini key {key_id[:12]}... marked as rate limited until {key.rate_limit_reset_time}")
+    
+    def mark_key_failed(self, key_id: str, error: Exception):
+        """Mark a key as failed and potentially disable it temporarily."""
+        with self._lock:
+            if key_id in self._keys:
+                key = self._keys[key_id]
+                key.failure_count += 1
+                key.consecutive_failures += 1
+                
+                # Disable key temporarily if too many consecutive failures
+                max_failures = config.get('gemini', {}).get('fallback', {}).get('max_key_failures', 5)
+                if key.consecutive_failures >= max_failures:
+                    key.is_available = False
+                    key.rate_limit_reset_time = datetime.now() + timedelta(minutes=10)
+                    logger.error(f"Gemini key {key_id[:12]}... disabled due to {key.consecutive_failures} consecutive failures")
+                else:
+                    logger.warning(f"Gemini key {key_id[:12]}... failed: {error}")
+    
+    def mark_key_success(self, key_id: str):
+        """Mark a key as successful and reset failure counters."""
+        with self._lock:
+            if key_id in self._keys:
+                key = self._keys[key_id]
+                key.last_success = datetime.now()
+                key.consecutive_failures = 0
+                key.total_requests += 1
+                key.is_available = True
+                key.rate_limit_reset_time = None
+    
+    def _reset_cooldown_keys(self):
+        """Reset keys that have passed their cooldown period."""
+        now = datetime.now()
+        for key in self._keys.values():
+            if (key.rate_limit_reset_time and 
+                key.rate_limit_reset_time <= now):
+                key.is_available = True
+                key.rate_limit_reset_time = None
+                logger.info(f"Gemini key {key.key_id[:12]}... cooldown period ended, key available again")
+    
+    def is_rate_limit_error(self, error: Exception) -> Tuple[bool, Optional[datetime]]:
+        """Detect if an error is rate limiting and extract reset time if available."""
+        error_str = str(error).lower()
+        
+        for indicator in self.rate_limit_indicators:
+            if indicator in error_str:
+                # Try to extract reset time from error message
+                reset_time = None
+                
+                # Look for retry-after header or similar timing info
+                import re
+                time_match = re.search(r'retry[\s-]*after[\s:]*([0-9]+)', error_str)
+                if time_match:
+                    seconds = int(time_match.group(1))
+                    reset_time = datetime.now() + timedelta(seconds=seconds)
+                else:
+                    # Default cooldown period
+                    cooldown_period = config.get('gemini', {}).get('rate_limit', {}).get('cooldown_period', 300)
+                    reset_time = datetime.now() + timedelta(seconds=cooldown_period)
+                
+                return True, reset_time
+        
+        return False, None
+    
+    def get_key_statistics(self) -> Dict[str, Any]:
+        """Get statistics about API key usage."""
+        with self._lock:
+            stats = {
+                "total_keys": len(self._keys),
+                "available_keys": sum(1 for k in self._keys.values() if k.is_available),
+                "rate_limited_keys": sum(1 for k in self._keys.values() if k.rate_limit_reset_time),
+                "keys": {
+                    k.key_id: {
+                        "priority": k.priority,
+                        "is_available": k.is_available,
+                        "failure_count": k.failure_count,
+                        "consecutive_failures": k.consecutive_failures,
+                        "total_requests": k.total_requests,
+                        "last_success": k.last_success.isoformat() if k.last_success else None,
+                        "rate_limit_reset_time": k.rate_limit_reset_time.isoformat() if k.rate_limit_reset_time else None
+                    } for k in self._keys.values()
+                }
+            }
+            return stats
+
+# Global instance
+gemini_key_manager = GeminiKeyManager()
+
+# Enhanced Gemini call wrapper with automatic key rotation
+def call_gemini_with_fallback(prompt: str, function_type: str = "text", max_retries: int = 3, **kwargs) -> str:
+    """
+    Enhanced Gemini caller with automatic key rotation and rate limit handling.
+    
+    Args:
+        prompt: The text prompt to send
+        function_type: Type of function call ("text", "image", "audio", "search", "function_calling")
+        max_retries: Maximum number of retries across all keys
+        **kwargs: Additional arguments specific to function type
+    
+    Returns:
+        Response text or error message
+    """
+    last_error = None
+    
+    for attempt in range(max_retries):
+        key_status = gemini_key_manager.get_available_key()
+        
+        if not key_status:
+            logger.error("No Gemini API keys available for request")
+            return f"[All Gemini API keys exhausted: {last_error}]"
+        
+        try:
+            logger.info(f"Using Gemini key {key_status.key_id[:12]}... for {function_type} request (attempt {attempt + 1}/{max_retries})")
+            
+            # Call the appropriate function based on type
+            if function_type == "text":
+                result = _call_gemini_text(prompt, key_status.api_key)
+            elif function_type == "image":
+                image_path = kwargs.get('image_path')
+                if not image_path:
+                    return "[Error: image_path required for image function]"
+                result = _call_gemini_image(image_path, prompt, key_status.api_key)
+            elif function_type == "audio":
+                audio_path = kwargs.get('audio_path')
+                if not audio_path:
+                    return "[Error: audio_path required for audio function]"
+                result = _call_gemini_audio(audio_path, prompt, key_status.api_key)
+            elif function_type == "search":
+                result = _call_gemini_search(prompt, key_status.api_key)
+            elif function_type == "function_calling":
+                function_declarations = kwargs.get('function_declarations', [])
+                result = _call_gemini_function_calling(prompt, function_declarations, key_status.api_key)
+            else:
+                return f"[Error: Unknown function type '{function_type}']"
+            
+            # Mark success and return result
+            gemini_key_manager.mark_key_success(key_status.key_id)
+            return result
+            
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Gemini call failed with key {key_status.key_id[:12]}...: {e}")
+            
+            # Check if this is a rate limiting error
+            is_rate_limited, reset_time = gemini_key_manager.is_rate_limit_error(e)
+            
+            if is_rate_limited:
+                gemini_key_manager.mark_key_rate_limited(key_status.key_id, reset_time)
+            else:
+                gemini_key_manager.mark_key_failed(key_status.key_id, e)
+            
+            # Short delay before retry
+            if attempt < max_retries - 1:
+                time.sleep(0.5 * (attempt + 1))  # Exponential backoff
+    
+    return f"[All Gemini retry attempts failed: {last_error}]"
+
+def _call_gemini_text(prompt: str, api_key: str) -> str:
+    """Internal function to call Gemini for text generation."""
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash", contents=prompt
+    )
+    return response.text
+
+def _call_gemini_image(image_path: str, prompt: str, api_key: str) -> str:
+    """Internal function to call Gemini for image captioning."""
+    client = genai.Client(api_key=api_key)
+    my_file = client.files.upload(file=image_path)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[my_file, prompt],
+    )
+    return response.text
+
+def _call_gemini_audio(audio_path: str, prompt: str, api_key: str) -> str:
+    """Internal function to call Gemini for audio description."""
+    client = genai.Client(api_key=api_key)
+    my_file = client.files.upload(file=audio_path)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[prompt, my_file],
+    )
+    return response.text
+
+def _call_gemini_search(prompt: str, api_key: str) -> str:
+    """Internal function to call Gemini with Google Search."""
+    from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
+    client = genai.Client(api_key=api_key)
+    model_id = "gemini-2.0-flash"
+    google_search_tool = Tool(google_search=GoogleSearch())
+    response = client.models.generate_content(
+        model=model_id,
+        contents=prompt,
+        config=GenerateContentConfig(
+            tools=[google_search_tool],
+            response_modalities=["TEXT"],
+        )
+    )
+    # Return both the answer and grounding metadata if available
+    answer = "\n".join([p.text for p in response.candidates[0].content.parts])
+    grounding = getattr(response.candidates[0].grounding_metadata, 'search_entry_point', None)
+    if grounding and hasattr(grounding, 'rendered_content'):
+        return answer + "\n\n[Grounding Metadata:]\n" + grounding.rendered_content
+    return answer
+
+def _call_gemini_function_calling(prompt: str, function_declarations: List, api_key: str) -> Tuple[str, Optional[Dict]]:
+    """Internal function to call Gemini with function calling."""
+    from google.genai import types
+    client = genai.Client(api_key=api_key)
+    tools = types.Tool(function_declarations=function_declarations)
+    config = types.GenerateContentConfig(tools=[tools])
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=prompt,
+        config=config,
+    )
+    parts = response.candidates[0].content.parts
+    for part in parts:
+        if hasattr(part, 'function_call') and part.function_call:
+            function_call = part.function_call
+            return None, {"name": function_call.name, "args": function_call.args}
+    # No function call found
+    return response.text, None
 
 # Enhanced error handling and retry logic
 def _extract_json_block(text: str) -> str:
@@ -179,64 +503,22 @@ def call_a4f(prompt):
         return None
 
 def call_gemini(prompt):
-    try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        response = client.models.generate_content(
-            model="gemini-2.0-flash", contents=prompt
-        )
-        return response.text
-    except Exception as e:
-        return f"[Gemini fallback failed: {e}]"
+    """Enhanced Gemini text generation with automatic key rotation."""
+    return call_gemini_with_fallback(prompt, function_type="text")
 
 def call_gemini_image_caption(image_path, prompt="Caption this image."):
-    """Send an image and prompt to Gemini for captioning."""
-    try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        my_file = client.files.upload(file=image_path)
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[my_file, prompt],
-        )
-        return response.text
-    except Exception as e:
-        return f"[Gemini image captioning failed: {e}]"
+    """Enhanced Gemini image captioning with automatic key rotation."""
+    return call_gemini_with_fallback(prompt, function_type="image", image_path=image_path)
 
 def call_gemini_audio_description(audio_path, prompt="Describe this audio clip"):
-    """Send an audio file and prompt to Gemini for description."""
-    try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        my_file = client.files.upload(file=audio_path)
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[prompt, my_file],
-        )
-        return response.text
-    except Exception as e:
-        return f"[Gemini audio description failed: {e}]"
+    """Enhanced Gemini audio description with automatic key rotation."""
+    return call_gemini_with_fallback(prompt, function_type="audio", audio_path=audio_path)
 
 def call_gemini_with_search(prompt):
-    """Use Gemini with Google Search tool enabled."""
+    """Use Gemini with Google Search tool enabled (background execution)."""
     def search_thread():
         try:
-            from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
-            client = genai.Client(api_key=GEMINI_API_KEY)
-            model_id = "gemini-2.0-flash"
-            google_search_tool = Tool(google_search=GoogleSearch())
-            response = client.models.generate_content(
-                model=model_id,
-                contents=prompt,
-                config=GenerateContentConfig(
-                    tools=[google_search_tool],
-                    response_modalities=["TEXT"],
-                )
-            )
-            # Return both the answer and grounding metadata if available
-            answer = "\n".join([p.text for p in response.candidates[0].content.parts])
-            grounding = getattr(response.candidates[0].grounding_metadata, 'search_entry_point', None)
-            if grounding and hasattr(grounding, 'rendered_content'):
-                result = answer + "\n\n[Grounding Metadata:]\n" + grounding.rendered_content
-            else:
-                result = answer
+            result = call_gemini_with_fallback(prompt, function_type="search")
             search_result_manager.add_result(result)
         except Exception as e:
             search_result_manager.add_result(f"[Gemini with search failed: {e}]")
@@ -246,53 +528,69 @@ def call_gemini_with_search(prompt):
     return "Search started in the background. Check for results later."
 
 def call_gemini_with_search_sync(prompt):
-    """Use Gemini with Google Search tool enabled (Synchronous)."""
-    try:
-        from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        model_id = "gemini-2.0-flash"
-        google_search_tool = Tool(google_search=GoogleSearch())
-        response = client.models.generate_content(
-            model=model_id,
-            contents=prompt,
-            config=GenerateContentConfig(
-                tools=[google_search_tool],
-                response_modalities=["TEXT"],
-            )
-        )
-        # Return both the answer and grounding metadata if available
-        answer = "\n".join([p.text for p in response.candidates[0].content.parts])
-        grounding = getattr(response.candidates[0].grounding_metadata, 'search_entry_point', None)
-        if grounding and hasattr(grounding, 'rendered_content'):
-            return answer + "\n\n[Grounding Metadata:]\n" + grounding.rendered_content
-        return answer
-    except Exception as e:
-        return f"[Gemini with search failed: {e}]"
+    """Enhanced Gemini with Google Search tool enabled (synchronous)."""
+    return call_gemini_with_fallback(prompt, function_type="search")
 
 def call_gemini_with_function_calling(prompt, function_declarations):
-    """
-    Call Gemini with function calling support. Returns a tuple (response_text, function_call_dict or None).
-    function_declarations: list of function declaration dicts as per Gemini API.
-    """
-    try:
-        from google.genai import types
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        tools = types.Tool(function_declarations=function_declarations)
-        config = types.GenerateContentConfig(tools=[tools])
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-            config=config,
-        )
-        parts = response.candidates[0].content.parts
-        for part in parts:
-            if hasattr(part, 'function_call') and part.function_call:
-                function_call = part.function_call
-                return None, {"name": function_call.name, "args": function_call.args}
-        # No function call found
-        return response.text, None
-    except Exception as e:
-        return f"[Gemini function calling failed: {e}]", None
+    """Enhanced Gemini with function calling support and automatic key rotation."""
+    return call_gemini_with_fallback(prompt, function_type="function_calling", function_declarations=function_declarations)
+
+def get_gemini_key_statistics():
+    """Get detailed statistics about Gemini API key usage."""
+    return gemini_key_manager.get_key_statistics()
+
+def reset_gemini_key_failures(key_id: Optional[str] = None):
+    """Reset failure counts for a specific key or all keys."""
+    with gemini_key_manager._lock:
+        if key_id and key_id in gemini_key_manager._keys:
+            key = gemini_key_manager._keys[key_id]
+            key.consecutive_failures = 0
+            key.failure_count = 0
+            key.is_available = True
+            key.rate_limit_reset_time = None
+            logger.info(f"Reset failures for Gemini key {key_id[:12]}...")
+        elif key_id is None:
+            for key in gemini_key_manager._keys.values():
+                key.consecutive_failures = 0
+                key.failure_count = 0
+                key.is_available = True
+                key.rate_limit_reset_time = None
+            logger.info("Reset failures for all Gemini keys")
+        else:
+            logger.warning(f"Gemini key {key_id} not found")
+
+def test_gemini_enhanced():
+    """Test the enhanced Gemini system with multiple API keys."""
+    test_prompt = "What is the capital of France?"
+    
+    print("Testing Enhanced Gemini System:")
+    print("=" * 50)
+    
+    # Test basic text generation
+    print("\n1. Testing basic text generation:")
+    result = call_gemini(test_prompt)
+    print(f"Result: {result[:100]}..." if len(result) > 100 else f"Result: {result}")
+    
+    # Show key statistics
+    print("\n2. Current key statistics:")
+    stats = get_gemini_key_statistics()
+    print(f"Total keys: {stats['total_keys']}")
+    print(f"Available keys: {stats['available_keys']}")
+    print(f"Rate limited keys: {stats['rate_limited_keys']}")
+    
+    # Test multiple calls to see key rotation
+    print("\n3. Testing multiple calls for key rotation:")
+    for i in range(3):
+        result = call_gemini(f"Test call #{i+1}: What is 2+2?")
+        print(f"Call {i+1}: {result[:50]}..." if len(result) > 50 else f"Call {i+1}: {result}")
+    
+    print("\n4. Final key statistics:")
+    final_stats = get_gemini_key_statistics()
+    for key_id, key_data in final_stats['keys'].items():
+        if key_data['total_requests'] > 0:
+            print(f"Key {key_id[:12]}...: {key_data['total_requests']} requests, "
+                  f"failures: {key_data['consecutive_failures']}, "
+                  f"available: {key_data['is_available']}")
 
 def call_llm(prompt, preferred_provider=None, model=None):
     """
@@ -314,7 +612,7 @@ def call_llm(prompt, preferred_provider=None, model=None):
     return call_gemini(prompt)
 
 def test_all_providers():
-    """Test all LLM providers and Gemini fallbacks with a simple prompt."""
+    """Test all LLM providers and enhanced Gemini fallbacks with a simple prompt."""
     prompt = "What is the capital of France?"
     print("Testing Zuki:")
     print(call_zuki(prompt))
@@ -324,11 +622,15 @@ def test_all_providers():
     print(call_zanity(prompt))
     print("\nTesting A4F:")
     print(call_a4f(prompt))
-    print("\nTesting Gemini (text):")
+    print("\nTesting Enhanced Gemini (text):")
     print(call_gemini(prompt))
     # Gemini advanced features (image/audio/search) require files or special prompts
-    print("\nTesting Gemini with Google Search tool:")
+    print("\nTesting Enhanced Gemini with Google Search tool:")
     print(call_gemini_with_search("When is the next total solar eclipse in the United States?"))
+    
+    # Test the enhanced system specifically
+    print("\n" + "=" * 60)
+    test_gemini_enhanced()
 
 PROVIDERS = [
     {

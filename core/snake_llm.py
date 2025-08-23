@@ -185,7 +185,7 @@ class SnakeLLMInterface:
                         raise Exception(f"Ollama API error {response.status}: {error_text}")
                         
         except asyncio.TimeoutError:
-            raise TimeoutError(f"Ollama request timed out after {self.config['timeout']} seconds")
+            raise TimeoutError(f"Ollama request timed out after {self.config['timeout']} seconds ({self.config['timeout']//60} minutes)")
         except Exception as e:
             logger.error(f"Error calling Ollama API: {e}")
             raise

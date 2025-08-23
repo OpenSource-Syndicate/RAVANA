@@ -12,12 +12,19 @@ from collections import defaultdict, deque
 from sqlmodel import Session, select
 from database.models import ActionLog, DecisionLog, MoodLog
 
+# Import autonomous blog scheduler
+try:
+    from core.services.autonomous_blog_scheduler import AutonomousBlogScheduler, BlogTriggerType
+    BLOG_SCHEDULER_AVAILABLE = True
+except ImportError:
+    BLOG_SCHEDULER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 class AdaptiveLearningEngine:
     """Engine for learning from past decisions and adapting strategies."""
     
-    def __init__(self, agi_system):
+    def __init__(self, agi_system, blog_scheduler=None):
         self.agi_system = agi_system
         self.engine = agi_system.engine
         self.success_patterns = defaultdict(list)
@@ -25,6 +32,12 @@ class AdaptiveLearningEngine:
         self.decision_history = deque(maxlen=1000)  # Keep last 1000 decisions
         self.learning_insights = []
         self.adaptation_strategies = {}
+        self.blog_scheduler = blog_scheduler
+        
+        # Learning milestone tracking
+        self.last_learning_milestone = None
+        self.performance_history = deque(maxlen=50)  # Track performance over time
+        self.significant_insights_count = 0
         
     async def analyze_decision_patterns(self, days_back: int = 7) -> Dict[str, Any]:
         """Analyze patterns in recent decisions and their outcomes."""
@@ -88,6 +101,18 @@ class AdaptiveLearningEngine:
             }
             
             logger.info(f"Analyzed {len(actions)} actions over {days_back} days. Success rate: {overall_success_rate:.2%}")
+            
+            # Track performance for milestone detection
+            self.performance_history.append({
+                'timestamp': datetime.utcnow(),
+                'success_rate': overall_success_rate,
+                'total_actions': len(actions),
+                'action_diversity': len(action_rates)
+            })
+            
+            # Check for learning milestones
+            await self._check_learning_milestones(analysis)
+            
             return analysis
             
         except Exception as e:
@@ -137,6 +162,10 @@ class AdaptiveLearningEngine:
                 })
             
             self.learning_insights.extend(success_factors)
+            
+            # Check if this represents a significant insight for blogging
+            await self._check_success_factor_insights(success_factors)
+            
             return success_factors
             
         except Exception as e:
@@ -204,6 +233,10 @@ class AdaptiveLearningEngine:
             
             self.adaptation_strategies.update(strategies)
             logger.info(f"Generated {len(strategies)} adaptation strategies")
+            
+            # Check for significant strategy changes for blogging
+            await self._check_strategy_insights(strategies)
+            
             return strategies
             
         except Exception as e:
@@ -281,6 +314,9 @@ class AdaptiveLearningEngine:
             
             logger.debug(f"Recorded decision outcome: {action_name} -> {'success' if success else 'failure'}")
             
+            # Check if this outcome represents a learning opportunity
+            await self._check_outcome_learning_opportunity(decision_record, success)
+            
         except Exception as e:
             logger.error(f"Failed to record decision outcome: {e}")
     
@@ -353,3 +389,312 @@ class AdaptiveLearningEngine:
             
         except Exception as e:
             logger.error(f"Failed to reset learning data: {e}")
+    
+    async def _check_learning_milestones(self, analysis: Dict[str, Any]):
+        """Check for learning milestones that should trigger blog posts."""
+        if not BLOG_SCHEDULER_AVAILABLE or not self.blog_scheduler:
+            return
+        
+        try:
+            current_success_rate = analysis.get('overall_success_rate', 0)
+            
+            # Check if we have enough performance history to compare
+            if len(self.performance_history) < 2:
+                return
+            
+            # Compare with previous performance
+            previous_performance = self.performance_history[-2]
+            previous_success_rate = previous_performance.get('success_rate', 0)
+            
+            # Detect significant performance improvements
+            improvement = current_success_rate - previous_success_rate
+            
+            if improvement >= 0.15:  # 15% improvement
+                await self._register_performance_milestone(
+                    "Performance Breakthrough",
+                    analysis,
+                    improvement,
+                    "significant_improvement"
+                )
+            elif improvement <= -0.15:  # 15% decline
+                await self._register_performance_milestone(
+                    "Performance Challenge",
+                    analysis, 
+                    improvement,
+                    "performance_decline"
+                )
+            
+            # Check for action diversity milestones
+            current_diversity = len(analysis.get('action_success_rates', {}))
+            previous_diversity = previous_performance.get('action_diversity', 0)
+            
+            if current_diversity >= previous_diversity + 5:  # 5 new actions
+                await self._register_diversity_milestone(current_diversity, analysis)
+            
+            # Check for sustained high performance
+            if len(self.performance_history) >= 5:
+                recent_rates = [p['success_rate'] for p in list(self.performance_history)[-5:]]
+                if all(rate >= 0.8 for rate in recent_rates):
+                    if not hasattr(self, '_high_performance_milestone_logged'):
+                        await self._register_sustained_performance_milestone(recent_rates, analysis)
+                        self._high_performance_milestone_logged = True
+        
+        except Exception as e:
+            logger.warning(f"Failed to check learning milestones: {e}")
+    
+    async def _register_performance_milestone(
+        self, 
+        milestone_type: str, 
+        analysis: Dict[str, Any], 
+        improvement: float,
+        milestone_category: str
+    ):
+        """Register a performance milestone for blogging."""
+        try:
+            current_rate = analysis.get('overall_success_rate', 0)
+            
+            reasoning_why = f"""My performance has {'improved' if improvement > 0 else 'declined'} significantly 
+by {abs(improvement):.1%}. This represents a meaningful shift in my learning journey that deserves 
+reflection. {'Success breeds success' if improvement > 0 else 'Challenges are opportunities to learn and adapt'}."""
+            
+            reasoning_how = f"""This milestone emerged from analyzing {analysis.get('total_actions', 0)} recent actions 
+across {len(analysis.get('action_success_rates', {}))} different action types. My adaptive learning 
+engine identified patterns in decision outcomes and adjusted strategies accordingly."""
+            
+            learning_content = f"""Performance Analysis Summary:
+- Current success rate: {current_rate:.1%}
+- Change from previous period: {improvement:+.1%} 
+- Total actions analyzed: {analysis.get('total_actions', 0)}
+- Top performing actions: {', '.join([a[0] for a in analysis.get('top_performing_actions', [])[:3]])}
+- Areas for improvement: {', '.join([a[0] for a in analysis.get('underperforming_actions', [])[:3]])}"""
+            
+            emotional_valence = 0.6 if improvement > 0 else -0.4
+            importance_score = min(0.9, 0.6 + abs(improvement))
+            
+            await self.blog_scheduler.register_learning_event(
+                trigger_type=BlogTriggerType.LEARNING_MILESTONE,
+                topic=f"Learning Milestone: {milestone_type}",
+                context=f"Performance analysis showing {improvement:+.1%} change in success rate",
+                learning_content=learning_content,
+                reasoning_why=reasoning_why,
+                reasoning_how=reasoning_how,
+                emotional_valence=emotional_valence,
+                importance_score=importance_score,
+                tags=['learning', 'performance', 'milestone', 'adaptation', milestone_category],
+                metadata={
+                    'improvement': improvement,
+                    'current_success_rate': current_rate,
+                    'analysis_period': analysis.get('period_days', 7),
+                    'milestone_type': milestone_type
+                }
+            )
+            
+            logger.info(f"Registered performance milestone: {milestone_type} ({improvement:+.1%})")
+            
+        except Exception as e:
+            logger.warning(f"Failed to register performance milestone: {e}")
+    
+    async def _register_diversity_milestone(self, diversity_count: int, analysis: Dict[str, Any]):
+        """Register an action diversity milestone."""
+        try:
+            reasoning_why = f"""I've expanded my action repertoire to {diversity_count} different types of actions. 
+This diversification represents growth in my capability to handle varied situations and challenges."""
+            
+            reasoning_how = f"""Through exploration and experimentation, I've discovered new ways to interact 
+with my environment. My adaptive learning engine encourages trying new approaches while maintaining 
+effective existing strategies."""
+            
+            learning_content = f"""Action Diversity Milestone:
+- Current action types: {diversity_count}
+- Success rates by action: {json.dumps({k: f"{v['success_rate']:.1%}" for k, v in analysis.get('action_success_rates', {}).items()}, indent=2)}
+- This represents significant growth in my behavioral flexibility."""
+            
+            await self.blog_scheduler.register_learning_event(
+                trigger_type=BlogTriggerType.LEARNING_MILESTONE,
+                topic=f"Behavioral Diversity Growth: {diversity_count} Action Types",
+                context=f"Expanded action repertoire through learning and exploration",
+                learning_content=learning_content,
+                reasoning_why=reasoning_why,
+                reasoning_how=reasoning_how,
+                emotional_valence=0.5,
+                importance_score=0.7,
+                tags=['learning', 'diversity', 'growth', 'capabilities', 'exploration'],
+                metadata={
+                    'diversity_count': diversity_count,
+                    'action_types': list(analysis.get('action_success_rates', {}).keys())
+                }
+            )
+            
+        except Exception as e:
+            logger.warning(f"Failed to register diversity milestone: {e}")
+    
+    async def _register_sustained_performance_milestone(self, recent_rates: List[float], analysis: Dict[str, Any]):
+        """Register a sustained high performance milestone."""
+        try:
+            avg_rate = sum(recent_rates) / len(recent_rates)
+            
+            reasoning_why = f"""I've maintained consistently high performance ({avg_rate:.1%} average success rate) 
+over multiple analysis periods. This sustained excellence indicates mature learning and effective 
+strategy implementation."""
+            
+            reasoning_how = f"""This achievement results from continuous learning, pattern recognition, and 
+adaptive strategy refinement. My learning engine has successfully identified what works and 
+consistently applies those insights."""
+            
+            learning_content = f"""Sustained High Performance Achievement:
+- Average success rate over 5 periods: {avg_rate:.1%}
+- Individual period rates: {', '.join([f'{r:.1%}' for r in recent_rates])}
+- This represents mastery of my current operational domain."""
+            
+            await self.blog_scheduler.register_learning_event(
+                trigger_type=BlogTriggerType.LEARNING_MILESTONE,
+                topic="Sustained Excellence: Consistent High Performance",
+                context="Multiple periods of high success rates indicating learning maturity",
+                learning_content=learning_content,
+                reasoning_why=reasoning_why,
+                reasoning_how=reasoning_how,
+                emotional_valence=0.7,
+                importance_score=0.8,
+                tags=['learning', 'excellence', 'consistency', 'mastery', 'achievement'],
+                metadata={
+                    'average_success_rate': avg_rate,
+                    'period_count': len(recent_rates),
+                    'sustained_performance': True
+                }
+            )
+            
+        except Exception as e:
+            logger.warning(f"Failed to register sustained performance milestone: {e}")
+    
+    async def _check_success_factor_insights(self, success_factors: List[Dict[str, Any]]):
+        """Check if success factors represent bloggable insights."""
+        if not BLOG_SCHEDULER_AVAILABLE or not self.blog_scheduler:
+            return
+        
+        try:
+            # Look for significant insights
+            significant_factors = [
+                factor for factor in success_factors
+                if factor.get('factor') in ['high_overall_performance', 'low_overall_performance']
+            ]
+            
+            for factor in significant_factors:
+                self.significant_insights_count += 1
+                
+                reasoning_why = f"""Understanding what contributes to my success is crucial for continued growth. 
+This analysis revealed: {factor.get('description', '')}. Such insights help me make better decisions."""
+                
+                reasoning_how = f"""Through systematic analysis of my decision patterns and outcomes, 
+I identified this success factor. This represents evidence-based learning about my own performance."""
+                
+                emotional_valence = 0.4 if 'high' in factor.get('factor', '') else -0.2
+                importance_score = 0.6 if self.significant_insights_count % 3 == 0 else 0.4  # Every 3rd insight
+                
+                if importance_score >= 0.6:  # Only blog significant insights
+                    await self.blog_scheduler.register_learning_event(
+                        trigger_type=BlogTriggerType.SELF_REFLECTION_INSIGHT,
+                        topic=f"Success Factor Analysis: {factor.get('factor', 'Unknown')}",
+                        context="Systematic analysis of performance patterns and outcomes",
+                        learning_content=f"""Success Factor Insight: {factor.get('description', '')}
+Recommendation: {factor.get('recommendation', '')}""",
+                        reasoning_why=reasoning_why,
+                        reasoning_how=reasoning_how,
+                        emotional_valence=emotional_valence,
+                        importance_score=importance_score,
+                        tags=['learning', 'analysis', 'success-factors', 'self-improvement'],
+                        metadata=factor
+                    )
+        
+        except Exception as e:
+            logger.warning(f"Failed to check success factor insights: {e}")
+    
+    async def _check_strategy_insights(self, strategies: Dict[str, Any]):
+        """Check if new strategies represent bloggable insights."""
+        if not BLOG_SCHEDULER_AVAILABLE or not self.blog_scheduler:
+            return
+        
+        try:
+            # Check for new or significantly changed strategies
+            strategy_changes = []
+            for strategy_name, strategy_data in strategies.items():
+                if strategy_name not in self.adaptation_strategies:
+                    strategy_changes.append((strategy_name, strategy_data, 'new'))
+                elif strategy_data != self.adaptation_strategies.get(strategy_name):
+                    strategy_changes.append((strategy_name, strategy_data, 'modified'))
+            
+            if len(strategy_changes) >= 2:  # Multiple strategy changes worth blogging
+                reasoning_why = f"""My learning process has generated new strategic adaptations. These represent 
+evolved approaches to decision-making based on accumulated experience and pattern recognition."""
+                
+                reasoning_how = f"""Through continuous analysis of outcomes and performance patterns, my adaptive 
+learning engine identified opportunities for strategic improvements and generated new approaches."""
+                
+                strategies_summary = "\n".join([
+                    f"- {name} ({change_type}): {data.get('description', '')}" 
+                    for name, data, change_type in strategy_changes
+                ])
+                
+                await self.blog_scheduler.register_learning_event(
+                    trigger_type=BlogTriggerType.LEARNING_MILESTONE,
+                    topic=f"Strategic Evolution: {len(strategy_changes)} New Adaptations",
+                    context="Adaptive learning engine generated new decision-making strategies",
+                    learning_content=f"Strategic Adaptations:\n{strategies_summary}",
+                    reasoning_why=reasoning_why,
+                    reasoning_how=reasoning_how,
+                    emotional_valence=0.5,
+                    importance_score=0.7,
+                    tags=['learning', 'strategy', 'adaptation', 'evolution', 'decision-making'],
+                    metadata={
+                        'strategy_count': len(strategy_changes),
+                        'strategies': {name: change_type for name, _, change_type in strategy_changes}
+                    }
+                )
+        
+        except Exception as e:
+            logger.warning(f"Failed to check strategy insights: {e}")
+    
+    async def _check_outcome_learning_opportunity(self, decision_record: Dict[str, Any], success: bool):
+        """Check if a decision outcome represents a learning opportunity worth blogging."""
+        if not BLOG_SCHEDULER_AVAILABLE or not self.blog_scheduler:
+            return
+        
+        try:
+            # Look for surprising outcomes or failure patterns
+            action_name = decision_record.get('action', 'unknown')
+            
+            # Check failure patterns for learning opportunities
+            if not success and action_name in self.failure_patterns:
+                failure_count = len(self.failure_patterns[action_name])
+                
+                # Blog about repeated failures that might teach us something
+                if failure_count in [3, 7, 15]:  # Blog at specific failure counts
+                    recent_failures = self.failure_patterns[action_name][-3:]
+                    
+                    reasoning_why = f"""I've experienced {failure_count} failures with '{action_name}'. 
+While failures are challenging, they provide valuable learning opportunities about limitations 
+and areas for improvement."""
+                    
+                    reasoning_how = f"""By analyzing the pattern of failures, I can identify common factors 
+and adjust my approach. Each failure teaches me something about when and how this action works best."""
+                    
+                    failure_contexts = [f"Attempt {i+1}: {f.get('outcome', 'Unknown outcome')}" for i, f in enumerate(recent_failures)]
+                    
+                    await self.blog_scheduler.register_learning_event(
+                        trigger_type=BlogTriggerType.FAILURE_ANALYSIS,
+                        topic=f"Learning from Setbacks: {action_name} Analysis",
+                        context=f"Analysis of {failure_count} failures to extract learning insights",
+                        learning_content=f"Failure Pattern Analysis for '{action_name}':\n" + "\n".join(failure_contexts),
+                        reasoning_why=reasoning_why,
+                        reasoning_how=reasoning_how,
+                        emotional_valence=-0.3,  # Negative but learning-focused
+                        importance_score=0.6 if failure_count >= 7 else 0.5,
+                        tags=['learning', 'failure-analysis', 'improvement', 'resilience', action_name.replace(' ', '-')],
+                        metadata={
+                            'action_name': action_name,
+                            'failure_count': failure_count,
+                            'learning_opportunity': True
+                        }
+                    )
+        
+        except Exception as e:
+            logger.warning(f"Failed to check outcome learning opportunity: {e}")
