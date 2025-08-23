@@ -233,12 +233,13 @@ class BlogPublishAction(Action):
                     "timestamp": datetime.now().isoformat(),
                 }
                 
-                # Use existing data service logging mechanism
+                # Use existing data service logging mechanism with correct parameters
                 await asyncio.to_thread(
                     getattr(self.data_service, 'save_action_log', lambda *args: None),
                     "publish_blog_post",
-                    result.get("status", "unknown"),
-                    result
+                    log_entry,  # params
+                    result.get("status", "unknown"),  # status
+                    result  # result
                 )
             
             # Log to memory service for future context

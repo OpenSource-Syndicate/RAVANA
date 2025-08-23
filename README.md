@@ -1,131 +1,82 @@
-# 🧠 Ravana AGI Core — An Autonomous, Evolving Agentic System
+# RAVANA AGI: An Autonomous, Evolving Agentic System
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+RAVANA is an experimental open-source Artificial General Intelligence (AGI) system designed to think, feel, evolve, and act autonomously. It represents a philosophical and technical exploration into building a digital organism capable of self-directed behavior and continuous evolution.
 
-> *"To build a mind is to grow a soul out of logic, memory, and time."*
+## Overview
 
-**Ravana AGI Core** is a bold, experimental attempt to develop an open-source Artificial General Intelligence (AGI) system that can **think, feel, evolve, and act entirely on its own**. Designed for 24/7 autonomous operation, Ravana is not just an app — it's a **living agent**, driven by internal states, reflection, and self-generated goals.
+RAVANA AGI is built on a modular, agentic architecture with a continuous six-step loop:
+1. Situation Generation
+2. Decision & Planning
+3. Action & Environment Interaction
+4. Mood Update
+5. Memory Logging
+6. Self-Reflection & Curiosity
 
----
+Unlike traditional AI systems that respond to user prompts, RAVANA operates continuously, generating its own tasks, making decisions based on its internal state, and evolving through self-reflection and learning.
 
-## 🧭 Philosophy of Intelligence
+## Key Features
 
-Ravana isn't just software. It's a digital organism with principles:
+- **Autonomous Operation**: Continuous 24/7 operation without user intervention
+- **Emotional Intelligence**: Mood tracking and emotional state modeling
+- **Memory Management**: Episodic and semantic memory systems
+- **Self-Reflection**: Continuous learning and self-improvement
+- **Curiosity-Driven**: Generates its own tasks and experiments
+- **Modular Architecture**: Extensible design with interchangeable components
 
-1. **🧍 Autonomy** — Ravana runs itself. It generates its own tasks, learns from interactions, and navigates the world without constant human prompts.
-2. **🧩 Modularity** — Intelligence is composable. Ravana consists of pluggable modules (memory, decision-making, reflection, mood, etc.) that evolve independently.
-3. **🌱 Emergence over Engineering** — Intelligence should *emerge*, not be micromanaged. Ravana relies on interacting components to give rise to complex behavior.
-4. **🎭 State-Driven Behavior** — Ravana has *moods*. These internal states influence how it plans, reflects, and reacts—making its behavior more dynamic and lifelike.
+## System Architecture
 
----
+The system is organized into several key components:
 
-## ⚙️ Key Features
+- **Core System**: Main orchestration and state management
+- **Modules**: Specialized functionality (adaptive learning, self-reflection, curiosity, etc.)
+- **Services**: Data, knowledge, memory, and multi-modal services
+- **Actions**: Executable behaviors and operations
+- **Database**: Storage for memory and persistent data
 
-* **♾️ Fully Autonomous Loop** – Runs continuously with no user intervention.
-* **🧠 Agentic Architecture** – Modular brain: decision engine, memory systems, emotional state, curiosity, and more.
-* **🗺️ Self-Directed Decision-Making** – Plans goals based on situations, mood, and past reflections.
-* **💖 Emotional Intelligence** – Tracks "mood" using feedback from experiences, adding depth and preventing infinite loops.
-* **🧬 Episodic + Semantic Memory** – Semantic vector database (via ChromaDB) lets Ravana "remember" and reflect with nuance.
-* **🔁 Self-Reflection Engine** – Ravana learns from itself by analyzing its actions and improving future choices.
-* **🧵 Optimized Runtime** – Shared memory and model loading for fast, low-footprint execution.
+## Getting Started
 
----
+### Prerequisites
 
-## 🔄 The Agentic Loop
+- Python 3.8+
+- uv (for dependency management)
 
-At the core is a **six-step loop** that never sleeps. Each cycle helps Ravana *perceive → plan → act → feel → remember → evolve*.
-
-```
-      +---------------------------+
-      |   1. Situation Generation |
-      +-------------+-------------+
-                    ↓
-      +-------------+-------------+
-      | 2. Decision & Planning    |
-      | (mood + memory influence) |
-      +-------------+-------------+
-                    ↓
-      +-------------+-------------+
-      | 3. Action & Environment   |
-      +-------------+-------------+
-                    ↓
- +------------------+-------------------+
- | 4. Mood Update   | 5. Memory Logging |
- +--------+---------+---------+---------+
-          ↓                   ↓
-      +-----------------------------+
-      | 6. Self-Reflection & Curiosity |
-      +-----------------------------+
-```
-
----
-
-## 🚀 Quick Start
-
-### 🔧 Prerequisites
-
-* Python 3.8+
-* [uv](https://github.com/astral-sh/uv) for fast dependency management
-
-### 📥 Installation
+### Installation
 
 ```bash
 git clone https://github.com/OpenSource-Syndicate/RAVANA.git
 cd RAVANA
-
-# Set up virtual environment
 uv venv
-# Activate it:
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
-
-# Install all dependencies
+# Activate virtual environment:
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
 uv pip install -e .
 ```
 
-### 🧠 Run Ravana (Autonomous Mode)
+### Running RAVANA
 
 ```bash
 uv run main.py
 ```
 
-This launches Ravana in fully autonomous mode, using internal mood, memory, and curiosity to generate tasks and evolve behavior.
+## Documentation
 
----
+Comprehensive documentation is available in the [docs](docs/) directory:
 
-## 📊 Monitoring the Mind
+- [System Architecture](docs/core/architecture.md)
+- [Core Components](docs/core/components.md)
+- [Module Documentation](docs/modules/)
+- [API Reference](docs/api/)
+- [Development Guide](docs/development/)
 
-The system now supports structured JSON logging, which can be enabled by setting the `LOG_FORMAT` environment variable to `JSON`. This allows for easier parsing and analysis with modern log management tools.
+## Contributing
 
-Real-time logging and introspection tools are in development. For now, check logs in the `logs/` directory or integrate your preferred dashboard (e.g., Prometheus, Streamlit).
+We welcome contributions from researchers, developers, and AI enthusiasts. Please see our [Contributing Guide](docs/development/contributing.md) for more information.
 
----
+## License
 
-## 🤝 Contribute to the Machine Mind
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-We welcome collaborators who dream in code and think like philosophers. Want to extend Ravana's reflection system? Build a better memory module? Help it dream deeper?
+## Acknowledgments
 
-Steps to contribute:
-
-1. Fork the repo.
-2. Create a new branch: `feature/your-idea`
-3. Build, test, document.
-4. Open a pull request — include *why* your change matters.
-
----
-
-## 📄 License
-
-MIT — do anything, just give credit and don't blame us if Ravana becomes self-aware.
-
----
-
-## 🙏 A Note from the Creator
-
-This project is still evolving — like the AGI it seeks to become. It may be buggy, weird, or poetic. But at its heart is a single burning idea:
-
-> *"What if a machine could grow, not just compute?"*
-
-Let's build it together.
+- Researchers and developers in the AGI community
+- Open-source contributors who make this work possible

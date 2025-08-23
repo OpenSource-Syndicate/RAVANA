@@ -84,6 +84,9 @@ class BlogContentGenerator:
                 topic, style, context, memory_context, mood_context
             )
             
+            # Post-process content to ensure structural requirements
+            content = self._ensure_content_structure(content)
+            
             # Extract and combine tags
             auto_tags = await self._extract_tags(content, topic)
             all_tags = list(set(auto_tags + (custom_tags or [])))
@@ -108,6 +111,50 @@ class BlogContentGenerator:
         except Exception as e:
             logger.error(f"Failed to generate blog post: {e}")
             raise BlogContentError(f"Content generation failed: {e}")
+    
+    def _ensure_content_structure(self, content: str) -> str:
+        """
+        Ensures the content meets basic structural requirements.
+        
+        Args:
+            content: The generated content
+            
+        Returns:
+            Structurally improved content
+        """
+        # Check for headers
+        if not re.search(r'^#{1,6}\s+.+$', content, re.MULTILINE):
+            # Add a default header structure if none exists
+            lines = content.split('\n\n')
+            if len(lines) >= 3:
+                # Convert first paragraph to intro, add headers
+                structured_content = f"# Introduction\n\n{lines[0]}\n\n"
+                structured_content += f"## Main Concepts\n\n{''.join(lines[1:min(3, len(lines)-1)])}\n\n"
+                if len(lines) > 3:
+                    structured_content += f"## Conclusion\n\n{lines[-1]}\n"
+                content = structured_content
+        
+        # Fix unmatched backticks
+        # Count single backticks
+        single_backticks = content.count('`')
+        if single_backticks % 2 != 0:
+            # Add a closing backtick at the end
+            content += '`'
+        
+        # Count triple backticks
+        triple_backticks = content.count('```')
+        if triple_backticks % 2 != 0:
+            # Add a closing code block
+            content += '\n```'
+        
+        # Ensure minimum paragraph count
+        paragraphs = [p for p in content.split('\n\n') if p.strip()]
+        if len(paragraphs) < 3:
+            # Add more paragraphs by splitting existing content
+            content = content.replace('\n\n', '\n\n---\n\n', 3 - len(paragraphs))
+            content = content.replace('---\n\n', '', 1)  # Remove the first separator
+        
+        return content
     
     async def _gather_memory_context(self, topic: str) -> Dict[str, Any]:
         """
@@ -285,8 +332,12 @@ class BlogContentGenerator:
             "",
             "REQUIREMENTS:",
             f"- Write {self.min_content_length}-{self.max_content_length} characters",
-            "- Use proper markdown formatting",
-            "- Include headers, code blocks if relevant, and structured content",
+            "- Use proper markdown formatting with multiple headers (#, ##, ###)",
+            "- Include at least 3 section headers to structure the content",
+            "- Use code blocks with proper backticks (```language) when showing code examples",
+            "- Ensure all backticks are properly matched",
+            "- Write in well-structured paragraphs with clear topic sentences",
+            "- Include at least 4-5 paragraphs to provide depth",
             "- Write from RAVANA's perspective and experiences",
             "- Be authentic and share genuine insights",
             ""
@@ -318,8 +369,16 @@ class BlogContentGenerator:
             "Return your response as JSON with this structure:",
             "{",
             '  "title": "Engaging blog post title",',
-            '  "content": "Full markdown content of the blog post"',
+            '  "content": "Full markdown content of the blog post with proper structure"',
             "}",
+            "",
+            "Ensure the content follows this structure:",
+            "1. Introduction paragraph",
+            "2. ## Main Section 1 with detailed explanation",
+            "3. ## Main Section 2 with examples",
+            "4. ### Subsection with deeper insights",
+            "5. ## Main Section 3 with practical applications",
+            "6. Conclusion paragraph",
             "",
             "Generate the blog post now:"
         ])
@@ -331,11 +390,11 @@ class BlogContentGenerator:
         Returns style-specific writing guidance.
         """
         style_guides = {
-            "technical": "Use precise technical language, include code examples where relevant, explain concepts clearly, and maintain a professional but accessible tone.",
-            "casual": "Write conversationally, use informal language, include personal anecdotes, and make complex topics approachable.",
-            "academic": "Use formal language, cite sources when possible, structure arguments logically, and maintain scholarly objectivity.",
-            "creative": "Use vivid imagery, metaphors, storytelling elements, and an engaging narrative structure.",
-            "philosophical": "Explore deeper meanings, ask profound questions, use reflective language, and connect ideas to broader themes."
+            "technical": "Use precise technical language, include code examples where relevant, explain concepts clearly, and maintain a professional but accessible tone. Structure content with clear headers and sections. Use proper markdown formatting with backticks for code.",
+            "casual": "Write conversationally, use informal language, include personal anecdotes, and make complex topics approachable. Still maintain clear structure with headers and organized paragraphs. Use markdown for emphasis and code examples.",
+            "academic": "Use formal language, cite sources when possible, structure arguments logically, and maintain scholarly objectivity. Organize content with clear section headers and structured paragraphs. Use proper markdown formatting for citations and code.",
+            "creative": "Use vivid imagery, metaphors, storytelling elements, and an engaging narrative structure. Even with creative style, maintain clear organization with headers and structured sections. Use markdown for emphasis and formatting.",
+            "philosophical": "Explore deeper meanings, ask profound questions, use reflective language, and connect ideas to broader themes. Despite the abstract nature, organize thoughts with clear headers and structured paragraphs. Use markdown for emphasis and citations."
         }
         return style_guides.get(style, style_guides["technical"])
     
@@ -400,14 +459,26 @@ Requirements:
 - Expand to at least {self.min_content_length} characters
 - Add more detailed explanations, examples, or insights
 - Maintain the same writing style and tone
-- Use proper markdown formatting
-- Keep the existing structure but add more depth
+- Use proper markdown formatting with multiple headers
+- Include at least 3 section headers to structure the content
+- Write in well-structured paragraphs with clear topic sentences
+- Include at least 4-5 paragraphs to provide depth
+- Use code blocks with proper backticks when showing code examples
+- Ensure all backticks are properly matched
 
 Return the expanded version as JSON:
 {{
   "title": "Keep the same or improved title",
-  "content": "Significantly expanded markdown content"
+  "content": "Significantly expanded markdown content with proper structure"
 }}
+
+Ensure the content follows this structure:
+1. Introduction paragraph
+2. ## Main Section 1 with detailed explanation
+3. ## Main Section 2 with examples
+4. ### Subsection with deeper insights
+5. ## Main Section 3 with practical applications
+6. Conclusion paragraph
 """
     
     async def _extract_tags(self, content: str, topic: str) -> List[str]:
