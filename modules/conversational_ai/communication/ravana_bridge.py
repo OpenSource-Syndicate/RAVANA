@@ -5,6 +5,12 @@ import uuid
 from typing import Dict, Any, Optional
 from datetime import datetime
 
+# Import the new communication channels
+from .memory_service_channel import MemoryServiceChannel
+from .shared_state_channel import SharedStateChannel
+from .message_queue_channel import MessageQueueChannel
+from .data_models import CommunicationMessage, CommunicationType, Priority
+
 logger = logging.getLogger(__name__)
 
 class RAVANACommunicator:
@@ -24,6 +30,14 @@ class RAVANACommunicator:
         # For graceful shutdown
         self._shutdown = asyncio.Event()
         
+        # Initialize communication channels
+        self.memory_service_channel = MemoryServiceChannel(f"{channel}_memory")
+        self.shared_state_channel = SharedStateChannel(f"{channel}_shared_state")
+        self.message_queue_channel = MessageQueueChannel(f"{channel}_queue")
+        
+        # Register callbacks for handling messages from RAVANA
+        self._register_message_callbacks()
+        
         # In a real implementation, this would connect to an actual IPC system
         # For now, we'll simulate the communication
         self.pending_tasks = {}
@@ -33,10 +47,16 @@ class RAVANACommunicator:
         if self._shutdown.is_set():
             return
         self.running = True
-        logger.info("RAVANA communication bridge started")
         
-        # Start message processing loop
-        await self._process_messages()
+        # Start communication channels
+        await self.memory_service_channel.start()
+        await self.shared_state_channel.start()
+        await self.message_queue_channel.start()
+        
+        # Start message processing loop as a separate task
+        self._processing_task = asyncio.create_task(self._process_messages())
+        
+        logger.info("RAVANA communication bridge started")
         
     async def stop(self):
         """Stop the RAVANA communication bridge."""
@@ -44,7 +64,59 @@ class RAVANACommunicator:
             return
         self._shutdown.set()
         self.running = False
+        
+        # Cancel processing task
+        if hasattr(self, '_processing_task') and self._processing_task:
+            self._processing_task.cancel()
+            try:
+                await self._processing_task
+            except asyncio.CancelledError:
+                pass
+        
+        # Stop communication channels
+        await self.memory_service_channel.stop()
+        await self.shared_state_channel.stop()
+        await self.message_queue_channel.stop()
+        
         logger.info("RAVANA communication bridge stopped")
+        
+    def _register_message_callbacks(self):
+        """Register callbacks for handling messages from RAVANA."""
+        # Register callbacks for different message types
+        self.message_queue_channel.register_message_callback(
+            CommunicationType.TASK_RESULT.value, 
+            self._handle_task_result_message
+        )
+        self.message_queue_channel.register_message_callback(
+            CommunicationType.NOTIFICATION.value, 
+            self._handle_notification_message
+        )
+        self.message_queue_channel.register_message_callback(
+            CommunicationType.USER_MESSAGE.value, 
+            self._handle_user_message_from_ravana_message
+        )
+        self.message_queue_channel.register_message_callback(
+            CommunicationType.THOUGHT_EXCHANGE.value, 
+            self._handle_thought_exchange_message
+        )
+        
+        # Register callbacks for shared state channel as well
+        self.shared_state_channel.register_message_callback(
+            CommunicationType.TASK_RESULT.value, 
+            self._handle_task_result_message
+        )
+        self.shared_state_channel.register_message_callback(
+            CommunicationType.NOTIFICATION.value, 
+            self._handle_notification_message
+        )
+        self.shared_state_channel.register_message_callback(
+            CommunicationType.USER_MESSAGE.value, 
+            self._handle_user_message_from_ravana_message
+        )
+        self.shared_state_channel.register_message_callback(
+            CommunicationType.THOUGHT_EXCHANGE.value, 
+            self._handle_thought_exchange_message
+        )
         
     async def _process_messages(self):
         """Process messages from RAVANA."""
@@ -67,7 +139,14 @@ class RAVANACommunicator:
                 if not self._shutdown.is_set():
                     logger.error(f"Error in message processing loop: {e}")
                     await asyncio.sleep(1)  # Prevent tight loop on error
+                else:
+                    break  # Exit loop if shutdown is set
+            # Check shutdown status periodically
+            if self._shutdown.is_set():
+                break
                 
+        logger.info("Message processing loop stopped")
+        
     async def _handle_message(self, message: Dict[str, Any]):
         """
         Handle a message from RAVANA.
@@ -269,29 +348,40 @@ class RAVANACommunicator:
         if self._shutdown.is_set():
             return
         try:
-            # In a real implementation, this would send the task through an IPC mechanism
-            # For now, we'll just simulate it by adding to a queue that would be processed
+            # Create a communication message
+            message_id = str(uuid.uuid4())
+            communication_message = CommunicationMessage(
+                id=message_id,
+                type=CommunicationType.TASK_RESULT,
+                priority=Priority.MEDIUM,
+                timestamp=datetime.now(),
+                sender="conversational_ai",
+                recipient="main_system",
+                subject=f"Task: {task.get('task_description', 'No description')}",
+                content=task,
+                requires_response=True,
+                response_timeout=300  # 5 minutes
+            )
             
-            task_id = str(uuid.uuid4())
-            task["task_id"] = task_id
-            task["status"] = "sent"
-            task["sent_at"] = datetime.now().isoformat()
+            # Send through message queue channel for reliability
+            success = self.message_queue_channel.send_message(communication_message)
             
-            # Add to pending tasks for tracking
-            self.pending_tasks[task_id] = task
-            
-            # In a real implementation, this would be sent to RAVANA
-            logger.info(f"Task {task_id} sent to RAVANA: {task.get('task_description', 'No description')}")
-            
-            # For simulation purposes, we'll create a response after a delay
-            # In a real implementation, RAVANA would process the task and send a response
-            if not self._shutdown.is_set():
-                asyncio.create_task(self._simulate_task_response(task_id))
+            if success:
+                # Add to pending tasks for tracking
+                task_id = task.get("task_id", message_id)
+                task["task_id"] = task_id
+                task["status"] = "sent"
+                task["sent_at"] = datetime.now().isoformat()
+                self.pending_tasks[task_id] = task
+                
+                logger.info(f"Task {task_id} sent to RAVANA: {task.get('task_description', 'No description')}")
+            else:
+                logger.error(f"Failed to send task to RAVANA: {task.get('task_description', 'No description')}")
             
         except Exception as e:
             if not self._shutdown.is_set():
                 logger.error(f"Error sending task to RAVANA: {e}")
-                
+
     def send_thought_to_ravana(self, thought: Dict[str, Any]):
         """
         Send a thought to RAVANA.
@@ -302,65 +392,67 @@ class RAVANACommunicator:
         if self._shutdown.is_set():
             return
         try:
-            # Add metadata
-            thought_message = {
-                "type": "thought_exchange",
-                "timestamp": datetime.now().isoformat(),
-                "source": "conversational_ai",
-                "destination": "main_system",
-                "content": thought
-            }
+            # Create a communication message
+            message_id = str(uuid.uuid4())
+            communication_message = CommunicationMessage(
+                id=message_id,
+                type=CommunicationType.THOUGHT_EXCHANGE,
+                priority=Priority.LOW,
+                timestamp=datetime.now(),
+                sender="conversational_ai",
+                recipient="main_system",
+                subject=f"Thought: {thought.get('thought_type', 'unknown')}",
+                content=thought,
+                requires_response=False
+            )
             
-            # In a real implementation, this would be sent to RAVANA through IPC
-            # For now, we'll add it to the message queue
-            if not self._shutdown.is_set():
-                asyncio.create_task(self.message_queue.put(thought_message))
+            # Send through memory service channel for persistence
+            success = self.memory_service_channel.send_message(communication_message)
             
-            logger.info(f"Thought sent to RAVANA: {thought.get('thought_type', 'unknown')}")
+            if success:
+                logger.info(f"Thought sent to RAVANA: {thought.get('thought_type', 'unknown')}")
+            else:
+                logger.error(f"Failed to send thought to RAVANA: {thought.get('thought_type', 'unknown')}")
             
         except Exception as e:
             if not self._shutdown.is_set():
                 logger.error(f"Error sending thought to RAVANA: {e}")
-            
-    async def _simulate_task_response(self, task_id: str):
+
+    def send_emotional_context_to_ravana(self, emotional_data: Dict[str, Any]):
         """
-        Simulate a task response from RAVANA (for testing purposes).
+        Send emotional context to RAVANA.
         
         Args:
-            task_id: ID of the task to simulate a response for
+            emotional_data: Emotional context data to send to RAVANA
         """
         if self._shutdown.is_set():
             return
         try:
-            # Wait a bit to simulate processing time
-            await asyncio.sleep(5)
+            # Create a communication message
+            message_id = str(uuid.uuid4())
+            communication_message = CommunicationMessage(
+                id=message_id,
+                type=CommunicationType.STATUS_UPDATE,
+                priority=Priority.HIGH,
+                timestamp=datetime.now(),
+                sender="conversational_ai",
+                recipient="main_system",
+                subject=f"Emotional context update for user {emotional_data.get('user_id', 'unknown')}",
+                content=emotional_data,
+                requires_response=False
+            )
             
-            # Check if task still exists and shutdown not requested
-            if task_id not in self.pending_tasks or self._shutdown.is_set():
-                return
-                
-            task = self.pending_tasks[task_id]
-            user_id = task.get("user_id")
+            # Send through shared state channel for real-time communication
+            success = self.shared_state_channel.send_message(communication_message)
             
-            # Create a simulated response
-            response = {
-                "type": "task_result",
-                "user_id": user_id,
-                "task_id": task_id,
-                "result": f"Task '{task.get('task_description', 'unknown')}' has been processed successfully!"
-            }
-            
-            # Add to message queue to be processed
-            if not self._shutdown.is_set():
-                await self.message_queue.put(response)
-            
-            # Remove from pending tasks
-            if task_id in self.pending_tasks:
-                del self.pending_tasks[task_id]
+            if success:
+                logger.info(f"Emotional context sent to RAVANA for user {emotional_data.get('user_id', 'unknown')}")
+            else:
+                logger.error(f"Failed to send emotional context to RAVANA for user {emotional_data.get('user_id', 'unknown')}")
             
         except Exception as e:
             if not self._shutdown.is_set():
-                logger.error(f"Error simulating task response: {e}")
+                logger.error(f"Error sending emotional context to RAVANA: {e}")
             
     def send_notification_to_ravana(self, notification: Dict[str, Any]):
         """
@@ -377,36 +469,6 @@ class RAVANACommunicator:
         except Exception as e:
             if not self._shutdown.is_set():
                 logger.error(f"Error sending notification to RAVANA: {e}")
-            
-    def send_emotional_context_to_ravana(self, emotional_data: Dict[str, Any]):
-        """
-        Send emotional context to RAVANA.
-        
-        Args:
-            emotional_data: Emotional context data to send to RAVANA
-        """
-        if self._shutdown.is_set():
-            return
-        try:
-            # Add metadata
-            emotional_message = {
-                "type": "emotional_context_update",
-                "timestamp": datetime.now().isoformat(),
-                "source": "conversational_ai",
-                "destination": "main_system",
-                "content": emotional_data
-            }
-            
-            # In a real implementation, this would be sent to RAVANA through IPC
-            # For now, we'll add it to the message queue
-            if not self._shutdown.is_set():
-                asyncio.create_task(self.message_queue.put(emotional_message))
-            
-            logger.info(f"Emotional context sent to RAVANA for user {emotional_data.get('user_id', 'unknown')}")
-            
-        except Exception as e:
-            if not self._shutdown.is_set():
-                logger.error(f"Error sending emotional context to RAVANA: {e}")
             
     def notify_user(self, user_id: str, message: str, platform: str = None):
         """
@@ -440,3 +502,64 @@ class RAVANACommunicator:
         except Exception as e:
             if not self._shutdown.is_set():
                 logger.error(f"Error notifying user {user_id}: {e}")
+
+    # New handler methods for the communication channels
+    async def _handle_task_result_message(self, message: CommunicationMessage):
+        """
+        Handle a task result message from RAVANA.
+        
+        Args:
+            message: Task result message
+        """
+        if self._shutdown.is_set():
+            return
+        try:
+            await self._handle_task_result(message.content)
+        except Exception as e:
+            if not self._shutdown.is_set():
+                logger.error(f"Error handling task result message: {e}")
+
+    async def _handle_notification_message(self, message: CommunicationMessage):
+        """
+        Handle a notification message from RAVANA.
+        
+        Args:
+            message: Notification message
+        """
+        if self._shutdown.is_set():
+            return
+        try:
+            await self._handle_notification(message.content)
+        except Exception as e:
+            if not self._shutdown.is_set():
+                logger.error(f"Error handling notification message: {e}")
+
+    async def _handle_user_message_from_ravana_message(self, message: CommunicationMessage):
+        """
+        Handle a user message from RAVANA.
+        
+        Args:
+            message: User message from RAVANA
+        """
+        if self._shutdown.is_set():
+            return
+        try:
+            await self._handle_user_message_from_ravana(message.content)
+        except Exception as e:
+            if not self._shutdown.is_set():
+                logger.error(f"Error handling user message from RAVANA message: {e}")
+
+    async def _handle_thought_exchange_message(self, message: CommunicationMessage):
+        """
+        Handle a thought exchange message from RAVANA.
+        
+        Args:
+            message: Thought exchange message
+        """
+        if self._shutdown.is_set():
+            return
+        try:
+            await self._handle_thought_exchange(message.content)
+        except Exception as e:
+            if not self._shutdown.is_set():
+                logger.error(f"Error handling thought exchange message: {e}")

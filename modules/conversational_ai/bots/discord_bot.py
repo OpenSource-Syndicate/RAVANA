@@ -7,6 +7,10 @@ from discord.ext import commands
 logger = logging.getLogger(__name__)
 
 class DiscordBot:
+    # Class variables to track instances
+    _instance_started = False
+    _active_instance = None
+    
     def __init__(self, token: str, command_prefix: str, conversational_ai):
         """
         Initialize the Discord bot.
@@ -16,6 +20,11 @@ class DiscordBot:
             command_prefix: Command prefix for the bot
             conversational_ai: Reference to the main ConversationalAI instance
         """
+        # Check if another instance is already active
+        if DiscordBot._active_instance is not None:
+            logger.warning("DiscordBot instance already exists, returning existing instance")
+            return DiscordBot._active_instance
+            
         self.token = token
         self.command_prefix = command_prefix
         self.conversational_ai = conversational_ai
@@ -40,6 +49,9 @@ class DiscordBot:
         
         # Register event handlers
         self._register_events()
+        
+        # Set this as the active instance
+        DiscordBot._active_instance = self
         
     def _register_events(self):
         """Register Discord bot event handlers."""
@@ -167,17 +179,24 @@ You can also just message me directly or mention me in a server!
             logger.warning("Discord bot shutdown event is set, cannot start")
             return
             
+        # Check if any instance is already started
+        if DiscordBot._instance_started:
+            logger.warning("Discord bot already started in another instance, skipping...")
+            return
+            
         if self._started:
             logger.warning("Discord bot already started, skipping...")
             return
             
         try:
             self._started = True  # Mark as started
+            DiscordBot._instance_started = True  # Mark class as started
             logger.info("Attempting to connect Discord bot...")
             # Run the bot without blocking indefinitely
             await self.bot.start(self.token)
         except Exception as e:
             self._started = False  # Reset on error
+            DiscordBot._instance_started = False  # Reset class on error
             self.connected = False
             if not self._shutdown.is_set():
                 logger.error(f"Error starting Discord bot: {e}")
@@ -191,7 +210,9 @@ You can also just message me directly or mention me in a server!
             
         self._shutdown.set()
         self._started = False  # Reset started flag
+        DiscordBot._instance_started = False  # Reset class started flag
         self.connected = False
+        DiscordBot._active_instance = None  # Clear active instance
         try:
             await self.bot.close()
             logger.info("Discord bot stopped")

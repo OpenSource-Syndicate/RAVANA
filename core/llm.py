@@ -728,14 +728,19 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
     situation_prompt = situation.get('prompt', 'No situation provided') if isinstance(situation, dict) else str(situation)
     situation_context = situation.get('context', {}) if isinstance(situation, dict) else {}
     
-    # Format memory safely
+    # Format memory safely - handle RelevantMemory objects
     memory_text = ""
     if memory:
         if isinstance(memory, list):
-            memory_text = "\n".join([
-                f"- {m.get('content', str(m))}" if isinstance(m, dict) else f"- {str(m)}"
-                for m in memory[:10]  # Limit to recent 10 memories
-            ])
+            formatted_memories = []
+            for m in memory[:10]:  # Limit to recent 10 memories
+                if hasattr(m, 'dict'):  # Pydantic BaseModel (RelevantMemory)
+                    formatted_memories.append(f"- {m.text}")
+                elif isinstance(m, dict):
+                    formatted_memories.append(f"- {m.get('content', str(m))}")
+                else:
+                    formatted_memories.append(f"- {str(m)}")
+            memory_text = "\n".join(formatted_memories)
         else:
             memory_text = str(memory)
     
@@ -746,6 +751,27 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
             rag_text = "\n".join([str(item) for item in rag_context[:5]])  # Limit context
         else:
             rag_text = str(rag_context)
+    
+    # Format situation context safely - handle RelevantMemory objects
+    formatted_situation_context = {}
+    if situation_context:
+        if isinstance(situation_context, dict):
+            formatted_situation_context = {}
+            for key, value in situation_context.items():
+                if hasattr(value, 'dict'):  # Pydantic BaseModel (RelevantMemory)
+                    formatted_situation_context[key] = value.dict()
+                elif isinstance(value, list):
+                    formatted_list = []
+                    for item in value:
+                        if hasattr(item, 'dict'):  # Pydantic BaseModel (RelevantMemory)
+                            formatted_list.append(item.dict())
+                        else:
+                            formatted_list.append(item)
+                    formatted_situation_context[key] = formatted_list
+                else:
+                    formatted_situation_context[key] = value
+        else:
+            formatted_situation_context = situation_context
     
     # Incorporate persona into the prompt if provided
     persona_section = ""
@@ -778,7 +804,7 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
     {situation_prompt}
 
     **Additional Context:**
-    {json.dumps(situation_context, indent=2) if situation_context else "No additional context"}
+    {json.dumps(formatted_situation_context, indent=2) if formatted_situation_context else "No additional context"}
 
     **Your Current Emotional State:**
     {json.dumps(mood, indent=2) if mood else "Neutral"}

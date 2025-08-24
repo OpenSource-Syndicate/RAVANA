@@ -11,15 +11,29 @@ from .emotional_intelligence.conversational_ei import ConversationalEmotionalInt
 from .memory.memory_interface import SharedMemoryInterface
 from .communication.ravana_bridge import RAVANACommunicator
 from .profiles.user_profile_manager import UserProfileManager
+from .communication.data_models import UserPlatformProfile
 
 logger = logging.getLogger(__name__)
 
 
 class ConversationalAI:
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(ConversationalAI, cls).__new__(cls)
+        return cls._instance
+        
     def __init__(self):
         """
         Initialize the Conversational AI module with all required components.
         """
+        # Prevent multiple initializations
+        if ConversationalAI._initialized:
+            logger.warning("ConversationalAI instance already initialized, skipping...")
+            return
+            
         # Initialize core components
         self.emotional_intelligence = ConversationalEmotionalIntelligence()
         self.memory_interface = SharedMemoryInterface()
@@ -36,6 +50,9 @@ class ConversationalAI:
         self.discord_bot = None
         self.telegram_bot = None
         self._bot_tasks = []
+        
+        # Mark as initialized
+        ConversationalAI._initialized = True
         
         logger.info("Conversational AI module initialized successfully")
 
@@ -278,6 +295,9 @@ class ConversationalAI:
             The AI's response to the message
         """
         try:
+            # Track user platform preference
+            self._track_user_platform(user_id, platform)
+            
             # Get context from shared memory
             context = self.memory_interface.get_context(user_id)
             
@@ -391,6 +411,31 @@ class ConversationalAI:
         except Exception as e:
             logger.error(f"Error synchronizing emotional context for user {user_id}: {e}")
 
+    def _track_user_platform(self, user_id: str, platform: str):
+        """
+        Track the user's platform preference.
+        
+        Args:
+            user_id: The unique identifier of the user
+            platform: The platform the user is using (discord/telegram)
+        """
+        try:
+            # Create or update user platform profile
+            profile = UserPlatformProfile(
+                user_id=user_id,
+                last_platform=platform,
+                platform_user_id=user_id,  # In a real implementation, this would be the platform-specific user ID
+                preferences={},
+                last_interaction=datetime.now()
+            )
+            
+            # Store in user profile manager
+            self.user_profile_manager.set_user_platform_profile(user_id, profile)
+            
+            logger.debug(f"Tracked platform {platform} for user {user_id}")
+        except Exception as e:
+            logger.error(f"Error tracking user platform for user {user_id}: {e}")
+
     async def send_message_to_user(self, user_id: str, message: str, platform: str = None):
         """
         Send a message to a user through the appropriate platform.
@@ -401,26 +446,51 @@ class ConversationalAI:
             platform: The platform to use (discord/telegram), if None will use last known platform
         """
         try:
-            # For now, we'll try both platforms since we don't track which platform the user last used
-            # In a real implementation, you'd track this in user profiles
+            # Determine the appropriate platform to use
+            if not platform:
+                # Try to get the user's last used platform from their profile
+                profile = self.user_profile_manager.get_user_platform_profile(user_id)
+                if profile:
+                    platform = profile.last_platform
+                    logger.debug(f"Using last known platform {platform} for user {user_id}")
+                else:
+                    # If no profile exists, we'll try both platforms
+                    logger.debug(f"No platform profile found for user {user_id}, will try both platforms")
             
             success = False
             
-            # Try Discord first if available
-            if self.discord_bot:
+            # Try to send message through the specified platform first
+            if platform == "discord" and self.discord_bot:
                 try:
                     await self.discord_bot.send_message(user_id, message)
                     success = True
                 except Exception as e:
                     logger.warning(f"Failed to send message via Discord to user {user_id}: {e}")
             
-            # Try Telegram if Discord failed or isn't available
-            if not success and self.telegram_bot:
+            elif platform == "telegram" and self.telegram_bot:
                 try:
                     await self.telegram_bot.send_message(user_id, message)
                     success = True
                 except Exception as e:
                     logger.warning(f"Failed to send message via Telegram to user {user_id}: {e}")
+            
+            # If the specified platform failed or no platform was specified, try both platforms
+            if not success:
+                # Try Discord first if available
+                if self.discord_bot:
+                    try:
+                        await self.discord_bot.send_message(user_id, message)
+                        success = True
+                    except Exception as e:
+                        logger.warning(f"Failed to send message via Discord to user {user_id}: {e}")
+                
+                # Try Telegram if Discord failed or isn't available
+                if not success and self.telegram_bot:
+                    try:
+                        await self.telegram_bot.send_message(user_id, message)
+                        success = True
+                    except Exception as e:
+                        logger.warning(f"Failed to send message via Telegram to user {user_id}: {e}")
             
             if not success:
                 logger.warning(f"Failed to send message to user {user_id} via any platform")

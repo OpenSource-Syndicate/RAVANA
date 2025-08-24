@@ -78,8 +78,12 @@ Return only the JSON array, nothing else.
                     if isinstance(thoughts, list):
                         logger.info(f"Extracted {len(thoughts)} thoughts from conversation")
                         return thoughts
-                except json.JSONDecodeError:
-                    logger.warning(f"Failed to parse thoughts from LLM response: {response}")
+                    else:
+                        logger.warning(f"LLM response is not a JSON array. Response type: {type(thoughts)}")
+                except json.JSONDecodeError as e:
+                    # Log a more informative error message
+                    logger.warning(f"Failed to parse thoughts from LLM response. JSON decode error: {str(e)[:100]}...")
+                    logger.debug(f"Full LLM response: {response}")
             
             # Return empty list if no thoughts extracted
             return []
@@ -160,8 +164,12 @@ Return only the JSON array, nothing else.
                     if isinstance(thoughts, list):
                         logger.info(f"Extracted {len(thoughts)} thoughts from conversation")
                         return thoughts
-                except json.JSONDecodeError:
-                    logger.warning(f"Failed to parse thoughts from LLM response: {response}")
+                    else:
+                        logger.warning(f"LLM response is not a JSON array. Response type: {type(thoughts)}")
+                except json.JSONDecodeError as e:
+                    # Log a more informative error message
+                    logger.warning(f"Failed to parse thoughts from LLM response. JSON decode error: {str(e)[:100]}...")
+                    logger.debug(f"Full LLM response: {response}")
             
             # Return empty list if no thoughts extracted
             return []

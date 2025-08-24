@@ -7,6 +7,10 @@ from telegram.ext import Application, MessageHandler, CommandHandler, CallbackCo
 logger = logging.getLogger(__name__)
 
 class TelegramBot:
+    # Class variable to track if an instance has been started
+    _instance_started = False
+    _active_instance = None
+    
     def __init__(self, token: str, command_prefix: str, conversational_ai):
         """
         Initialize the Telegram bot.
@@ -16,6 +20,11 @@ class TelegramBot:
             command_prefix: Command prefix (not used in Telegram but kept for consistency)
             conversational_ai: Reference to the main ConversationalAI instance
         """
+        # Check if another instance is already active
+        if TelegramBot._active_instance is not None:
+            logger.warning("TelegramBot instance already exists, returning existing instance")
+            return TelegramBot._active_instance
+            
         self.token = token
         self.command_prefix = command_prefix
         self.conversational_ai = conversational_ai
@@ -32,6 +41,9 @@ class TelegramBot:
         
         # Register handlers
         self._register_handlers()
+        
+        # Set this as the active instance
+        TelegramBot._active_instance = self
         
     def _register_handlers(self):
         """Register Telegram bot handlers."""
@@ -147,6 +159,11 @@ Just send me a message and I'll respond!
             logger.warning("Telegram bot shutdown event is set, cannot start")
             return
             
+        # Check if any instance is already started
+        if TelegramBot._instance_started:
+            logger.warning("Telegram bot already started in another instance, skipping...")
+            return
+            
         if self._started:
             logger.warning("Telegram bot already started, skipping...")
             return
@@ -159,6 +176,7 @@ Just send me a message and I'll respond!
             logger.info("Starting Telegram bot updater...")
             await self.application.updater.start_polling()
             self._started = True  # Mark as started
+            TelegramBot._instance_started = True  # Mark class as started
             self.connected = True
             self._running = True
             logger.info("Telegram bot started and connected successfully")
@@ -169,6 +187,7 @@ Just send me a message and I'll respond!
                 
         except Exception as e:
             self._started = False  # Reset on error
+            TelegramBot._instance_started = False  # Reset class on error
             self.connected = False
             self._running = False
             if not self._shutdown.is_set():
@@ -185,8 +204,10 @@ Just send me a message and I'll respond!
         logger.info("Stopping Telegram bot...")
         self._shutdown.set()
         self._started = False  # Reset started flag
+        TelegramBot._instance_started = False  # Reset class started flag
         self.connected = False
         self._running = False
+        TelegramBot._active_instance = None  # Clear active instance
         
         try:
             # Only stop if the bot was actually started
