@@ -9,7 +9,7 @@ import signal
 import time
 
 # Add the current directory to the path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 from modules.conversational_ai.main import ConversationalAI
 

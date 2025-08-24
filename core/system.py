@@ -562,6 +562,7 @@ class AGISystem:
                         await self.conversational_ai.start(standalone=False)
                     except Exception as e:
                         logger.error(f"Error in Conversational AI: {e}")
+                        logger.exception("Full traceback:")
                 
                 # Schedule the Conversational AI to run as a task in the current event loop
                 conversational_ai_task = asyncio.create_task(run_conversational_ai())
@@ -569,8 +570,30 @@ class AGISystem:
                 # Mark as started
                 self._conversational_ai_started = True
                 logger.info("Conversational AI module started successfully as async task")
+                
+                # Give the bots a moment to start up and connect
+                await asyncio.sleep(2)
+                
+                # Check if bots are connected
+                discord_connected = False
+                telegram_connected = False
+                
+                if self.conversational_ai.discord_bot:
+                    discord_connected = getattr(self.conversational_ai.discord_bot, 'connected', False)
+                    
+                if self.conversational_ai.telegram_bot:
+                    telegram_connected = getattr(self.conversational_ai.telegram_bot, 'connected', False)
+                
+                if discord_connected or telegram_connected:
+                    logger.info(f"Conversational AI bots connected - Discord: {discord_connected}, Telegram: {telegram_connected}")
+                else:
+                    logger.warning("Conversational AI bots are not connected. Check tokens and network connectivity.")
+                    
             except Exception as e:
                 logger.error(f"Failed to start Conversational AI module: {e}")
+                logger.exception("Full traceback:")
+                # Reset the started flag on error
+                self._conversational_ai_started = False
 
     async def get_snake_agent_status(self) -> Dict[str, Any]:
         """Get Snake Agent status information."""
@@ -589,14 +612,28 @@ class AGISystem:
         if not self.conversational_ai:
             return {"enabled": False, "status": "not_initialized"}
         
-        # Check if the thread is still alive
-        thread_alive = False
-        if self.conversational_ai_thread:
-            thread_alive = self.conversational_ai_thread.is_alive()
+        # Check if the conversational AI has been started
+        started = getattr(self, '_conversational_ai_started', False)
+        
+        # Check if bots are connected
+        discord_connected = False
+        telegram_connected = False
+        
+        if self.conversational_ai.discord_bot:
+            discord_connected = getattr(self.conversational_ai.discord_bot, 'connected', False)
             
+        if self.conversational_ai.telegram_bot:
+            telegram_connected = getattr(self.conversational_ai.telegram_bot, 'connected', False)
+        
+        # Determine overall status
+        bot_connected = discord_connected or telegram_connected
+        status = "active" if (started and bot_connected) else "inactive"
+        
         return {
             "enabled": Config.CONVERSATIONAL_AI_ENABLED,
-            "status": "active" if thread_alive else "inactive"
+            "status": status,
+            "discord_connected": discord_connected,
+            "telegram_connected": telegram_connected
         }
     
     async def _load_previous_state(self):

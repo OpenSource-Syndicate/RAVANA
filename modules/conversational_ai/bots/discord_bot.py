@@ -19,6 +19,7 @@ class DiscordBot:
         self.token = token
         self.command_prefix = command_prefix
         self.conversational_ai = conversational_ai
+        self.connected = False
         
         # Initialize Discord client
         intents = discord.Intents.default()
@@ -50,6 +51,20 @@ class DiscordBot:
                     status=discord.Status.online,
                     activity=discord.Activity(type=discord.ActivityType.listening, name="your thoughts")
                 )
+                self.connected = True
+                logger.info("Discord bot is now connected and ready")
+        
+        @self.bot.event
+        async def on_disconnect():
+            if not self._shutdown.is_set():
+                logger.warning("Discord bot disconnected")
+                self.connected = False
+        
+        @self.bot.event
+        async def on_resumed():
+            if not self._shutdown.is_set():
+                logger.info("Discord bot connection resumed")
+                self.connected = True
         
         @self.bot.event
         async def on_message(message):
@@ -84,22 +99,8 @@ class DiscordBot:
                 # Update user profile with username
                 self.conversational_ai.user_profile_manager.update_username(user_id, message.author.name)
                 
-                # Use async version to prevent blocking the event loop
-                response = await self.conversational_ai.process_user_message_async(
-                    platform="discord",
-                    user_id=user_id,
-                    message=message.content
-                )
-                
-                # Split long messages to comply with Discord's limits
-                if len(response) > 2000:
-                    chunks = [response[i:i+1990] for i in range(0, len(response), 1990)]
-                    for chunk in chunks:
-                        if not self._shutdown.is_set():
-                            await message.channel.send(chunk)
-                else:
-                    if not self._shutdown.is_set():
-                        await message.channel.send(response)
+                # Create a task to process the message asynchronously to prevent blocking the event loop
+                asyncio.create_task(self._process_discord_message(message, user_id))
         
         @self.bot.command(name='task')
         async def task_command(ctx, *, task_description: str):
@@ -136,6 +137,30 @@ You can also just message me directly or mention me in a server!
             if not self._shutdown.is_set():
                 await ctx.send(help_text)
 
+    async def _process_discord_message(self, message, user_id):
+        """Process a Discord message asynchronously."""
+        try:
+            # Use async version to prevent blocking the event loop
+            response = await self.conversational_ai.process_user_message_async(
+                platform="discord",
+                user_id=user_id,
+                message=message.content
+            )
+            
+            # Split long messages to comply with Discord's limits
+            if len(response) > 2000:
+                chunks = [response[i:i+1990] for i in range(0, len(response), 1990)]
+                for chunk in chunks:
+                    if not self._shutdown.is_set():
+                        await message.channel.send(chunk)
+            else:
+                if not self._shutdown.is_set():
+                    await message.channel.send(response)
+        except Exception as e:
+            logger.error(f"Error processing Discord message: {e}")
+            if not self._shutdown.is_set():
+                await message.channel.send("Sorry, I encountered an error processing your message.")
+
     async def start(self):
         """Start the Discord bot."""
         if self._shutdown.is_set():
@@ -148,11 +173,15 @@ You can also just message me directly or mention me in a server!
             
         try:
             self._started = True  # Mark as started
+            logger.info("Attempting to connect Discord bot...")
+            # Run the bot without blocking indefinitely
             await self.bot.start(self.token)
         except Exception as e:
             self._started = False  # Reset on error
+            self.connected = False
             if not self._shutdown.is_set():
                 logger.error(f"Error starting Discord bot: {e}")
+                raise  # Re-raise the exception so it's properly handled
             
     async def stop(self):
         """Stop the Discord bot."""
@@ -162,6 +191,7 @@ You can also just message me directly or mention me in a server!
             
         self._shutdown.set()
         self._started = False  # Reset started flag
+        self.connected = False
         try:
             await self.bot.close()
             logger.info("Discord bot stopped")

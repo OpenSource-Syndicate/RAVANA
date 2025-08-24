@@ -56,7 +56,6 @@ logger = logging.getLogger(__name__)
 shutdown_event = asyncio.Event()
 agi_system_instance: Optional[AGISystem] = None
 
-
 def setup_signal_handlers():
     """Set up cross-platform signal handlers for graceful shutdown."""
     try:
@@ -76,8 +75,22 @@ def setup_signal_handlers():
             try:
                 import win32api
                 def console_ctrl_handler(ctrl_type):
-                    if ctrl_type in (win32api.CTRL_C_EVENT, win32api.CTRL_BREAK_EVENT, 
-                                   win32api.CTRL_CLOSE_EVENT, win32api.CTRL_SHUTDOWN_EVENT):
+                    # Create a list of valid control event constants
+                    valid_ctrl_events = []
+                    
+                    # Add the signal constants that are available
+                    if hasattr(signal, 'CTRL_C_EVENT'):
+                        valid_ctrl_events.append(signal.CTRL_C_EVENT)
+                    if hasattr(signal, 'CTRL_BREAK_EVENT'):
+                        valid_ctrl_events.append(signal.CTRL_BREAK_EVENT)
+                    if hasattr(signal, 'CTRL_CLOSE_EVENT'):
+                        valid_ctrl_events.append(signal.CTRL_CLOSE_EVENT)
+                    if hasattr(signal, 'CTRL_SHUTDOWN_EVENT'):
+                        valid_ctrl_events.append(signal.CTRL_SHUTDOWN_EVENT)
+                    
+                    # For backward compatibility, also check for win32api constants if they exist
+                    # (though they don't in this case)
+                    if ctrl_type in valid_ctrl_events:
                         logger.info(f"🛑 Received Windows console control event: {ctrl_type}")
                         shutdown_event.set()
                         return True
@@ -256,16 +269,85 @@ async def main():
                 logger.error(f"Failed to start Snake Agent: {e}")
                 # Continue even if Snake Agent fails to start
         
-        # Start Conversational AI if enabled
-        if Config.CONVERSATIONAL_AI_ENABLED and agi_system.conversational_ai:
+        # Start Bots directly if enabled (instead of Conversational AI)
+        if Config.CONVERSATIONAL_AI_ENABLED:
             try:
-                logger.info("Starting Conversational AI...")
-                await agi_system.start_conversational_ai()
-                logger.info("Conversational AI started successfully")
+                logger.info("Starting bots directly...")
+                # Import bot classes
+                from modules.conversational_ai.bots.discord_bot import DiscordBot
+                from modules.conversational_ai.bots.telegram_bot import TelegramBot
+                from modules.conversational_ai.main import ConversationalAI
+                
+                # Create conversational AI instance to get config
+                ai = ConversationalAI()
+                
+                # Store bot instances and tasks globally for cleanup
+                global discord_bot_instance, telegram_bot_instance, bot_tasks
+                discord_bot_instance = None
+                telegram_bot_instance = None
+                bot_tasks = []
+                
+                # Start Discord bot if enabled
+                if ai.config.get("platforms", {}).get("discord", {}).get("enabled", False):
+                    try:
+                        token = ai.config.get("discord_token")
+                        if token:
+                            discord_bot_instance = DiscordBot(
+                                token=token,
+                                command_prefix=ai.config["platforms"]["discord"]["command_prefix"],
+                                conversational_ai=ai
+                            )
+                            
+                            # Start Discord bot in a separate task
+                            async def discord_runner():
+                                try:
+                                    await discord_bot_instance.start()
+                                except Exception as e:
+                                    logger.error(f"Error in Discord bot: {e}")
+                            
+                            discord_task = asyncio.create_task(discord_runner())
+                            bot_tasks.append(discord_task)
+                            logger.info("Discord bot task created")
+                        else:
+                            logger.warning("Discord token not found, skipping Discord bot")
+                    except Exception as e:
+                        logger.error(f"Failed to start Discord bot: {e}")
+                
+                # Start Telegram bot if enabled
+                if ai.config.get("platforms", {}).get("telegram", {}).get("enabled", False):
+                    try:
+                        token = ai.config.get("telegram_token")
+                        if token:
+                            telegram_bot_instance = TelegramBot(
+                                token=token,
+                                command_prefix=ai.config["platforms"]["telegram"]["command_prefix"],
+                                conversational_ai=ai
+                            )
+                            
+                            # Start Telegram bot in a separate task
+                            async def telegram_runner():
+                                try:
+                                    await telegram_bot_instance.start()
+                                except Exception as e:
+                                    logger.error(f"Error in Telegram bot: {e}")
+                            
+                            telegram_task = asyncio.create_task(telegram_runner())
+                            bot_tasks.append(telegram_task)
+                            logger.info("Telegram bot task created")
+                        else:
+                            logger.warning("Telegram token not found, skipping Telegram bot")
+                    except Exception as e:
+                        logger.error(f"Failed to start Telegram bot: {e}")
+                
+                if bot_tasks:
+                    logger.info(f"Bots started successfully ({len(bot_tasks)} bot(s) running)")
+                else:
+                    logger.info("No bots were started (none enabled or configured)")
+                    
             except Exception as e:
-                logger.error(f"Failed to start Conversational AI: {e}")
-                # Continue even if Conversational AI fails to start
-        
+                logger.error(f"Failed to start bots: {e}")
+                logger.exception("Full traceback:")
+                # Continue even if bots fail to start
         # Parse command line arguments
         parser = argparse.ArgumentParser(description="RAVANA AGI System")
         parser.add_argument("--physics-experiment", type=str, help="Run a specific physics experiment")
@@ -275,23 +357,56 @@ async def main():
         
         args = parser.parse_args()
         
+        # Background task to monitor global shutdown event and trigger AGI system shutdown
+        async def monitor_shutdown_event():
+            """Monitor the global shutdown event and trigger AGI system shutdown."""
+            try:
+                while not shutdown_event.is_set():
+                    await asyncio.sleep(0.1)  # Check every 100ms
+                
+                logger.info("Global shutdown event detected, triggering AGI system shutdown...")
+                if agi_system:
+                    await agi_system.stop("global_shutdown_event")
+            except Exception as e:
+                logger.error(f"Error in shutdown monitor: {e}")
+        
         # Handle different run modes
         if args.physics_experiment:
             logger.info(f"Running physics experiment: {args.physics_experiment}")
+            # Start shutdown monitor for single task mode
+            shutdown_monitor_task = asyncio.create_task(monitor_shutdown_event())
             await run_physics_experiment(agi_system, args.physics_experiment)
+            # Cancel the shutdown monitor task
+            shutdown_monitor_task.cancel()
         elif args.discovery_mode:
             logger.info("Running in discovery mode")
+            # Start shutdown monitor for discovery mode
+            shutdown_monitor_task = asyncio.create_task(monitor_shutdown_event())
             await run_discovery_mode(agi_system)
+            # Cancel the shutdown monitor task
+            shutdown_monitor_task.cancel()
         elif args.test_experiments:
             logger.info("Running experiment tests")
+            # Start shutdown monitor for test experiments mode
+            shutdown_monitor_task = asyncio.create_task(monitor_shutdown_event())
             await run_experiment_tests(agi_system)
+            # Cancel the shutdown monitor task
+            shutdown_monitor_task.cancel()
         elif args.single_task:
             logger.info(f"Running single task: {args.single_task}")
+            # Start shutdown monitor for single task mode
+            shutdown_monitor_task = asyncio.create_task(monitor_shutdown_event())
             await agi_system.run_single_task(args.single_task)
+            # Cancel the shutdown monitor task
+            shutdown_monitor_task.cancel()
         else:
             # Start the autonomous loop
             logger.info("Starting autonomous AGI loop...")
+            # Start shutdown monitor for autonomous loop mode
+            shutdown_monitor_task = asyncio.create_task(monitor_shutdown_event())
             await agi_system.run_autonomous_loop()
+            # Cancel the shutdown monitor task (though it should have completed by now)
+            shutdown_monitor_task.cancel()
             
     except KeyboardInterrupt:
         logger.info("🛑 Received keyboard interrupt")
@@ -300,6 +415,36 @@ async def main():
         return 1
     finally:
         # Ensure graceful shutdown
+        # Stop bots if they were started
+        if 'bot_tasks' in globals() and bot_tasks:
+            logger.info("Stopping bots...")
+            # Cancel bot tasks
+            for task in bot_tasks:
+                if not task.done():
+                    task.cancel()
+            
+            # Wait for tasks to complete cancellation
+            if bot_tasks:
+                try:
+                    await asyncio.wait_for(asyncio.gather(*bot_tasks, return_exceptions=True), timeout=5.0)
+                except asyncio.TimeoutError:
+                    logger.warning("Timeout waiting for bot tasks to cancel")
+            
+            # Stop bot instances if they exist
+            if 'discord_bot_instance' in globals() and discord_bot_instance:
+                try:
+                    await discord_bot_instance.stop()
+                    logger.info("Discord bot stopped")
+                except Exception as e:
+                    logger.error(f"Error stopping Discord bot: {e}")
+            
+            if 'telegram_bot_instance' in globals() and telegram_bot_instance:
+                try:
+                    await telegram_bot_instance.stop()
+                    logger.info("Telegram bot stopped")
+                except Exception as e:
+                    logger.error(f"Error stopping Telegram bot: {e}")
+        
         if agi_system:
             logger.info("Initiating graceful shutdown...")
             try:

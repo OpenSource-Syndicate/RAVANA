@@ -53,8 +53,26 @@ class MemoryImportanceLevel(str, Enum):
     LOW = "low"
 
 
-# Data Models for Database Tables
+# First define the junction tables
+class ConsolidationPattern(SQLModel, table=True):
+    """Junction table linking memory consolidations and patterns"""
+    __tablename__ = "consolidation_patterns"
+    
+    consolidation_id: str = Field(foreign_key="memory_consolidations.consolidation_id", primary_key=True)
+    pattern_id: str = Field(foreign_key="memory_patterns.pattern_id", primary_key=True)
+    extraction_confidence: float = Field(default=1.0)
 
+
+class PatternStrategicKnowledge(SQLModel, table=True):
+    """Junction table linking memory patterns and strategic knowledge"""
+    __tablename__ = "pattern_strategic_knowledge"
+    
+    pattern_id: str = Field(foreign_key="memory_patterns.pattern_id", primary_key=True)
+    knowledge_id: str = Field(foreign_key="strategic_knowledge.knowledge_id", primary_key=True)
+    contribution_weight: float = Field(default=1.0)
+
+
+# Data Models for Database Tables
 class VeryLongTermMemory(SQLModel, table=True):
     """Core very long-term memory record"""
     __tablename__ = "very_long_term_memories"
@@ -68,7 +86,7 @@ class VeryLongTermMemory(SQLModel, table=True):
     importance_score: float = Field(default=0.5, ge=0.0, le=1.0)
     strategic_value: float = Field(default=0.5, ge=0.0, le=1.0)
     compressed_content: str  # JSON string of compressed memory data
-    metadata: str = Field(default="{}")  # JSON string of metadata
+    metadata_info: str = Field(default="{}")  # JSON string of metadata
     source_session: str = Field(default="unknown")
     related_memories: str = Field(default="[]")  # JSON array of related memory IDs
     retention_category: str = Field(default="permanent")  # retention policy category
@@ -76,7 +94,7 @@ class VeryLongTermMemory(SQLModel, table=True):
     # Relationships
     patterns: List["MemoryPattern"] = Relationship(back_populates="source_memory")
     
-    @validator('compressed_content', 'metadata', 'related_memories')
+    @validator('compressed_content', 'metadata_info', 'related_memories')
     def validate_json_fields(cls, v):
         """Validate that JSON fields contain valid JSON"""
         if isinstance(v, str):
@@ -106,8 +124,15 @@ class MemoryPattern(SQLModel, table=True):
     
     # Relationships
     source_memory: Optional[VeryLongTermMemory] = Relationship(back_populates="patterns")
-    consolidations: List["MemoryConsolidation"] = Relationship(back_populates="extracted_patterns")
-    strategic_knowledge: List["StrategicKnowledge"] = Relationship(back_populates="source_patterns")
+    # Fixed the relationship to use the junction table
+    consolidations: List["MemoryConsolidation"] = Relationship(
+        back_populates="extracted_patterns",
+        link_model=ConsolidationPattern  # Using the junction table
+    )
+    strategic_knowledge: List["StrategicKnowledge"] = Relationship(
+        back_populates="patterns",
+        link_model=PatternStrategicKnowledge  # Using the junction table
+    )
 
 
 class MemoryConsolidation(SQLModel, table=True):
@@ -126,7 +151,11 @@ class MemoryConsolidation(SQLModel, table=True):
     error_message: Optional[str] = None
     
     # Relationships
-    extracted_patterns: List[MemoryPattern] = Relationship(back_populates="consolidations")
+    # Fixed the relationship to use the junction table
+    extracted_patterns: List[MemoryPattern] = Relationship(
+        back_populates="consolidations",
+        link_model=ConsolidationPattern  # Using the junction table
+    )
 
 
 class StrategicKnowledge(SQLModel, table=True):
@@ -143,8 +172,11 @@ class StrategicKnowledge(SQLModel, table=True):
     validation_score: float = Field(default=0.5, ge=0.0, le=1.0)
     application_count: int = Field(default=0)  # How many times this knowledge was applied
     
-    # Relationships
-    patterns: List[MemoryPattern] = Relationship(back_populates="strategic_knowledge")
+    # Relationships - Fixed to use the junction table
+    patterns: List[MemoryPattern] = Relationship(
+        back_populates="strategic_knowledge",
+        link_model=PatternStrategicKnowledge  # Using the junction table
+    )
 
 
 class ConsolidationMetrics(SQLModel, table=True):

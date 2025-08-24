@@ -19,6 +19,8 @@ class TelegramBot:
         self.token = token
         self.command_prefix = command_prefix
         self.conversational_ai = conversational_ai
+        self.connected = False
+        self._running = False
         
         # Initialize Telegram application
         self.application = Application.builder().token(token).build()
@@ -56,6 +58,16 @@ class TelegramBot:
             # Update user profile with username
             self.conversational_ai.user_profile_manager.update_username(user_id, username)
             
+            # Create a task to process the message asynchronously to prevent blocking
+            asyncio.create_task(self._process_telegram_message(update, user_id, message_text))
+        except Exception as e:
+            logger.error(f"Error handling Telegram message: {e}")
+            if not self._shutdown.is_set():
+                await update.message.reply_text("Sorry, I encountered an error processing your message.")
+            
+    async def _process_telegram_message(self, update: Update, user_id: str, message_text: str):
+        """Process a Telegram message asynchronously."""
+        try:
             # Process message with conversational AI using async version to prevent blocking
             response = await self.conversational_ai.process_user_message_async(
                 platform="telegram",
@@ -67,7 +79,7 @@ class TelegramBot:
             if not self._shutdown.is_set():
                 await update.message.reply_text(response)
         except Exception as e:
-            logger.error(f"Error handling Telegram message: {e}")
+            logger.error(f"Error processing Telegram message: {e}")
             if not self._shutdown.is_set():
                 await update.message.reply_text("Sorry, I encountered an error processing your message.")
             
@@ -140,14 +152,29 @@ Just send me a message and I'll respond!
             return
             
         try:
+            logger.info("Initializing Telegram bot application...")
             await self.application.initialize()
+            logger.info("Starting Telegram bot application...")
             await self.application.start()
+            logger.info("Starting Telegram bot updater...")
             await self.application.updater.start_polling()
             self._started = True  # Mark as started
-            logger.info("Telegram bot started")
+            self.connected = True
+            self._running = True
+            logger.info("Telegram bot started and connected successfully")
+            
+            # Keep the bot running until shutdown
+            while not self._shutdown.is_set() and self._running:
+                await asyncio.sleep(1)
+                
         except Exception as e:
+            self._started = False  # Reset on error
+            self.connected = False
+            self._running = False
             if not self._shutdown.is_set():
                 logger.error(f"Error starting Telegram bot: {e}")
+                logger.exception("Full traceback:")
+                raise  # Re-raise the exception so it's properly handled
             
     async def stop(self):
         """Stop the Telegram bot."""
@@ -155,19 +182,27 @@ Just send me a message and I'll respond!
             logger.info("Telegram bot already shut down")
             return
             
+        logger.info("Stopping Telegram bot...")
         self._shutdown.set()
         self._started = False  # Reset started flag
+        self.connected = False
+        self._running = False
+        
         try:
             # Only stop if the bot was actually started
             if hasattr(self.application, 'updater') and self.application.updater:
+                logger.info("Stopping Telegram bot updater...")
                 await self.application.updater.stop()
             if hasattr(self.application, 'stop'):
+                logger.info("Stopping Telegram bot application...")
                 await self.application.stop()
             if hasattr(self.application, 'shutdown'):
+                logger.info("Shutting down Telegram bot application...")
                 await self.application.shutdown()
-            logger.info("Telegram bot stopped")
+            logger.info("Telegram bot stopped successfully")
         except Exception as e:
             logger.error(f"Error stopping Telegram bot: {e}")
+            logger.exception("Full traceback:")
         
     async def send_message(self, user_id: str, message: str):
         """

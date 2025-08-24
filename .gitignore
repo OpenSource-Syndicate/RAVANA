@@ -79,3 +79,6 @@ snake_agent_state.json
 shared_memory/
 user_data/
 profiles/
+
+snake_logs/
+backups/

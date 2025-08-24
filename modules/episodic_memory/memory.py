@@ -241,14 +241,56 @@ def get_embedding(text):
 def parse_llm_json_response(response_text: str) -> Optional[Dict]:
     """Safely parses a JSON string from an LLM response."""
     try:
-        # Find the JSON object within the response text
-        match = re.search(r'\{.*\}', response_text, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
-        logging.warning("No JSON object found in LLM response.")
+        # Handle empty or None responses
+        if not response_text or not response_text.strip():
+            logging.warning("Empty response received from LLM")
+            return None
+            
+        response_text = response_text.strip()
+        
+        # Strategy 1: Try to parse the entire response as JSON
+        try:
+            return json.loads(response_text)
+        except json.JSONDecodeError:
+            pass
+            
+        # Strategy 2: Look for JSON in markdown code blocks
+        json_match = re.search(r'```(?:json)?\s*({.*?})\s*```', response_text, re.DOTALL)
+        if json_match:
+            try:
+                json_str = json_match.group(1)
+                return json.loads(json_str)
+            except json.JSONDecodeError as e:
+                logging.warning(f"Failed to parse JSON from code block: {e}")
+                
+        # Strategy 3: Look for any JSON-like structure
+        json_match = re.search(r'({.*})', response_text, re.DOTALL)
+        if json_match:
+            try:
+                json_str = json_match.group(1)
+                # Fix common JSON issues
+                json_str = re.sub(r'(\w+):', r'"\1":', json_str)  # Add quotes to keys
+                json_str = re.sub(r',\s*}', '}', json_str)  # Remove trailing commas
+                json_str = re.sub(r',\s*\]', ']', json_str)  # Remove trailing commas
+                return json.loads(json_str)
+            except json.JSONDecodeError as e:
+                logging.warning(f"Failed to parse extracted JSON structure: {e}")
+                
+        # Strategy 4: Handle common LLM response patterns
+        # Remove common prefixes/suffixes
+        cleaned_response = re.sub(r'^[^{]*', '', response_text)  # Remove everything before first {
+        cleaned_response = re.sub(r'[^}]*$', '', cleaned_response)  # Remove everything after last }
+        
+        if cleaned_response:
+            try:
+                return json.loads(cleaned_response)
+            except json.JSONDecodeError as e:
+                logging.warning(f"Failed to parse cleaned response: {e}")
+                
+        logging.warning("No valid JSON object found in LLM response.")
         return None
-    except json.JSONDecodeError:
-        logging.error(f"Failed to decode JSON from LLM response: {response_text}")
+    except Exception as e:
+        logging.error(f"Unexpected error parsing LLM response: {e}")
         return None
 
 @app.post("/extract_memories/", response_model=MemoriesList, tags=["Memories"])
@@ -273,8 +315,29 @@ async def extract_memories_api(request: ConversationRequest):
             return MemoriesList(memories=parsed_json["memories"])
         else:
             logging.error("Failed to parse memories from LLM response or key 'memories' is missing.")
-            # Fallback to simple line splitting if JSON parsing fails
-            memories_list = [m.strip().lstrip('-* ') for m in llm_response.split('\n') if m.strip().lstrip('-* ')]
+            # Improved fallback to simple line splitting if JSON parsing fails
+            # First try to extract any list-like structure
+            memories_list = []
+            
+            # Look for markdown lists
+            markdown_items = re.findall(r'^\s*[*\-+]\s+(.+)$', llm_response, re.MULTILINE)
+            if markdown_items:
+                memories_list.extend([item.strip() for item in markdown_items if item.strip()])
+            
+            # Look for numbered lists
+            if not memories_list:
+                numbered_items = re.findall(r'^\s*\d+[\.\)]\s+(.+)$', llm_response, re.MULTILINE)
+                if numbered_items:
+                    memories_list.extend([item.strip() for item in numbered_items if item.strip()])
+            
+            # Fallback to line splitting if no lists found
+            if not memories_list:
+                memories_list = [m.strip().lstrip('-* ') for m in llm_response.split('\n') if m.strip().lstrip('-* ')]
+            
+            # Filter out empty items and common artifacts
+            memories_list = [m for m in memories_list if m and not m.startswith('#') and not m.startswith('```')]
+            
+            logging.info(f"Extracted {len(memories_list)} memories using fallback method")
             return MemoriesList(memories=memories_list)
 
     except Exception as e:

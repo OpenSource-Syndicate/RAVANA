@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from core.vltm_store import VeryLongTermMemoryStore
-from core.vltm_consolidation import MemoryConsolidationEngine
+from core.vltm_consolidation_engine import MemoryConsolidationEngine
 from core.vltm_data_models import MemoryType, MemoryImportance, VLTMConfiguration
 from core.vltm_advanced_retrieval import AdvancedRetrievalEngine
 from services.memory_service import MemoryService

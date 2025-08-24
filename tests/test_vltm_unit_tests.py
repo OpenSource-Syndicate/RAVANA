@@ -22,7 +22,7 @@ try:
         VeryLongTermMemory, MemoryPattern, MemoryConsolidation, StrategicKnowledge
     )
     from core.vltm_store import VeryLongTermMemoryStore
-    from core.vltm_consolidation import MemoryConsolidationEngine
+    from core.vltm_consolidation_engine import MemoryConsolidationEngine
     from core.vltm_compression_engine import CompressionEngine, CompressionLevel, CompressionStrategy
     from core.vltm_multimodal_indexing import MultiModalIndex, IndexType
     from core.vltm_performance_monitoring import PerformanceMonitor, MetricType, OperationType

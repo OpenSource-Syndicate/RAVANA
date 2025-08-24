@@ -378,6 +378,36 @@ class RAVANACommunicator:
             if not self._shutdown.is_set():
                 logger.error(f"Error sending notification to RAVANA: {e}")
             
+    def send_emotional_context_to_ravana(self, emotional_data: Dict[str, Any]):
+        """
+        Send emotional context to RAVANA.
+        
+        Args:
+            emotional_data: Emotional context data to send to RAVANA
+        """
+        if self._shutdown.is_set():
+            return
+        try:
+            # Add metadata
+            emotional_message = {
+                "type": "emotional_context_update",
+                "timestamp": datetime.now().isoformat(),
+                "source": "conversational_ai",
+                "destination": "main_system",
+                "content": emotional_data
+            }
+            
+            # In a real implementation, this would be sent to RAVANA through IPC
+            # For now, we'll add it to the message queue
+            if not self._shutdown.is_set():
+                asyncio.create_task(self.message_queue.put(emotional_message))
+            
+            logger.info(f"Emotional context sent to RAVANA for user {emotional_data.get('user_id', 'unknown')}")
+            
+        except Exception as e:
+            if not self._shutdown.is_set():
+                logger.error(f"Error sending emotional context to RAVANA: {e}")
+            
     def notify_user(self, user_id: str, message: str, platform: str = None):
         """
         Notify a user through the appropriate platform.
