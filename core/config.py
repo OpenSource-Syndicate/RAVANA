@@ -46,6 +46,16 @@ class Config:
     SHUTDOWN_STATE_FILE = os.environ.get("SHUTDOWN_STATE_FILE", "shutdown_state.json")
     FORCE_SHUTDOWN_AFTER = int(os.environ.get("FORCE_SHUTDOWN_AFTER", 60))  # seconds
     
+    # Enhanced Shutdown Configuration
+    SHUTDOWN_HEALTH_CHECK_ENABLED = bool(os.environ.get("SHUTDOWN_HEALTH_CHECK_ENABLED", "True").lower() in ["true", "1", "yes"])
+    SHUTDOWN_BACKUP_ENABLED = bool(os.environ.get("SHUTDOWN_BACKUP_ENABLED", "True").lower() in ["true", "1", "yes"])
+    SHUTDOWN_BACKUP_COUNT = int(os.environ.get("SHUTDOWN_BACKUP_COUNT", 5))
+    SHUTDOWN_STATE_VALIDATION_ENABLED = bool(os.environ.get("SHUTDOWN_STATE_VALIDATION_ENABLED", "True").lower() in ["true", "1", "yes"])
+    SHUTDOWN_VALIDATION_ENABLED = bool(os.environ.get("SHUTDOWN_VALIDATION_ENABLED", "True").lower() in ["true", "1", "yes"])
+    SHUTDOWN_COMPRESSION_ENABLED = bool(os.environ.get("SHUTDOWN_COMPRESSION_ENABLED", "True").lower() in ["true", "1", "yes"])
+    COMPONENT_PREPARE_TIMEOUT = float(os.environ.get("COMPONENT_PREPARE_TIMEOUT", 10.0))
+    COMPONENT_SHUTDOWN_TIMEOUT = float(os.environ.get("COMPONENT_SHUTDOWN_TIMEOUT", 15.0))
+    
     # Memory Service Shutdown Configuration
     MEMORY_SERVICE_SHUTDOWN_TIMEOUT = int(os.environ.get("MEMORY_SERVICE_SHUTDOWN_TIMEOUT", 15))
     POSTGRES_CONNECTION_TIMEOUT = int(os.environ.get("POSTGRES_CONNECTION_TIMEOUT", 10))

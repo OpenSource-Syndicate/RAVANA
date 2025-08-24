@@ -1,168 +1,132 @@
-import asyncio
 import logging
-import signal
-import sys
+import traceback
+import asyncio
 import json
 import os
-from typing import Dict, Any
 from datetime import datetime
+from typing import Dict, List, Any
 
-# Add the parent directory to the path to import modules
-sys.path.append("..")
-
-# Import bot interfaces
-from modules.conversational_ai.bots.discord_bot import DiscordBot
-from modules.conversational_ai.bots.telegram_bot import TelegramBot
-
-# Import emotional intelligence
-from modules.conversational_ai.emotional_intelligence.conversational_ei import ConversationalEmotionalIntelligence
-
-# Import memory interface
-from modules.conversational_ai.memory.memory_interface import SharedMemoryInterface
-
-# Import user profile manager
-from modules.conversational_ai.profiles.user_profile_manager import UserProfileManager
-
-# Import RAVANA communication bridge
-from modules.conversational_ai.communication.ravana_bridge import RAVANACommunicator
+# Import required modules
+from .emotional_intelligence.conversational_ei import ConversationalEmotionalIntelligence
+from .memory.memory_interface import SharedMemoryInterface
+from .communication.ravana_bridge import RAVANACommunicator
+from .profiles.user_profile_manager import UserProfileManager
 
 logger = logging.getLogger(__name__)
 
+
 class ConversationalAI:
-    """Main conversational AI module that integrates all components."""
-    
-    def __init__(self, channel: str = "memory_service"):
-        """Initialize the conversational AI module."""
-        logger.info("Initializing Conversational AI module...")
-        
-        # Load configuration
-        self.config = self._load_config()
+    def __init__(self):
+        """
+        Initialize the Conversational AI module with all required components.
+        """
+        # Initialize core components
+        self.emotional_intelligence = ConversationalEmotionalIntelligence()
+        self.memory_interface = SharedMemoryInterface()
+        self.ravana_communicator = RAVANACommunicator("conversational_ai_bridge", self)
+        self.user_profile_manager = UserProfileManager()
         
         # Initialize shutdown event
         self._shutdown = asyncio.Event()
         
-        # Initialize components
-        self.memory_interface = SharedMemoryInterface()
-        self.user_profile_manager = UserProfileManager()
-        self.emotional_intelligence = ConversationalEmotionalIntelligence()
-        self.ravana_communicator = RAVANACommunicator(channel, self)
+        # Load configuration
+        self.config = self._load_config()
         
-        # Initialize bot interfaces (will be configured from config)
-        self.bots = {}
-    
+        # Initialize bots (will be set up in start method)
+        self.discord_bot = None
+        self.telegram_bot = None
+        
+        logger.info("Conversational AI module initialized successfully")
+
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from config.json file."""
         config_path = os.path.join(os.path.dirname(__file__), 'config.json')
         try:
             with open(config_path, 'r') as f:
-                config = json.load(f)
-            logger.info("Configuration loaded successfully")
-            return config
-        except FileNotFoundError:
-            logger.warning(f"Config file not found at {config_path}, using default configuration")
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading config file: {e}")
+            # Return default configuration
             return {
-                "discord_token": "YOUR_DISCORD_TOKEN_HERE",
-                "telegram_token": "YOUR_TELEGRAM_TOKEN_HERE",
+                "discord_token": "",
+                "telegram_token": "",
                 "platforms": {
-                    "discord": {"enabled": True, "command_prefix": "!"},
-                    "telegram": {"enabled": True, "command_prefix": "/"}
+                    "discord": {"enabled": False, "command_prefix": "!"},
+                    "telegram": {"enabled": False, "command_prefix": "/"}
                 }
             }
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing config file: {e}, using default configuration")
-            return {
-                "discord_token": "YOUR_DISCORD_TOKEN_HERE",
-                "telegram_token": "YOUR_TELEGRAM_TOKEN_HERE",
-                "platforms": {
-                    "discord": {"enabled": True, "command_prefix": "!"},
-                    "telegram": {"enabled": True, "command_prefix": "/"}
-                }
-            }
-    
+
     async def start(self, standalone: bool = True):
-        """Start the conversational AI module.
+        """
+        Start the Conversational AI module.
         
         Args:
-            standalone: Whether this is running as a standalone module (True) or 
-                       as part of the main RAVANA system (False)
+            standalone: Whether to run in standalone mode or integrated with RAVANA
         """
-        logger.info("Starting Conversational AI module...")
-        
-        # Set up signal handlers for graceful shutdown (only in standalone mode)
-        if standalone:
-            signal.signal(signal.SIGINT, self._signal_handler)
-            signal.signal(signal.SIGTERM, self._signal_handler)
-        
-        # Initialize bot interfaces
-        logger.info("Initializing bot interfaces...")
         try:
-            # Discord bot
-            discord_config = self.config.get("platforms", {}).get("discord", {})
-            if discord_config.get("enabled", True):
-                discord_token = self.config.get("discord_token", "YOUR_DISCORD_TOKEN_HERE")
-                discord_prefix = discord_config.get("command_prefix", "!")
-                self.bots["discord"] = DiscordBot(discord_token, discord_prefix, self)
-                logger.info("Discord bot configured")
-            else:
-                logger.info("Discord bot disabled in configuration")
+            logger.info(f"Starting Conversational AI module in {'standalone' if standalone else 'integrated'} mode")
             
-            # Telegram bot
-            telegram_config = self.config.get("platforms", {}).get("telegram", {})
-            if telegram_config.get("enabled", True):
-                telegram_token = self.config.get("telegram_token", "YOUR_TELEGRAM_TOKEN_HERE")
-                telegram_prefix = telegram_config.get("command_prefix", "/")
-                self.bots["telegram"] = TelegramBot(telegram_token, telegram_prefix, self)
-                logger.info("Telegram bot configured")
-            else:
-                logger.info("Telegram bot disabled in configuration")
-        except Exception as e:
-            logger.error(f"Error initializing bot interfaces: {e}")
-            return
-        
-        # Start bot interfaces
-        logger.info("Starting bot interfaces...")
-        bot_tasks = []
-        for platform, bot in self.bots.items():
-            logger.info(f"Starting {platform} bot...")
-            bot_tasks.append(asyncio.create_task(bot.start()))
-        
-        # Start RAVANA communication bridge
-        logger.info("Starting RAVANA communication bridge...")
-        ravana_task = asyncio.create_task(self.ravana_communicator.start())
-        
-        # Wait for all tasks
-        try:
-            await asyncio.gather(*bot_tasks, ravana_task)
-        except asyncio.CancelledError:
-            logger.info("Conversational AI module received cancel signal")
-            await self.shutdown()
-        except Exception as e:
-            logger.error(f"Error in main loop: {e}")
-            await self.shutdown()
-
-    async def shutdown(self):
-        """Gracefully shutdown the conversational AI module."""
-        if self._shutdown.is_set():
-            return
+            # Initialize bots if in standalone mode
+            if standalone:
+                # Initialize Discord bot if configured and enabled
+                if (self.config.get("platforms", {}).get("discord", {}).get("enabled", False) and 
+                    self.config.get("discord_token")):
+                    try:
+                        from .bots.discord_bot import DiscordBot
+                        discord_config = self.config["platforms"]["discord"]
+                        self.discord_bot = DiscordBot(
+                            token=self.config["discord_token"],
+                            command_prefix=discord_config["command_prefix"],
+                            conversational_ai=self
+                        )
+                        logger.info("Discord bot initialized")
+                    except Exception as e:
+                        logger.error(f"Failed to initialize Discord bot: {e}")
+                
+                # Initialize Telegram bot if configured and enabled
+                if (self.config.get("platforms", {}).get("telegram", {}).get("enabled", False) and 
+                    self.config.get("telegram_token")):
+                    try:
+                        from .bots.telegram_bot import TelegramBot
+                        telegram_config = self.config["platforms"]["telegram"]
+                        self.telegram_bot = TelegramBot(
+                            token=self.config["telegram_token"],
+                            command_prefix=telegram_config["command_prefix"],
+                            conversational_ai=self
+                        )
+                        logger.info("Telegram bot initialized")
+                    except Exception as e:
+                        logger.error(f"Failed to initialize Telegram bot: {e}")
             
-        logger.info("Shutting down Conversational AI module...")
-        self._shutdown.set()
-        
-        # Stop all bots
-        for platform, bot in self.bots.items():
-            logger.info(f"Stopping {platform} bot...")
-            await bot.stop()
-        
-        # Stop RAVANA communication bridge
-        logger.info("Stopping RAVANA communication bridge...")
-        await self.ravana_communicator.stop()
-        
-        logger.info("Conversational AI module shutdown complete")
-
-    def _signal_handler(self, signum, frame):
-        """Handle shutdown signals."""
-        logger.info(f"Received signal {signum}, initiating shutdown...")
-        asyncio.create_task(self.shutdown())
+            # Start RAVANA communicator
+            await self.ravana_communicator.start()
+            
+            # Start bots if in standalone mode
+            if standalone:
+                # Start Discord bot if available
+                if self.discord_bot:
+                    try:
+                        await self.discord_bot.start()
+                    except Exception as e:
+                        logger.error(f"Failed to start Discord bot: {e}")
+                
+                # Start Telegram bot if available
+                if self.telegram_bot:
+                    try:
+                        await self.telegram_bot.start()
+                    except Exception as e:
+                        logger.error(f"Failed to start Telegram bot: {e}")
+            
+            # Main loop for integrated mode
+            if not standalone:
+                while not self._shutdown.is_set():
+                    # In integrated mode, the module is controlled by the main RAVANA system
+                    await asyncio.sleep(1)
+            
+            logger.info("Conversational AI module started successfully")
+        except Exception as e:
+            logger.error(f"Error starting Conversational AI module: {e}")
+            raise
 
     def process_user_message(self, platform: str, user_id: str, message: str) -> str:
         """
@@ -177,19 +141,12 @@ class ConversationalAI:
             The AI's response to the message
         """
         try:
-            # Get or create user profile
-            user_profile = self.user_profile_manager.get_user_profile(user_id, platform)
-            
             # Get context from shared memory
             context = self.memory_interface.get_context(user_id)
             
             # Process message with emotional intelligence
-            self.emotional_intelligence.set_persona(user_profile.get("personality", {}).get("persona", "Balanced"))
+            self.emotional_intelligence.set_persona("Balanced")
             emotional_context = self.emotional_intelligence.process_user_message(message, context)
-            
-            # Update user profile with emotional state
-            user_profile["emotional_state"] = emotional_context
-            self.user_profile_manager.update_user_profile(user_id, user_profile)
             
             # Generate response using emotional intelligence
             response = self.emotional_intelligence.generate_response(message, emotional_context)
@@ -203,21 +160,6 @@ class ConversationalAI:
             }
             
             self.memory_interface.store_conversation(user_id, conversation_entry)
-            
-            # Store in user profile manager for full history
-            self.user_profile_manager.store_chat_message(user_id, {
-                "timestamp": datetime.now().isoformat(),
-                "sender": "user",
-                "content": message,
-                "emotional_context": emotional_context
-            })
-            
-            self.user_profile_manager.store_chat_message(user_id, {
-                "timestamp": datetime.now().isoformat(),
-                "sender": "ai",
-                "content": response,
-                "emotional_context": emotional_context
-            })
             
             # Extract thoughts from the conversation
             thoughts = self.emotional_intelligence.extract_thoughts_from_conversation(
@@ -251,82 +193,142 @@ class ConversationalAI:
             logger.error(f"Error processing user message: {e}")
             return "I'm sorry, I encountered an error processing your message."
 
+    async def process_user_message_async(self, platform: str, user_id: str, message: str) -> str:
+        """
+        Process an incoming user message and generate a response asynchronously.
+        
+        Args:
+            platform: The platform the message came from (discord/telegram)
+            user_id: The unique identifier of the user
+            message: The user's message
+            
+        Returns:
+            The AI's response to the message
+        """
+        try:
+            # Get context from shared memory
+            context = self.memory_interface.get_context(user_id)
+            
+            # Process message with emotional intelligence
+            self.emotional_intelligence.set_persona("Balanced")
+            emotional_context = self.emotional_intelligence.process_user_message(message, context)
+            
+            # Generate response using emotional intelligence (async version)
+            response = await self._generate_response_async(message, emotional_context)
+            
+            # Store conversation in memory
+            conversation_entry = {
+                "timestamp": datetime.now().isoformat(),
+                "user_message": message,
+                "ai_response": response,
+                "emotional_context": emotional_context
+            }
+            
+            self.memory_interface.store_conversation(user_id, conversation_entry)
+            
+            # Extract thoughts from the conversation (async version)
+            thoughts = await self._extract_thoughts_from_conversation_async(
+                message, response, emotional_context)
+            
+            # Send thoughts to RAVANA if any were extracted
+            if thoughts:
+                for thought in thoughts:
+                    # Add metadata to the thought
+                    thought_with_metadata = {
+                        "thought_type": thought.get("thought_type", "insight"),
+                        "payload": thought.get("content", ""),
+                        "priority": thought.get("priority", "medium"),
+                        "emotional_context": thought.get("emotional_context", {}),
+                        "metadata": {
+                            **thought.get("metadata", {}),
+                            "user_id": user_id,
+                            "platform": platform,
+                            "conversation_id": f"{user_id}_{datetime.now().isoformat()}"
+                        }
+                    }
+                    
+                    # Send thought to RAVANA
+                    self.ravana_communicator.send_thought_to_ravana(thought_with_metadata)
+            
+            # Synchronize emotional context with RAVANA
+            self._synchronize_emotional_context(user_id, emotional_context)
+            
+            return response
+        except Exception as e:
+            logger.error(f"Error processing user message: {e}")
+            return "I'm sorry, I encountered an error processing your message."
+
+    async def _generate_response_async(self, prompt: str, emotional_state: Dict[str, Any]) -> str:
+        """
+        Generate an emotionally-aware response using async LLM calls.
+        
+        Args:
+            prompt: The user's message
+            emotional_state: Current emotional state
+            
+        Returns:
+            Generated response
+        """
+        try:
+            # Use the async version from emotional intelligence module
+            response = await self.emotional_intelligence.generate_response_async(prompt, emotional_state)
+            return response
+        except Exception as e:
+            logger.error(f"Error generating response: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return self.emotional_intelligence._generate_fallback_response(prompt, emotional_state)
+
+    async def _extract_thoughts_from_conversation_async(self, user_message: str, ai_response: str, 
+                                                       emotional_context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Extract meaningful thoughts and insights from the conversation asynchronously.
+        
+        Args:
+            user_message: The user's message
+            ai_response: The AI's response
+            emotional_context: Current emotional context
+            
+        Returns:
+            List of extracted thoughts as structured dictionaries
+        """
+        try:
+            # Use the async version from emotional intelligence module
+            thoughts = await self.emotional_intelligence.extract_thoughts_from_conversation_async(
+                user_message, ai_response, emotional_context)
+            return thoughts
+        except Exception as e:
+            logger.error(f"Error extracting thoughts from conversation: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return []
+
     def _synchronize_emotional_context(self, user_id: str, emotional_context: Dict[str, Any]):
         """
-        Synchronize emotional context with RAVANA core system.
+        Synchronize the user's emotional context with the RAVANA system.
         
         Args:
             user_id: The unique identifier of the user
-            emotional_context: Current emotional context
+            emotional_context: The current emotional context to synchronize
         """
         try:
-            # Create an emotional synchronization message
-            emotional_sync_message = {
-                "thought_type": "emotional_sync",
-                "payload": {
-                    "user_id": user_id,
-                    "emotional_state": emotional_context
-                },
-                "priority": "low",
-                "emotional_context": emotional_context,
-                "metadata": {
-                    "user_id": user_id,
-                    "sync_type": "emotional_context"
-                }
+            # Create emotional state payload for RAVANA
+            emotional_payload = {
+                "user_id": user_id,
+                "emotional_state": emotional_context,
+                "timestamp": datetime.now().isoformat()
             }
             
-            # Send to RAVANA
-            self.ravana_communicator.send_thought_to_ravana(emotional_sync_message)
-            
+            # Send to RAVANA for synchronization
+            self.ravana_communicator.send_thought_to_ravana(emotional_payload)
         except Exception as e:
-            logger.error(f"Error synchronizing emotional context: {e}")
-
-    async def send_message_to_user(self, user_id: str, message: str, platform: str = None):
+            logger.error(f"Error synchronizing emotional context with RAVANA: {e}")
+            
+    def send_message_to_user(self, user_id: str, message: str):
         """
-        Send a message to a user from RAVANA.
+        Send a message to a user (placeholder for actual implementation).
         
         Args:
             user_id: The unique identifier of the user
             message: The message to send
-            platform: The platform to send the message on (if None, will use user's last platform)
         """
-        try:
-            # Get user profile to determine platform if not specified
-            if platform is None:
-                user_profile = self.user_profile_manager.get_user_profile(user_id)
-                platform = user_profile.get("platform", "discord")
-            
-            # Send message through appropriate bot
-            if platform in self.bots:
-                await self.bots[platform].send_message(user_id, message)
-                logger.info(f"Sent message to user {user_id} on {platform}")
-            else:
-                logger.warning(f"Cannot send message to user {user_id}, platform {platform} not available")
-        except Exception as e:
-            logger.error(f"Error sending message to user {user_id}: {e}")
-
-    def handle_task_from_user(self, user_id: str, task_description: str):
-        """
-        Handle a task delegation from a user to RAVANA.
-        
-        Args:
-            user_id: The unique identifier of the user
-            task_description: Description of the task to delegate
-        """
-        try:
-            # Send task to RAVANA through communication bridge
-            task = {
-                "user_id": user_id,
-                "task_description": task_description,
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            self.ravana_communicator.send_task_to_ravana(task)
-            logger.info(f"Task from user {user_id} sent to RAVANA: {task_description}")
-        except Exception as e:
-            logger.error(f"Error handling task from user {user_id}: {e}")
-
-if __name__ == "__main__":
-    # For testing purposes
-    conversational_ai = ConversationalAI()
-    asyncio.run(conversational_ai.start())
+        # This would need to be implemented to actually send messages through the appropriate platform
+        logger.info(f"Sending message to user {user_id}: {message}")

@@ -122,30 +122,85 @@ class EnhancedSnakeAgent:
                 worker_id="enhanced_snake"
             )
             
-            # Initialize LLM interfaces
-            self.coding_llm = await create_snake_coding_llm()
-            self.reasoning_llm = await create_snake_reasoning_llm()
+            # Initialize LLM interfaces with better error handling
+            try:
+                self.coding_llm = await create_snake_coding_llm()
+                self.reasoning_llm = await create_snake_reasoning_llm()
+            except Exception as e:
+                logger.error(f"Failed to initialize LLM interfaces: {e}")
+                await self.log_manager.log_system_event(
+                    "enhanced_snake_llm_init_failed",
+                    {"error": str(e)},
+                    level="error",
+                    worker_id="enhanced_snake"
+                )
+                # Continue initialization without LLMs - they'll be retried later
+                self.coding_llm = None
+                self.reasoning_llm = None
             
             # Initialize Very Long-Term Memory if enabled
             if self.vltm_enabled:
                 if not await self._initialize_vltm():
                     logger.warning("Failed to initialize VLTM - continuing without it")
                     self.vltm_enabled = False
+                    await self.log_manager.log_system_event(
+                        "enhanced_snake_vltm_init_failed",
+                        {"warning": "VLTM initialization failed"},
+                        level="warning",
+                        worker_id="enhanced_snake"
+                    )
             
-            # Initialize threading manager
-            self.threading_manager = SnakeThreadingManager(self.snake_config, self.log_manager)
-            if not await self.threading_manager.initialize():
-                raise Exception("Failed to initialize threading manager")
+            # Initialize threading manager with retry logic
+            retry_count = 0
+            max_retries = 3
+            while retry_count < max_retries:
+                try:
+                    self.threading_manager = SnakeThreadingManager(self.snake_config, self.log_manager)
+                    if await self.threading_manager.initialize():
+                        break
+                    else:
+                        raise Exception("Threading manager initialization returned False")
+                except Exception as e:
+                    retry_count += 1
+                    logger.warning(f"Failed to initialize threading manager (attempt {retry_count}/{max_retries}): {e}")
+                    if retry_count < max_retries:
+                        await asyncio.sleep(2 ** retry_count)  # Exponential backoff
+                    else:
+                        raise Exception("Failed to initialize threading manager after retries")
             
-            # Initialize process manager
-            self.process_manager = SnakeProcessManager(self.snake_config, self.log_manager)
-            if not await self.process_manager.initialize():
-                raise Exception("Failed to initialize process manager")
+            # Initialize process manager with retry logic
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    self.process_manager = SnakeProcessManager(self.snake_config, self.log_manager)
+                    if await self.process_manager.initialize():
+                        break
+                    else:
+                        raise Exception("Process manager initialization returned False")
+                except Exception as e:
+                    retry_count += 1
+                    logger.warning(f"Failed to initialize process manager (attempt {retry_count}/{max_retries}): {e}")
+                    if retry_count < max_retries:
+                        await asyncio.sleep(2 ** retry_count)  # Exponential backoff
+                    else:
+                        raise Exception("Failed to initialize process manager after retries")
             
-            # Initialize file monitor
-            self.file_monitor = ContinuousFileMonitor(self, self.snake_config, self.log_manager)
-            if not await self.file_monitor.initialize():
-                raise Exception("Failed to initialize file monitor")
+            # Initialize file monitor with retry logic
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    self.file_monitor = ContinuousFileMonitor(self, self.snake_config, self.log_manager)
+                    if await self.file_monitor.initialize():
+                        break
+                    else:
+                        raise Exception("File monitor initialization returned False")
+                except Exception as e:
+                    retry_count += 1
+                    logger.warning(f"Failed to initialize file monitor (attempt {retry_count}/{max_retries}): {e}")
+                    if retry_count < max_retries:
+                        await asyncio.sleep(2 ** retry_count)  # Exponential backoff
+                    else:
+                        raise Exception("Failed to initialize file monitor after retries")
             
             # Set up component callbacks
             await self._setup_component_callbacks()
@@ -165,7 +220,7 @@ class EnhancedSnakeAgent:
             return True
             
         except Exception as e:
-            logger.error(f"Failed to initialize Enhanced Snake Agent: {e}")
+            logger.error(f"Failed to initialize Enhanced Snake Agent: {e}", exc_info=True)
             if self.log_manager:
                 await self.log_manager.log_system_event(
                     "enhanced_snake_init_failed",
@@ -857,7 +912,7 @@ class EnhancedSnakeAgent:
         except Exception as e:
             logger.error(f"Error triggering memory consolidation: {e}")
     
-    def get_status(self) -> Dict[str, Any]:
+    async def get_status(self) -> Dict[str, Any]:
         """Get comprehensive status of the enhanced agent"""
         status = {
             "running": self.running,

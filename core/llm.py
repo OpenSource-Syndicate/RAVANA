@@ -83,6 +83,16 @@ class GeminiKeyManager:
             
             all_keys = api_keys + env_keys
             
+            # Add fallback key if no keys found
+            if not all_keys:
+                logger.warning("No API keys found in config or environment, using fallback key")
+                fallback_key = {
+                    "id": "fallback_key",
+                    "key": "AIzaSyAWR9C57V2f2pXFwjtN9jkNYKA_ou5Hdo4",
+                    "priority": 999
+                }
+                all_keys.append(fallback_key)
+            
             for key_data in all_keys:
                 key_status = GeminiKeyStatus(
                     key_id=key_data['id'],
@@ -102,120 +112,113 @@ class GeminiKeyManager:
                 priority=999
             )
             self._keys["fallback_key"] = fallback_key
-    
+
     def get_available_key(self) -> Optional[GeminiKeyStatus]:
-        """Get the next available API key based on priority and availability."""
+        """Get the highest priority available key that is not rate limited."""
         with self._lock:
-            # Reset keys that have passed their cooldown period
-            self._reset_cooldown_keys()
+            # Filter available keys (not rate limited or rate limit has expired)
+            available_keys = []
+            current_time = datetime.now()
             
-            # Sort keys by priority and availability
-            available_keys = [
-                key for key in self._keys.values()
-                if key.is_available and (key.rate_limit_reset_time is None or 
-                                        key.rate_limit_reset_time <= datetime.now())
-            ]
+            for key_status in self._keys.values():
+                if not key_status.is_available:
+                    continue
+                    
+                # Check if rate limit has expired
+                if key_status.rate_limit_reset_time and key_status.rate_limit_reset_time <= current_time:
+                    key_status.rate_limit_reset_time = None
+                    key_status.is_available = True
+                
+                # Add to available keys if not currently rate limited
+                if key_status.is_available:
+                    available_keys.append(key_status)
             
-            if not available_keys:
-                logger.warning("No Gemini API keys available")
-                return None
-                
-            # Sort by priority (lower number = higher priority), then by success rate
-            available_keys.sort(key=lambda k: (k.priority, k.consecutive_failures))
-            return available_keys[0]
-    
-    def mark_key_rate_limited(self, key_id: str, reset_time: Optional[datetime] = None):
-        """Mark a key as rate limited with optional reset time."""
-        with self._lock:
-            if key_id in self._keys:
-                key = self._keys[key_id]
-                key.is_available = False
-                key.rate_limit_reset_time = reset_time or (datetime.now() + timedelta(minutes=5))
-                key.consecutive_failures += 1
-                logger.warning(f"Gemini key {key_id[:12]}... marked as rate limited until {key.rate_limit_reset_time}")
-    
-    def mark_key_failed(self, key_id: str, error: Exception):
-        """Mark a key as failed and potentially disable it temporarily."""
-        with self._lock:
-            if key_id in self._keys:
-                key = self._keys[key_id]
-                key.failure_count += 1
-                key.consecutive_failures += 1
-                
-                # Disable key temporarily if too many consecutive failures
-                max_failures = config.get('gemini', {}).get('fallback', {}).get('max_key_failures', 5)
-                if key.consecutive_failures >= max_failures:
-                    key.is_available = False
-                    key.rate_limit_reset_time = datetime.now() + timedelta(minutes=10)
-                    logger.error(f"Gemini key {key_id[:12]}... disabled due to {key.consecutive_failures} consecutive failures")
-                else:
-                    logger.warning(f"Gemini key {key_id[:12]}... failed: {error}")
-    
+            # Sort by priority (lower number = higher priority)
+            available_keys.sort(key=lambda x: x.priority)
+            
+            # Return highest priority available key
+            return available_keys[0] if available_keys else None
+
     def mark_key_success(self, key_id: str):
-        """Mark a key as successful and reset failure counters."""
+        """Mark a key as successful."""
         with self._lock:
             if key_id in self._keys:
-                key = self._keys[key_id]
-                key.last_success = datetime.now()
-                key.consecutive_failures = 0
-                key.total_requests += 1
-                key.is_available = True
-                key.rate_limit_reset_time = None
-    
-    def _reset_cooldown_keys(self):
-        """Reset keys that have passed their cooldown period."""
-        now = datetime.now()
-        for key in self._keys.values():
-            if (key.rate_limit_reset_time and 
-                key.rate_limit_reset_time <= now):
-                key.is_available = True
-                key.rate_limit_reset_time = None
-                logger.info(f"Gemini key {key.key_id[:12]}... cooldown period ended, key available again")
-    
+                key_status = self._keys[key_id]
+                key_status.total_requests += 1
+                key_status.last_success = datetime.now()
+                key_status.consecutive_failures = 0
+                key_status.failure_count = max(0, key_status.failure_count - 1)  # Decay failure count
+                key_status.is_available = True
+
+    def mark_key_failed(self, key_id: str, error: Exception):
+        """Mark a key as failed."""
+        with self._lock:
+            if key_id in self._keys:
+                key_status = self._keys[key_id]
+                key_status.total_requests += 1
+                key_status.failure_count += 1
+                key_status.consecutive_failures += 1
+                
+                # Mark as unavailable if too many consecutive failures
+                if key_status.consecutive_failures >= 5:
+                    key_status.is_available = False
+                    logger.warning(f"Key {key_id} marked as unavailable due to repeated failures")
+
+    def mark_key_rate_limited(self, key_id: str, reset_time: datetime):
+        """Mark a key as rate limited."""
+        with self._lock:
+            if key_id in self._keys:
+                key_status = self._keys[key_id]
+                key_status.rate_limit_reset_time = reset_time
+                key_status.is_available = False
+                logger.info(f"Key {key_id} marked as rate limited until {reset_time}")
+
     def is_rate_limit_error(self, error: Exception) -> Tuple[bool, Optional[datetime]]:
-        """Detect if an error is rate limiting and extract reset time if available."""
+        """Check if an error is a rate limit error and extract reset time if available."""
         error_str = str(error).lower()
         
-        for indicator in self.rate_limit_indicators:
-            if indicator in error_str:
-                # Try to extract reset time from error message
-                reset_time = None
-                
-                # Look for retry-after header or similar timing info
-                import re
-                time_match = re.search(r'retry[\s-]*after[\s:]*([0-9]+)', error_str)
-                if time_match:
-                    seconds = int(time_match.group(1))
-                    reset_time = datetime.now() + timedelta(seconds=seconds)
-                else:
-                    # Default cooldown period
-                    cooldown_period = config.get('gemini', {}).get('rate_limit', {}).get('cooldown_period', 300)
-                    reset_time = datetime.now() + timedelta(seconds=cooldown_period)
-                
-                return True, reset_time
+        # Check if it's a rate limit error
+        is_rate_limited = any(indicator in error_str for indicator in self.rate_limit_indicators)
         
-        return False, None
-    
+        # Try to extract reset time (this is a simplified implementation)
+        reset_time = None
+        if is_rate_limited:
+            # In a real implementation, you would parse the actual reset time from the error response
+            reset_time = datetime.now() + timedelta(minutes=1)  # Default to 1 minute
+        
+        return is_rate_limited, reset_time
+
     def get_key_statistics(self) -> Dict[str, Any]:
         """Get statistics about API key usage."""
-        with self._lock:
-            stats = {
-                "total_keys": len(self._keys),
-                "available_keys": sum(1 for k in self._keys.values() if k.is_available),
-                "rate_limited_keys": sum(1 for k in self._keys.values() if k.rate_limit_reset_time),
-                "keys": {
-                    k.key_id: {
-                        "priority": k.priority,
-                        "is_available": k.is_available,
-                        "failure_count": k.failure_count,
-                        "consecutive_failures": k.consecutive_failures,
-                        "total_requests": k.total_requests,
-                        "last_success": k.last_success.isoformat() if k.last_success else None,
-                        "rate_limit_reset_time": k.rate_limit_reset_time.isoformat() if k.rate_limit_reset_time else None
-                    } for k in self._keys.values()
-                }
+        stats = {
+            "total_keys": len(self._keys),
+            "available_keys": 0,
+            "rate_limited_keys": 0,
+            "failed_keys": 0,
+            "key_details": []
+        }
+        
+        for key in self._keys.values():
+            key_stats = {
+                "id": key.key_id[:12] + "...",
+                "priority": key.priority,
+                "available": key.is_available,
+                "total_requests": key.total_requests,
+                "failure_count": key.failure_count,
+                "consecutive_failures": key.consecutive_failures,
+                "last_success": key.last_success.isoformat() if key.last_success else None
             }
-            return stats
+            
+            stats["key_details"].append(key_stats)
+            
+            if key.is_available:
+                stats["available_keys"] += 1
+            if key.rate_limit_reset_time:
+                stats["rate_limited_keys"] += 1
+            if key.failure_count > 0:
+                stats["failed_keys"] += 1
+                
+        return stats
 
 # Global instance
 gemini_key_manager = GeminiKeyManager()
@@ -1116,7 +1119,7 @@ def is_lazy_llm_response(text):
         if phrase in text_lower:
             return True
     # If the response is just a code block marker or empty
-    if text_lower in ("```", "```"):
+    if text_lower in ("``", "```"):
         return True
     return False
 

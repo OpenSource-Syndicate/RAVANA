@@ -125,17 +125,26 @@ class EmotionalIntelligence:
             ("Confident", "Curious"): "Inspired",
             ("Frustrated", "Stuck"): "Resentful",
             ("Anxious", "Cautious"): "Apprehensive",
-            ("Excited", "Satisfied"): "Proud"
+            ("Excited", "Satisfied"): "Proud",
+            ("Bored", "Low Energy"): "Melancholic",
+            ("Curious", "Reflective"): "Intrigued",
+            ("Frustrated", "Irritated"): "Stuck",
+            ("Excited", "Inspired"): "Energized"
         }
         
+        # Dynamic blending based on current mood intensities
         for (mood1, mood2), blended_mood in blend_rules.items():
             if (mood1 in self.mood_vector and mood2 in self.mood_vector and 
                 blended_mood in self.mood_vector):
                 # If both source moods are above threshold, boost the blended mood
-                if (self.mood_vector[mood1] > threshold and 
-                    self.mood_vector[mood2] > threshold):
-                    blend_strength = (self.mood_vector[mood1] + self.mood_vector[mood2]) / 2
-                    self.update_mood(blended_mood, blend_strength * 0.1)
+                intensity1 = self.mood_vector[mood1]
+                intensity2 = self.mood_vector[mood2]
+                
+                # Only blend if both moods are present
+                if intensity1 > 0.1 and intensity2 > 0.1:
+                    # Calculate blend strength based on the geometric mean of intensities
+                    blend_strength = (intensity1 * intensity2) ** 0.5
+                    self.update_mood(blended_mood, blend_strength * 0.15)  # Slightly stronger influence
 
     def decay_moods(self, decay: float = 0.05):
         """Enhanced mood decay with stability controls"""
@@ -237,7 +246,38 @@ class EmotionalIntelligence:
             self.log_emotional_event(mood_changes, triggers, action_output[:200])
 
     def get_dominant_mood(self) -> str:
-        return max(self.mood_vector, key=lambda m: self.mood_vector[m])
+        """Get the most dominant mood, with tie-breaking logic"""
+        if not self.mood_vector:
+            return "Neutral"
+            
+        # Get all moods sorted by intensity
+        sorted_moods = sorted(self.mood_vector.items(), key=lambda x: x[1], reverse=True)
+        
+        # If top mood is significantly stronger than second, return it
+        if len(sorted_moods) >= 2 and sorted_moods[0][1] > sorted_moods[1][1] + 0.2:
+            return sorted_moods[0][0]
+        
+        # For close ties, consider mood groups
+        primary_mood = sorted_moods[0][0]
+        secondary_mood = sorted_moods[1][0] if len(sorted_moods) > 1 else None
+        
+        # Special combinations that create meaningful dominant moods
+        mood_combinations = {
+            ("Confident", "Curious"): "Inspired",
+            ("Frustrated", "Stuck"): "Resentful",
+            ("Excited", "Satisfied"): "Proud",
+            ("Anxious", "Cautious"): "Apprehensive"
+        }
+        
+        # Check if we have a meaningful combination
+        combination_key = (primary_mood, secondary_mood) if secondary_mood else None
+        if combination_key in mood_combinations:
+            return mood_combinations[combination_key]
+        elif (secondary_mood, primary_mood) in mood_combinations:  # Reverse order
+            return mood_combinations[(secondary_mood, primary_mood)]
+        
+        # Default to primary mood
+        return primary_mood
 
     def get_mood_vector(self) -> Dict[str, float]:
         return dict(self.mood_vector)

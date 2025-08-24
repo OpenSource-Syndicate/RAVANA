@@ -211,202 +211,107 @@ async def run_experiment_tests(agi_system):
     logger.info("All experimentation tests completed")
 
 async def main():
-    """Main function to run the AGI system with enhanced shutdown handling."""
+    """Main entry point for the RAVANA AGI system."""
     global agi_system_instance
     
-    parser = argparse.ArgumentParser(description="Ravana AGI")
-    parser.add_argument("--prompt", type=str, help="Run the AGI with a single prompt and then exit.")
-    parser.add_argument("--physics-experiment", type=str, help="Run a specific physics experiment by name.")
-    parser.add_argument("--discovery-mode", action="store_true", help="Run in discovery mode to explore novel physics concepts.")
-    parser.add_argument("--test-experiments", action="store_true", help="Run physics experimentation test suite.")
-    parser.add_argument("--skip-state-recovery", action="store_true", help="Skip loading previous state on startup.")
-    args = parser.parse_args()
-
-    logger.info("🚀 Starting Ravana AGI System...")
-    logger.info(f"💻 Platform: {platform.system()} {platform.release()}")
-    logger.info(f"🐍 Python: {sys.version}")
+    logger.info("🚀 Starting RAVANA AGI System")
+    logger.info(f"🧠 Using model: {Config.EMBEDDING_MODEL}")
+    logger.info(f"📊 Log level: {Config.LOG_LEVEL}")
     
-    # Create database and tables
-    logger.info("🗄 Initializing database...")
-    create_db_and_tables()
-
-    # Initialize the AGI system
-    logger.info("🧠 Initializing AGI system...")
-    agi_system_instance = AGISystem(engine)
+    try:
+        # Create database and tables
+        logger.info("Initializing database...")
+        create_db_and_tables()
+        logger.info("Database initialized successfully")
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        return 1
     
-    # Set up signal handlers after AGI system is initialized
+    # Set up signal handlers for graceful shutdown
     setup_signal_handlers()
     
-    # Log startup configuration
-    from core.config import Config
-    logger.info(f"⚙️  Graceful shutdown: {'enabled' if Config.GRACEFUL_SHUTDOWN_ENABLED else 'disabled'}")
-    logger.info(f"💾 State persistence: {'enabled' if Config.STATE_PERSISTENCE_ENABLED else 'disabled'}")
-    logger.info(f"⏱️  Shutdown timeout: {Config.SHUTDOWN_TIMEOUT}s")
-    
+    agi_system = None
     try:
-        # Run the appropriate mode
+        # Initialize the AGI system with improved error handling
+        logger.info("Initializing AGI system...")
+        agi_system = AGISystem(engine)
+        agi_system_instance = agi_system
+        
+        # Initialize components with better error handling
+        initialization_success = await agi_system.initialize_components()
+        if not initialization_success:
+            logger.error("AGI system initialization failed")
+            return 1
+            
+        logger.info("AGI system initialized successfully")
+        
+        # Start Snake Agent if enabled
+        if Config.SNAKE_AGENT_ENABLED and agi_system.snake_agent:
+            try:
+                logger.info("Starting Snake Agent...")
+                await agi_system.start_snake_agent()
+                logger.info("Snake Agent started successfully")
+            except Exception as e:
+                logger.error(f"Failed to start Snake Agent: {e}")
+                # Continue even if Snake Agent fails to start
+        
+        # Start Conversational AI if enabled
+        if Config.CONVERSATIONAL_AI_ENABLED and agi_system.conversational_ai:
+            try:
+                logger.info("Starting Conversational AI...")
+                await agi_system.start_conversational_ai()
+                logger.info("Conversational AI started successfully")
+            except Exception as e:
+                logger.error(f"Failed to start Conversational AI: {e}")
+                # Continue even if Conversational AI fails to start
+        
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description="RAVANA AGI System")
+        parser.add_argument("--physics-experiment", type=str, help="Run a specific physics experiment")
+        parser.add_argument("--discovery-mode", action="store_true", help="Run in discovery mode")
+        parser.add_argument("--test-experiments", action="store_true", help="Run experiment tests")
+        parser.add_argument("--single-task", type=str, help="Run a single task")
+        
+        args = parser.parse_args()
+        
+        # Handle different run modes
         if args.physics_experiment:
-            logger.info(f"🔬 Running physics experiment: {args.physics_experiment}")
-            await run_physics_experiment(agi_system_instance, args.physics_experiment)
-            
+            logger.info(f"Running physics experiment: {args.physics_experiment}")
+            await run_physics_experiment(agi_system, args.physics_experiment)
         elif args.discovery_mode:
-            logger.info("🔍 Running in discovery mode")
-            await run_discovery_mode(agi_system_instance)
-            
+            logger.info("Running in discovery mode")
+            await run_discovery_mode(agi_system)
         elif args.test_experiments:
-            logger.info("🧪 Running physics experimentation test suite")
-            await run_experiment_tests(agi_system_instance)
-            
-        elif args.prompt:
-            logger.info(f"📝 Running single task: {args.prompt[:100]}...")
-            await run_single_task_with_shutdown(agi_system_instance, args.prompt)
-            
+            logger.info("Running experiment tests")
+            await run_experiment_tests(agi_system)
+        elif args.single_task:
+            logger.info(f"Running single task: {args.single_task}")
+            await agi_system.run_single_task(args.single_task)
         else:
-            logger.info("🔄 Starting autonomous loop")
-            await run_autonomous_with_shutdown(agi_system_instance)
+            # Start the autonomous loop
+            logger.info("Starting autonomous AGI loop...")
+            await agi_system.run_autonomous_loop()
             
     except KeyboardInterrupt:
-        logger.info("⚡ Keyboard interrupt received")
-        await shutdown_agi_system(agi_system_instance, "keyboard_interrupt")
-        
-    except asyncio.CancelledError:
-        logger.info("⚡ Async task cancelled")
-        await shutdown_agi_system(agi_system_instance, "task_cancelled")
-        
+        logger.info("🛑 Received keyboard interrupt")
     except Exception as e:
-        logger.error(f"❌ Critical error in main: {e}", exc_info=True)
-        await shutdown_agi_system(agi_system_instance, "critical_error")
-        raise
-        
+        logger.error(f"❌ Unexpected error in main: {e}", exc_info=True)
+        return 1
     finally:
-        logger.info("📋 Final cleanup in main()")
-        if agi_system_instance and not agi_system_instance._shutdown.is_set():
+        # Ensure graceful shutdown
+        if agi_system:
+            logger.info("Initiating graceful shutdown...")
             try:
-                await shutdown_agi_system(agi_system_instance, "finally_block")
+                await agi_system.stop("system_shutdown")
+                logger.info("✅ AGI System shutdown completed")
             except Exception as e:
-                logger.error(f"Error in final cleanup: {e}")
-        
-        logger.info("✅ Ravana AGI shutdown sequence completed")
-
-
-async def run_single_task_with_shutdown(agi_system: AGISystem, prompt: str):
-    """Run a single task with shutdown monitoring."""
-    try:
-        # Create a task for the single task execution
-        task = asyncio.create_task(agi_system.run_single_task(prompt))
-        
-        # Wait for either task completion or shutdown signal
-        done, pending = await asyncio.wait(
-            [task, asyncio.create_task(shutdown_event.wait())],
-            return_when=asyncio.FIRST_COMPLETED
-        )
-        
-        # Cancel pending tasks
-        for pending_task in pending:
-            pending_task.cancel()
-        
-        # Check if shutdown was requested
-        if shutdown_event.is_set():
-            logger.info("🛑 Shutdown requested during single task execution")
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-        
-    except Exception as e:
-        logger.error(f"Error in single task execution: {e}")
-        raise
-
-
-async def run_autonomous_with_shutdown(agi_system: AGISystem):
-    """Run autonomous loop with shutdown monitoring."""
-    try:
-        # Create a task for the autonomous loop
-        loop_task = asyncio.create_task(agi_system.run_autonomous_loop())
-        
-        # Wait for either loop completion or shutdown signal
-        done, pending = await asyncio.wait(
-            [loop_task, asyncio.create_task(shutdown_event.wait())],
-            return_when=asyncio.FIRST_COMPLETED
-        )
-        
-        # Cancel pending tasks
-        for pending_task in pending:
-            pending_task.cancel()
-        
-        # Check if shutdown was requested
-        if shutdown_event.is_set():
-            logger.info("🛑 Shutdown requested during autonomous loop")
-            # The loop should already be stopping due to the shutdown event being set
-            try:
-                await asyncio.wait_for(loop_task, timeout=Config.SHUTDOWN_TIMEOUT)
-            except asyncio.TimeoutError:
-                logger.warning("⚠️  Autonomous loop did not stop within timeout")
-                loop_task.cancel()
-                try:
-                    await loop_task
-                except asyncio.CancelledError:
-                    pass
-        
-    except Exception as e:
-        logger.error(f"Error in autonomous loop execution: {e}")
-        raise
-
-
-async def shutdown_agi_system(agi_system: AGISystem, reason: str):
-    """Shutdown the AGI system gracefully."""
-    if not agi_system:
-        logger.warning("No AGI system instance to shutdown")
-        return
+                logger.error(f"❌ Error during shutdown: {e}", exc_info=True)
+                return 1
     
-    try:
-        logger.info(f"🛑 Initiating AGI system shutdown - Reason: {reason}")
-        
-        # Check if graceful shutdown is enabled
-        from core.config import Config
-        if Config.GRACEFUL_SHUTDOWN_ENABLED:
-            # Use the shutdown coordinator directly instead of calling stop
-            if hasattr(agi_system, 'shutdown_coordinator') and agi_system.shutdown_coordinator:
-                await agi_system.shutdown_coordinator.initiate_shutdown(reason)
-            else:
-                await agi_system.stop(reason)
-        else:
-            logger.info("⚡ Graceful shutdown disabled, performing basic shutdown")
-            agi_system._shutdown.set()
-            
-            # Cancel background tasks
-            for task in agi_system.background_tasks:
-                task.cancel()
-            
-            # Wait briefly for tasks to complete
-            try:
-                await asyncio.wait_for(
-                    asyncio.gather(*agi_system.background_tasks, return_exceptions=True),
-                    timeout=5
-                )
-            except asyncio.TimeoutError:
-                logger.warning("Some background tasks did not complete within timeout")
-            
-            # Close database session
-            if hasattr(agi_system, 'session'):
-                agi_system.session.close()
-        
-        logger.info("✅ AGI system shutdown completed")
-        
-    except Exception as e:
-        logger.error(f"❌ Error during AGI system shutdown: {e}", exc_info=True)
+    return 0
 
 if __name__ == "__main__":
-    try:
-        logger.info("🚀 Ravana AGI System starting up...")
-        asyncio.run(main())
-    except SystemExit as e:
-        logger.info(f"📊 System exit requested: {e}")
-    except KeyboardInterrupt:
-        logger.info("⚡ Process interrupted by user")
-    except Exception as e:
-        logger.critical(f"❌ Critical startup error: {e}", exc_info=True)
-        sys.exit(1)
-    finally:
-        logger.info("👋 Ravana AGI process terminated.")
+    # Run the main async function
+    exit_code = asyncio.run(main())
+    sys.exit(exit_code)

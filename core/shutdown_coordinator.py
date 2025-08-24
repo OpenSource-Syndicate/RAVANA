@@ -14,21 +14,76 @@ import tempfile
 from typing import Dict, List, Any, Optional, Callable
 from datetime import datetime
 from pathlib import Path
+from enum import Enum
 
 from core.config import Config
 
 logger = logging.getLogger(__name__)
 
 
-class ShutdownPhase:
+class ShutdownPhase(Enum):
     """Enumeration of shutdown phases."""
+    PRE_SHUTDOWN_VALIDATION = "pre_shutdown_validation"
     SIGNAL_RECEIVED = "signal_received"
+    COMPONENT_NOTIFICATION = "component_notification"
     TASKS_STOPPING = "tasks_stopping"
-    MEMORY_SERVICE_CLEANUP = "memory_service_cleanup"
     RESOURCE_CLEANUP = "resource_cleanup"
+    SERVICE_SHUTDOWN = "service_shutdown"
     STATE_PERSISTENCE = "state_persistence"
-    FINAL_CLEANUP = "final_cleanup"
+    FINAL_VALIDATION = "final_validation"
     SHUTDOWN_COMPLETE = "shutdown_complete"
+
+
+class ShutdownPriority(Enum):
+    """Enumeration of shutdown priorities."""
+    HIGH = 1
+    MEDIUM = 2
+    LOW = 3
+
+
+class Shutdownable:
+    """
+    Interface for components that support graceful shutdown.
+    """
+    
+    async def prepare_shutdown(self) -> bool:
+        """
+        Prepare component for shutdown.
+        
+        Returns:
+            bool: True if preparation was successful, False otherwise
+        """
+        return True
+    
+    async def shutdown(self, timeout: float = 30.0) -> bool:
+        """
+        Shutdown component with timeout.
+        
+        Args:
+            timeout: Maximum time to wait for shutdown
+            
+        Returns:
+            bool: True if shutdown was successful, False otherwise
+        """
+        return True
+    
+    def get_shutdown_metrics(self) -> Dict[str, Any]:
+        """
+        Get shutdown-related metrics for this component.
+        
+        Returns:
+            Dict containing shutdown metrics
+        """
+        return {}
+
+
+class ComponentRegistration:
+    """Represents a registered component for shutdown."""
+    
+    def __init__(self, component: Any, priority: ShutdownPriority, is_async: bool = True):
+        self.component = component
+        self.priority = priority
+        self.is_async = is_async
 
 
 class ShutdownCoordinator:
@@ -55,15 +110,36 @@ class ShutdownCoordinator:
         self.cleanup_handlers: List[Callable] = []
         self.async_cleanup_handlers: List[Callable] = []
         
+        # Registered components
+        self.registered_components: List[ComponentRegistration] = []
+        
         # State tracking
         self.shutdown_state = {
             "phase": None,
             "start_time": None,
             "completed_phases": [],
-            "errors": []
+            "errors": [],
+            "component_metrics": {}
         }
         
         logger.info("ShutdownCoordinator initialized")
+    
+    def register_component(self, component: Any, priority: ShutdownPriority, is_async: bool = True):
+        """
+        Register a component for shutdown management.
+        
+        Args:
+            component: Component to register
+            priority: Priority level for shutdown
+            is_async: Whether the component shutdown is async
+        """
+        registration = ComponentRegistration(component, priority, is_async)
+        self.registered_components.append(registration)
+        
+        # Sort components by priority (highest first)
+        self.registered_components.sort(key=lambda x: x.priority.value)
+        
+        logger.debug(f"Registered component with priority {priority.name}: {type(component).__name__}")
     
     def register_cleanup_handler(self, handler: Callable, is_async: bool = False):
         """
@@ -129,12 +205,14 @@ class ShutdownCoordinator:
     async def _execute_shutdown_phases(self):
         """Execute all shutdown phases in sequence."""
         phases = [
+            (ShutdownPhase.PRE_SHUTDOWN_VALIDATION, self._phase_pre_shutdown_validation),
             (ShutdownPhase.SIGNAL_RECEIVED, self._phase_signal_received),
+            (ShutdownPhase.COMPONENT_NOTIFICATION, self._phase_component_notification),
             (ShutdownPhase.TASKS_STOPPING, self._phase_stop_background_tasks),
-            (ShutdownPhase.MEMORY_SERVICE_CLEANUP, self._phase_memory_service_cleanup),
             (ShutdownPhase.RESOURCE_CLEANUP, self._phase_resource_cleanup),
+            (ShutdownPhase.SERVICE_SHUTDOWN, self._phase_service_shutdown),
             (ShutdownPhase.STATE_PERSISTENCE, self._phase_state_persistence),
-            (ShutdownPhase.FINAL_CLEANUP, self._phase_final_cleanup),
+            (ShutdownPhase.FINAL_VALIDATION, self._phase_final_validation),
         ]
         
         for phase_name, phase_handler in phases:
@@ -144,7 +222,7 @@ class ShutdownCoordinator:
         self.shutdown_state["phase"] = ShutdownPhase.SHUTDOWN_COMPLETE
         self.shutdown_state["completed_phases"].append(ShutdownPhase.SHUTDOWN_COMPLETE)
     
-    async def _execute_phase(self, phase_name: str, phase_handler: Callable):
+    async def _execute_phase(self, phase_name: ShutdownPhase, phase_handler: Callable):
         """
         Execute a single shutdown phase with error handling.
         
@@ -153,23 +231,41 @@ class ShutdownCoordinator:
             phase_handler: Async function to execute the phase
         """
         self.current_phase = phase_name
-        self.shutdown_state["phase"] = phase_name
+        self.shutdown_state["phase"] = phase_name.value
         
-        logger.info(f"🔄 Executing shutdown phase: {phase_name}")
+        logger.info(f"🔄 Executing shutdown phase: {phase_name.value}")
         
         try:
             phase_start = datetime.utcnow()
             await phase_handler()
             
             phase_duration = (datetime.utcnow() - phase_start).total_seconds()
-            logger.info(f"✅ Phase '{phase_name}' completed in {phase_duration:.2f}s")
+            logger.info(f"✅ Phase '{phase_name.value}' completed in {phase_duration:.2f}s")
             
-            self.shutdown_state["completed_phases"].append(phase_name)
+            self.shutdown_state["completed_phases"].append(phase_name.value)
             
         except Exception as e:
-            logger.error(f"❌ Error in shutdown phase '{phase_name}': {e}", exc_info=True)
-            self.shutdown_state["errors"].append(f"{phase_name}: {str(e)}")
+            logger.error(f"❌ Error in shutdown phase '{phase_name.value}': {e}", exc_info=True)
+            self.shutdown_state["errors"].append(f"{phase_name.value}: {str(e)}")
             # Continue with next phase despite errors
+    
+    async def _phase_pre_shutdown_validation(self):
+        """Phase 0: Pre-shutdown validation and health checks."""
+        if not getattr(Config, 'SHUTDOWN_HEALTH_CHECK_ENABLED', True):
+            logger.info("Pre-shutdown health checks disabled")
+            return
+        
+        logger.info("Performing pre-shutdown validation...")
+        
+        # Component health checks
+        for registration in self.registered_components:
+            try:
+                component = registration.component
+                if hasattr(component, 'get_health_status'):
+                    health = component.get_health_status()
+                    logger.info(f"Component {type(component).__name__} health: {health}")
+            except Exception as e:
+                logger.warning(f"Health check failed for {type(component).__name__}: {e}")
     
     async def _phase_signal_received(self):
         """Phase 1: Signal reception and initial setup."""
@@ -178,8 +274,32 @@ class ShutdownCoordinator:
             self.agi_system._shutdown.set()
             logger.info("Shutdown signal sent to AGI system")
     
+    async def _phase_component_notification(self):
+        """Phase 2: Notify all registered components of shutdown."""
+        logger.info(f"Notifying {len(self.registered_components)} registered components of shutdown...")
+        
+        # Prepare all components for shutdown
+        for registration in self.registered_components:
+            try:
+                component = registration.component
+                if hasattr(component, 'prepare_shutdown'):
+                    if registration.is_async:
+                        await asyncio.wait_for(
+                            component.prepare_shutdown(),
+                            timeout=getattr(Config, 'COMPONENT_PREPARE_TIMEOUT', 10.0)
+                        )
+                    else:
+                        component.prepare_shutdown()
+                    logger.debug(f"Component {type(component).__name__} prepared for shutdown")
+                else:
+                    logger.debug(f"Component {type(component).__name__} has no prepare_shutdown method")
+            except asyncio.TimeoutError:
+                logger.warning(f"Component {type(component).__name__} prepare_shutdown timed out")
+            except Exception as e:
+                logger.error(f"Error preparing component {type(component).__name__} for shutdown: {e}")
+    
     async def _phase_stop_background_tasks(self):
-        """Phase 2: Stop all background tasks."""
+        """Phase 3: Stop all background tasks."""
         if not self.agi_system or not self.agi_system.background_tasks:
             logger.info("No background tasks to stop")
             return
@@ -187,46 +307,28 @@ class ShutdownCoordinator:
         logger.info(f"Cancelling {len(self.agi_system.background_tasks)} background tasks...")
         
         # Cancel all background tasks
+        tasks_to_cancel = []
         for task in self.agi_system.background_tasks:
             if not task.done():
                 task.cancel()
+                tasks_to_cancel.append(task)
         
         # Wait for tasks to complete with timeout
-        if self.agi_system.background_tasks:
+        if tasks_to_cancel:
             try:
                 # Use asyncio.gather with return_exceptions=True to avoid loop issues
                 await asyncio.wait_for(
-                    asyncio.gather(*self.agi_system.background_tasks, return_exceptions=True),
+                    asyncio.gather(*tasks_to_cancel, return_exceptions=True),
                     timeout=Config.SHUTDOWN_TIMEOUT // 2
                 )
-                logger.info("All background tasks stopped successfully")
+                logger.info("Background tasks cancelled successfully")
             except asyncio.TimeoutError:
-                logger.warning("Some background tasks did not stop within timeout")
-    
-    async def _phase_memory_service_cleanup(self):
-        """Phase 3: Clean up episodic memory service."""
-        if not self.agi_system or not hasattr(self.agi_system, 'memory_service'):
-            logger.info("No memory service to clean up")
-            return
-        
-        logger.info("Cleaning up episodic memory service...")
-        
-        try:
-            # Call memory service cleanup if it has one
-            memory_service = self.agi_system.memory_service
-            if hasattr(memory_service, 'cleanup'):
-                await asyncio.wait_for(
-                    memory_service.cleanup(),
-                    timeout=Config.MEMORY_SERVICE_SHUTDOWN_TIMEOUT
-                )
-                logger.info("Memory service cleanup completed")
-            else:
-                logger.info("Memory service has no cleanup method")
-                
-        except asyncio.TimeoutError:
-            logger.warning("Memory service cleanup exceeded timeout")
-        except Exception as e:
-            logger.error(f"Error during memory service cleanup: {e}")
+                logger.warning("Timeout while waiting for background tasks to cancel")
+                # Force close any remaining tasks
+                for task in tasks_to_cancel:
+                    if not task.done():
+                        logger.warning(f"Force closing task: {task}")
+                        task.cancel()
     
     async def _phase_resource_cleanup(self):
         """Phase 4: Clean up system resources."""
@@ -261,8 +363,44 @@ class ShutdownCoordinator:
         if Config.TEMP_FILE_CLEANUP_ENABLED:
             await self._cleanup_temp_files()
     
+    async def _phase_service_shutdown(self):
+        """Phase 5: Shutdown external services."""
+        logger.info("Shutting down external services...")
+        
+        # Shutdown all registered components
+        component_shutdown_timeout = getattr(Config, 'COMPONENT_SHUTDOWN_TIMEOUT', 15.0)
+        
+        for registration in self.registered_components:
+            try:
+                component = registration.component
+                if hasattr(component, 'shutdown'):
+                    logger.info(f"Shutting down component: {type(component).__name__}")
+                    if registration.is_async:
+                        success = await asyncio.wait_for(
+                            component.shutdown(),
+                            timeout=component_shutdown_timeout
+                        )
+                    else:
+                        success = component.shutdown()
+                    
+                    if success:
+                        logger.info(f"Component {type(component).__name__} shutdown successful")
+                    else:
+                        logger.warning(f"Component {type(component).__name__} shutdown reported failure")
+                        
+                    # Collect metrics
+                    if hasattr(component, 'get_shutdown_metrics'):
+                        metrics = component.get_shutdown_metrics()
+                        self.shutdown_state["component_metrics"][type(component).__name__] = metrics
+                else:
+                    logger.debug(f"Component {type(component).__name__} has no shutdown method")
+            except asyncio.TimeoutError:
+                logger.warning(f"Component {type(component).__name__} shutdown timed out")
+            except Exception as e:
+                logger.error(f"Error shutting down component {type(component).__name__}: {e}")
+    
     async def _phase_state_persistence(self):
-        """Phase 5: Persist system state for recovery."""
+        """Phase 6: Persist system state for recovery."""
         if not Config.STATE_PERSISTENCE_ENABLED:
             logger.info("State persistence disabled")
             return
@@ -272,11 +410,21 @@ class ShutdownCoordinator:
         try:
             state_data = await self._collect_system_state()
             
+            # Add enhanced state validation
+            if getattr(Config, 'SHUTDOWN_STATE_VALIDATION_ENABLED', True):
+                is_valid = self._validate_state_data(state_data)
+                if not is_valid:
+                    logger.warning("State validation failed, saving anyway for recovery")
+            
             state_file = Path(Config.SHUTDOWN_STATE_FILE)
             with open(state_file, 'w', encoding='utf-8') as f:
                 json.dump(state_data, f, indent=2, default=str)
             
             logger.info(f"System state saved to {state_file}")
+            
+            # Create backup if enabled
+            if getattr(Config, 'SHUTDOWN_BACKUP_ENABLED', True):
+                await self._create_state_backup(state_data)
             
             # Also save action cache if enabled
             if Config.ACTION_CACHE_PERSIST and hasattr(self.agi_system, 'action_manager'):
@@ -285,15 +433,25 @@ class ShutdownCoordinator:
         except Exception as e:
             logger.error(f"Error persisting system state: {e}")
     
-    async def _phase_final_cleanup(self):
-        """Phase 6: Final cleanup operations."""
-        logger.info("Performing final cleanup...")
+    async def _phase_final_validation(self):
+        """Phase 7: Final validation and cleanup."""
+        logger.info("Performing final validation...")
+        
+        # Validate state file integrity if enabled
+        if getattr(Config, 'SHUTDOWN_VALIDATION_ENABLED', True):
+            try:
+                state_file = Path(Config.SHUTDOWN_STATE_FILE)
+                if state_file.exists():
+                    with open(state_file, 'r', encoding='utf-8') as f:
+                        json.load(f)  # Try to parse JSON
+                    logger.info("State file integrity validation passed")
+            except Exception as e:
+                logger.warning(f"State file integrity validation failed: {e}")
         
         # Ensure ChromaDB persistence if enabled
         if Config.CHROMADB_PERSIST_ON_SHUTDOWN:
             try:
-                # This would need to be implemented based on ChromaDB client access
-                logger.info("ChromaDB persistence requested (placeholder)")
+                await self._persist_chromadb()
             except Exception as e:
                 logger.error(f"Error persisting ChromaDB: {e}")
         
@@ -301,12 +459,112 @@ class ShutdownCoordinator:
         elapsed = (datetime.utcnow() - self.shutdown_start_time).total_seconds()
         logger.info(f"Total shutdown time: {elapsed:.2f}s")
     
+    async def _persist_chromadb(self):
+        """Persist ChromaDB data during shutdown."""
+        logger.info("Persisting ChromaDB data...")
+        
+        try:
+            # Try to access ChromaDB client through memory service
+            if (self.agi_system and 
+                hasattr(self.agi_system, 'memory_service') and 
+                hasattr(self.agi_system.memory_service, 'client')):
+                
+                client = self.agi_system.memory_service.client
+                if hasattr(client, 'persist'):
+                    # Call ChromaDB persist method
+                    client.persist()
+                    logger.info("ChromaDB persistence completed successfully")
+                else:
+                    logger.info("ChromaDB client has no persist method")
+            else:
+                logger.info("ChromaDB client not available for persistence")
+                
+        except Exception as e:
+            logger.error(f"Error during ChromaDB persistence: {e}")
+
+    def _validate_state_data(self, state_data: Dict[str, Any]) -> bool:
+        """
+        Validate state data before persistence.
+        
+        Args:
+            state_data: State data to validate
+            
+        Returns:
+            bool: True if valid, False otherwise
+        """
+        try:
+            # Check required fields
+            required_fields = ['shutdown_info', 'timestamp', 'version']
+            for field in required_fields:
+                if field not in state_data:
+                    logger.warning(f"Missing required field in state data: {field}")
+                    return False
+            
+            # Validate timestamp
+            timestamp = state_data.get('timestamp')
+            if not timestamp or not isinstance(timestamp, str):
+                logger.warning("Invalid timestamp in state data")
+                return False
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error validating state data: {e}")
+            return False
+    
+    async def _create_state_backup(self, state_data: Dict[str, Any]):
+        """
+        Create a backup of the state data.
+        
+        Args:
+            state_data: State data to backup
+        """
+        try:
+            backup_dir = Path("backups")
+            backup_dir.mkdir(exist_ok=True)
+            
+            # Create timestamped backup file
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            backup_file = backup_dir / f"shutdown_state_{timestamp}.json"
+            
+            with open(backup_file, 'w', encoding='utf-8') as f:
+                json.dump(state_data, f, indent=2, default=str)
+            
+            logger.info(f"State backup created: {backup_file}")
+            
+            # Clean up old backups
+            await self._cleanup_old_backups(backup_dir)
+            
+        except Exception as e:
+            logger.error(f"Error creating state backup: {e}")
+    
+    async def _cleanup_old_backups(self, backup_dir: Path):
+        """
+        Clean up old backup files.
+        
+        Args:
+            backup_dir: Directory containing backup files
+        """
+        try:
+            backup_count = getattr(Config, 'SHUTDOWN_BACKUP_COUNT', 5)
+            backup_files = list(backup_dir.glob("shutdown_state_*.json"))
+            
+            # Sort by modification time (newest first)
+            backup_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+            
+            # Remove old backups
+            for old_backup in backup_files[backup_count:]:
+                old_backup.unlink()
+                logger.debug(f"Removed old backup: {old_backup}")
+                
+        except Exception as e:
+            logger.error(f"Error cleaning up old backups: {e}")
+
     async def _collect_system_state(self) -> Dict[str, Any]:
         """Collect system state for persistence."""
         state_data = {
             "shutdown_info": self.shutdown_state,
             "timestamp": datetime.utcnow().isoformat(),
-            "version": "1.0"
+            "version": "1.1"  # Updated version
         }
         
         if not self.agi_system:

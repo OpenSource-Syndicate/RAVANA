@@ -10,10 +10,11 @@ import subprocess
 import signal
 import psutil
 from core.config import Config
+from core.shutdown_coordinator import Shutdownable
 
 logger = logging.getLogger(__name__)
 
-class MemoryService:
+class MemoryService(Shutdownable):
     def __init__(self):
         self.memory_server_process = None
         self.memory_server_host = "localhost"
@@ -74,6 +75,8 @@ class MemoryService:
                                 except psutil.TimeoutExpired:
                                     logger.warning("Memory server didn't shutdown gracefully, forcing...")
                                     proc.kill()
+                                    # Wait a moment for force kill to complete
+                                    await asyncio.sleep(0.5)
                                 
                                 break
                         except (psutil.NoSuchProcess, psutil.AccessDenied):
@@ -84,4 +87,81 @@ class MemoryService:
                 logger.info("Memory server not accessible or not running")
                 
         except Exception as e:
-            logger.error(f"Error shutting down memory server: {e}") 
+            logger.error(f"Error shutting down memory server: {e}")
+
+    def get_memory_statistics(self):
+        """Get statistics about memory usage."""
+        try:
+            # This would connect to the memory service and get statistics
+            # For now, we'll return a placeholder
+            return {
+                "status": "operational",
+                "total_memories": 0,  # Would be retrieved from actual memory service
+                "last_consolidation": None,  # Would be retrieved from actual memory service
+                "memory_server_status": "unknown"
+            }
+        except Exception as e:
+            logger.error(f"Error getting memory statistics: {e}")
+            return {
+                "status": "error",
+                "error": str(e)
+            }
+    
+    # Shutdownable interface implementation
+    async def prepare_shutdown(self) -> bool:
+        """
+        Prepare MemoryService for shutdown.
+        
+        Returns:
+            bool: True if preparation was successful
+        """
+        logger.info("Preparing MemoryService for shutdown...")
+        try:
+            # No specific preparation needed for MemoryService
+            logger.info("MemoryService prepared for shutdown")
+            return True
+        except Exception as e:
+            logger.error(f"Error preparing MemoryService for shutdown: {e}")
+            return False
+    
+    async def shutdown(self, timeout: float = 30.0) -> bool:
+        """
+        Shutdown MemoryService with timeout.
+        
+        Args:
+            timeout: Maximum time to wait for shutdown
+            
+        Returns:
+            bool: True if shutdown was successful
+        """
+        logger.info(f"Shutting down MemoryService with timeout {timeout}s...")
+        try:
+            # Perform cleanup with timeout
+            await asyncio.wait_for(self.cleanup(), timeout=timeout)
+            
+            logger.info("MemoryService shutdown completed successfully")
+            return True
+        except asyncio.TimeoutError:
+            logger.warning("MemoryService shutdown timed out")
+            return False
+        except Exception as e:
+            logger.error(f"Error during MemoryService shutdown: {e}")
+            return False
+    
+    def get_shutdown_metrics(self) -> dict:
+        """
+        Get shutdown-related metrics for the MemoryService.
+        
+        Returns:
+            Dict containing shutdown metrics
+        """
+        try:
+            stats = self.get_memory_statistics()
+            return {
+                "status": stats.get("status", "unknown"),
+                "total_memories": stats.get("total_memories", 0),
+                "memory_server_status": stats.get("memory_server_status", "unknown")
+            }
+        except Exception as e:
+            logger.error(f"Error getting MemoryService shutdown metrics: {e}")
+            return {"error": str(e)}

@@ -388,11 +388,12 @@ class TestEnhancedSnakeAgent:
             assert agent.agi_system is mock_agi_system
             assert agent.snake_config is not None
     
-    def test_enhanced_agent_status(self, mock_agi_system):
+    @pytest.mark.asyncio
+    async def test_enhanced_agent_status(self, mock_agi_system):
         """Test enhanced agent status reporting"""
         agent = EnhancedSnakeAgent(mock_agi_system)
         
-        status = agent.get_status()
+        status = await agent.get_status()
         assert "running" in status
         assert "initialized" in status
         assert "metrics" in status

@@ -117,65 +117,113 @@ def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_cont
         logging.error(f"Failed to decode LLM response into JSON: {response_json}")
         # Attempt to extract the first valid JSON object from the response
         try:
+            # Try multiple approaches to extract JSON
             match = re.search(r'\{[\s\S]*\}', response_json)
             if match:
-                decision = json.loads(match.group(0))
+                # Clean up the JSON string
+                json_str = match.group(0)
+                # Fix common JSON issues
+                json_str = re.sub(r'(\w+):', r'"\1":', json_str)  # Add quotes to keys
+                json_str = re.sub(r',\s*}', '}', json_str)  # Remove trailing commas
+                json_str = re.sub(r',\s*\]', ']', json_str)  # Remove trailing commas
+                decision = json.loads(json_str)
             else:
-                return {"action": "wait", "reason": "LLM returned no valid action."}
+                # Try to create a minimal valid decision
+                decision = {"action": "wait", "reason": "LLM returned no valid action."}
         except json.JSONDecodeError:
             logging.error("Failed to extract and decode JSON from LLM response.")
-            return {"action": "wait", "reason": "Failed to extract and decode JSON from LLM response."}
-
-
-    if decision.get('action') == 'task':
-        # Execute the chosen task
-        task_description = decision['task_description']
-        logging.info(f"Executing task: {task_description}")
-        # Here, you would integrate with the part of your AGI that executes tasks.
-        # For now, we'll just log it and mark the task as complete.
-        try:
-            planner.complete_task(decision['goal_id'], decision['subgoal_id'], decision['task_id'])
-            logging.info(f"Task {decision['task_id']} completed.")
-            return decision
-        except ValueError as e:
-            logging.error(f"Error completing task: {e}")
-            return {"action": "wait", "reason": str(e)}
-
-    elif decision.get('action') == 'test_hypothesis':
-        # Log the hypothesis test plan
-        hypothesis = decision['hypothesis_to_test']
-        test_method = decision['test_method_description']
-        logging.info(f"Proposing to test hypothesis: '{hypothesis}'")
-        logging.info(f"Test method: {test_method}")
-        # In a more advanced version, this could trigger a specific experiment or a new goal.
-        return decision
-
-    elif decision.get('action') == 'new_goal':
-        # Create a new goal and plan
-        new_goal_context = decision['new_goal_context']
-        logging.info(f"Creating a new goal and plan for: {new_goal_context}")
-        try:
-            new_goal_id = plan_from_context(new_goal_context)
-            logging.info(f"New goal created with ID: {new_goal_id}")
-            decision['new_goal_id'] = new_goal_id
-            return decision
+            # Create a fallback decision
+            decision = {"action": "wait", "reason": "Failed to extract and decode JSON from LLM response."}
         except Exception as e:
-            logging.error(f"Failed to create new goal from context: {e}")
-            return {"action": "wait", "reason": f"Failed to create new goal from context: {e}"}
+            logging.error(f"Unexpected error during JSON extraction: {e}")
+            decision = {"action": "wait", "reason": f"Unexpected error during JSON extraction: {e}"}
 
-    elif decision.get('action') == 'self_improvement':
-        # Log the self-improvement plan
-        plan_description = decision['plan_description']
-        modules_to_improve = decision.get('modules_to_improve', [])
-        logging.info(f"Proposed self-improvement plan: {plan_description}")
-        logging.info(f"Modules to improve: {modules_to_improve}")
-        # In a more advanced version, this could trigger a new goal or a series of tasks.
-        return decision
 
-    elif decision.get('action') == 'propose_and_test_invention':
-        # This decision will be caught by the ActionManager, which will execute
-        # the ProposeAndTestInventionAction. We just return the decision.
-        logging.info(f"Proposing a new invention for testing: {decision.get('invention_description')}")
-        return decision
+    # Validate the decision structure
+    if not isinstance(decision, dict) or "action" not in decision:
+        logging.warning(f"LLM returned invalid decision structure: {decision}")
+        decision = {"action": "wait", "reason": "Invalid decision structure from LLM."}
 
-    return {"action": "wait", "reason": "LLM returned unknown or no action."}
+    action = decision.get('action')
+    
+    # Handle different action types with better error handling
+    try:
+        if action == 'task':
+            # Execute the chosen task
+            task_description = decision['task_description']
+            logging.info(f"Executing task: {task_description}")
+            # Here, you would integrate with the part of your AGI that executes tasks.
+            # For now, we'll just log it and mark the task as complete.
+            try:
+                goal_id = decision.get('goal_id')
+                subgoal_id = decision.get('subgoal_id')
+                task_id = decision.get('task_id')
+                
+                if goal_id is not None and subgoal_id is not None and task_id is not None:
+                    planner.complete_task(goal_id, subgoal_id, task_id)
+                    logging.info(f"Task {task_id} completed.")
+                else:
+                    logging.warning("Missing task identifiers, cannot mark task as complete.")
+                    
+                return decision
+            except ValueError as e:
+                logging.error(f"Error completing task: {e}")
+                return {"action": "wait", "reason": str(e)}
+
+        elif action == 'test_hypothesis':
+            # Log the hypothesis test plan
+            hypothesis = decision['hypothesis_to_test']
+            test_method = decision['test_method_description']
+            logging.info(f"Proposing to test hypothesis: '{hypothesis}'")
+            logging.info(f"Test method: {test_method}")
+            # In a more advanced version, this could trigger a specific experiment or a new goal.
+            return decision
+
+        elif action == 'new_goal':
+            # Create a new goal and plan
+            new_goal_context = decision['new_goal_context']
+            logging.info(f"Creating a new goal and plan for: {new_goal_context}")
+            try:
+                new_goal_id = plan_from_context(new_goal_context)
+                logging.info(f"New goal created with ID: {new_goal_id}")
+                decision['new_goal_id'] = new_goal_id
+                return decision
+            except Exception as e:
+                logging.error(f"Failed to create new goal from context: {e}")
+                return {"action": "wait", "reason": f"Failed to create new goal from context: {e}"}
+
+        elif action == 'self_improvement':
+            # Log the self-improvement plan
+            plan_description = decision['plan_description']
+            modules_to_improve = decision.get('modules_to_improve', [])
+            logging.info(f"Proposed self-improvement plan: {plan_description}")
+            logging.info(f"Modules to improve: {modules_to_improve}")
+            # In a more advanced version, this could trigger a new goal or a series of tasks.
+            return decision
+
+        elif action == 'propose_and_test_invention':
+            # This decision will be caught by the ActionManager, which will execute
+            # the ProposeAndTestInventionAction. We just return the decision.
+            logging.info(f"Proposing a new invention for testing: {decision.get('invention_description')}")
+            return decision
+
+        elif action == 'initiate_experiment':
+            # Handle experiment initiation
+            hypothesis = decision.get('hypothesis')
+            reason = decision.get('reason')
+            logging.info(f"Initiating experiment for hypothesis: {hypothesis}")
+            return decision
+
+        elif action == 'wait':
+            # Explicit wait action
+            reason = decision.get('reason', 'No specific reason provided')
+            logging.info(f"Waiting: {reason}")
+            return decision
+
+        else:
+            logging.warning(f"LLM returned unknown action: {action}")
+            return {"action": "wait", "reason": f"Unknown action '{action}' from LLM."}
+            
+    except Exception as e:
+        logging.error(f"Error processing decision action '{action}': {e}", exc_info=True)
+        return {"action": "wait", "reason": f"Error processing decision: {e}"}

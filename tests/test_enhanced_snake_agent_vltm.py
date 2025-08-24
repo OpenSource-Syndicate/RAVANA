@@ -124,7 +124,7 @@ async def test_enhanced_snake_agent_vltm_integration():
             # Test enhanced status with VLTM
             print("\n7. Testing Enhanced Status...")
             
-            status = agent.get_status()
+            status = await agent.get_status()
             
             # Verify VLTM status is included
             assert 'vltm_status' in status, "VLTM status should be included"

@@ -349,82 +349,105 @@ class SnakeAgent:
         """Process experiments in the queue"""
         if not self.state.pending_experiments:
             return
-        
-        # Import experimenter here to avoid circular imports
-        from core.snake_safe_experimenter import SnakeSafeExperimenter
-        
-        if not self.safe_experimenter:
-            self.safe_experimenter = SnakeSafeExperimenter(self.coding_llm, self.reasoning_llm)
-        
-        # Process high-priority experiments first
+            
+        # Sort experiments by priority
+        priority_order = {"high": 0, "medium": 1, "low": 2}
         self.state.pending_experiments.sort(
-            key=lambda x: {"high": 3, "medium": 2, "low": 1}.get(x.get("priority", "medium"), 2),
-            reverse=True
+            key=lambda x: priority_order.get(x.get("priority", "low"), 2)
         )
         
-        # Process one experiment per cycle to avoid overload
-        experiment = self.state.pending_experiments.pop(0)
-        
+        # Process highest priority experiment
+        experiment = self.state.pending_experiments[0]
         try:
             logger.info(f"Processing experiment: {experiment['id']}")
             
-            result = await self.safe_experimenter.run_experiment(experiment)
+            # Import experimenter here to avoid circular imports
+            if not self.safe_experimenter:
+                from core.snake_safe_experimenter import SnakeSafeExperimenter
+                self.safe_experimenter = SnakeSafeExperimenter(self.coding_llm, self.reasoning_llm)
             
-            # Update experiment tracking
+            # Execute experiment
+            result = await self.safe_experimenter.execute_experiment(experiment)
+            
+            # Update success rate
+            success = result.get("success", False)
+            self._update_experiment_success_rate(success)
+            
+            # Update experiment status
+            experiment["status"] = "completed" if success else "failed"
+            experiment["completed_at"] = datetime.now().isoformat()
+            experiment["result"] = result
+            
+            # Add to learning history
+            self.state.learning_history.append({
+                "experiment_id": experiment["id"],
+                "file_path": experiment["file_path"],
+                "success": success,
+                "timestamp": datetime.now().isoformat(),
+                "result_summary": result.get("summary", "No summary")
+            })
+            
+            # Communicate significant results
+            if success and result.get("impact_score", 0) > 0.7:
+                await self._communicate_result(result)
+            
             self.experiment_count += 1
-            self._update_experiment_success_rate(result.get("success", False))
-            
-            # If experiment is successful and safe, queue for communication
-            if result.get("success") and result.get("safe", False):
-                communication_item = {
-                    "type": "experiment_result",
-                    "experiment_id": experiment["id"],
-                    "result": result,
-                    "priority": self._calculate_communication_priority(result),
-                    "created_at": datetime.now().isoformat()
-                }
-                self.state.communication_queue.append(communication_item)
-                
-                logger.info(f"Experiment {experiment['id']} successful - queued for communication")
+            logger.info(f"Experiment {experiment['id']} completed with success: {success}")
             
         except Exception as e:
             logger.error(f"Error processing experiment {experiment['id']}: {e}")
+            experiment["status"] = "error"
+            experiment["error"] = str(e)
+        finally:
+            # Remove processed experiment from queue
+            self.state.pending_experiments.pop(0)
     
     async def _process_communication_queue(self):
-        """Process communication queue with RAVANA"""
+        """Process communication queue"""
         if not self.state.communication_queue:
             return
-        
-        # Import communicator here to avoid circular imports
-        from core.snake_ravana_communicator import SnakeRavanaCommunicator
-        
-        if not self.ravana_communicator:
-            self.ravana_communicator = SnakeRavanaCommunicator(
-                self.reasoning_llm, self.agi_system
-            )
-        
-        # Process high-priority communications first
-        self.state.communication_queue.sort(
-            key=lambda x: {"critical": 4, "high": 3, "medium": 2, "low": 1}.get(
-                x.get("priority", "medium"), 2
-            ),
-            reverse=True
-        )
-        
-        # Process one communication per cycle
-        if self.state.communication_queue:
-            comm_item = self.state.communication_queue.pop(0)
             
-            try:
-                logger.info(f"Processing communication: {comm_item['type']}")
-                
-                await self.ravana_communicator.send_communication(comm_item)
-                self.communication_count += 1
-                
-                logger.info(f"Communication {comm_item['type']} sent successfully")
-                
-            except Exception as e:
-                logger.error(f"Error processing communication {comm_item['type']}: {e}")
+        # Process oldest communication first
+        communication = self.state.communication_queue.pop(0)
+        try:
+            # Import communicator here to avoid circular imports
+            if not self.ravana_communicator:
+                from core.snake_ravana_communicator import SnakeRavanaCommunicator
+                self.ravana_communicator = SnakeRavanaCommunicator()
+            
+            await self.ravana_communicator.send_message(
+                communication["message"],
+                communication["priority"]
+            )
+            
+            self.communication_count += 1
+            logger.info(f"Sent communication message with priority {communication['priority']}")
+            
+        except Exception as e:
+            logger.error(f"Error sending communication: {e}")
+            # Re-queue failed communications at lower priority
+            communication["priority"] = "low"
+            communication["retry_count"] = communication.get("retry_count", 0) + 1
+            if communication["retry_count"] < 3:  # Max 3 retries
+                self.state.communication_queue.append(communication)
+    
+    async def _communicate_result(self, result: Dict[str, Any]):
+        """Communicate significant results to the main system"""
+        try:
+            priority = self._calculate_communication_priority(result)
+            message = {
+                "type": "experiment_result",
+                "content": result,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            self.state.communication_queue.append({
+                "message": message,
+                "priority": priority,
+                "created_at": datetime.now().isoformat()
+            })
+        except Exception as e:
+            logger.error(f"Error queuing communication: {e}")
     
     def _should_perform_periodic_analysis(self) -> bool:
         """Determine if periodic analysis should be performed"""
@@ -628,4 +651,86 @@ class SnakeAgent:
             "communication_queue": len(self.state.communication_queue),
             "success_rate": self.state.experiment_success_rate,
             "last_analysis": self.state.last_analysis_time.isoformat() if self.state.last_analysis_time else None
+        }
+    
+    # Shutdownable interface implementation
+    async def prepare_shutdown(self) -> bool:
+        """
+        Prepare Snake Agent for shutdown.
+        
+        Returns:
+            bool: True if preparation was successful
+        """
+        logger.info("Preparing Snake Agent for shutdown...")
+        try:
+            # Save current state immediately
+            await self._save_state()
+            
+            # Set shutdown flag to stop autonomous operation
+            self.running = False
+            self._shutdown_event.set()
+            
+            logger.info("Snake Agent prepared for shutdown")
+            return True
+        except Exception as e:
+            logger.error(f"Error preparing Snake Agent for shutdown: {e}")
+            return False
+    
+    async def shutdown(self, timeout: float = 30.0) -> bool:
+        """
+        Shutdown Snake Agent with timeout.
+        
+        Args:
+            timeout: Maximum time to wait for shutdown
+            
+        Returns:
+            bool: True if shutdown was successful
+        """
+        logger.info(f"Shutting down Snake Agent with timeout {timeout}s...")
+        try:
+            # Create a task for the shutdown process
+            shutdown_task = asyncio.create_task(self._shutdown_process())
+            
+            # Wait for shutdown with timeout
+            await asyncio.wait_for(shutdown_task, timeout=timeout)
+            
+            logger.info("Snake Agent shutdown completed successfully")
+            return True
+        except asyncio.TimeoutError:
+            logger.warning("Snake Agent shutdown timed out")
+            return False
+        except Exception as e:
+            logger.error(f"Error during Snake Agent shutdown: {e}")
+            return False
+    
+    async def _shutdown_process(self):
+        """Internal shutdown process."""
+        try:
+            # Stop autonomous operation
+            self.running = False
+            self._shutdown_event.set()
+            
+            # Save final state
+            await self._save_state()
+            
+            # Cleanup resources
+            await self._cleanup()
+            
+        except Exception as e:
+            logger.error(f"Error in Snake Agent shutdown process: {e}")
+    
+    def get_shutdown_metrics(self) -> Dict[str, Any]:
+        """
+        Get shutdown-related metrics for the Snake Agent.
+        
+        Returns:
+            Dict containing shutdown metrics
+        """
+        return {
+            "analysis_count": self.analysis_count,
+            "experiment_count": self.experiment_count,
+            "communication_count": self.communication_count,
+            "pending_experiments": len(self.state.pending_experiments),
+            "communication_queue": len(self.state.communication_queue),
+            "success_rate": self.state.experiment_success_rate
         }

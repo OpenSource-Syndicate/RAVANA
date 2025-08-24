@@ -25,6 +25,8 @@ class TelegramBot:
         
         # For graceful shutdown
         self._shutdown = asyncio.Event()
+        # Track if the bot has been started
+        self._started = False
         
         # Register handlers
         self._register_handlers()
@@ -54,8 +56,8 @@ class TelegramBot:
             # Update user profile with username
             self.conversational_ai.user_profile_manager.update_username(user_id, username)
             
-            # Process message with conversational AI
-            response = self.conversational_ai.process_user_message(
+            # Process message with conversational AI using async version to prevent blocking
+            response = await self.conversational_ai.process_user_message_async(
                 platform="telegram",
                 user_id=user_id,
                 message=message_text
@@ -130,11 +132,18 @@ Just send me a message and I'll respond!
     async def start(self):
         """Start the Telegram bot."""
         if self._shutdown.is_set():
+            logger.warning("Telegram bot shutdown event is set, cannot start")
             return
+            
+        if self._started:
+            logger.warning("Telegram bot already started, skipping...")
+            return
+            
         try:
             await self.application.initialize()
             await self.application.start()
             await self.application.updater.start_polling()
+            self._started = True  # Mark as started
             logger.info("Telegram bot started")
         except Exception as e:
             if not self._shutdown.is_set():
@@ -143,12 +152,19 @@ Just send me a message and I'll respond!
     async def stop(self):
         """Stop the Telegram bot."""
         if self._shutdown.is_set():
+            logger.info("Telegram bot already shut down")
             return
+            
         self._shutdown.set()
+        self._started = False  # Reset started flag
         try:
-            await self.application.updater.stop()
-            await self.application.stop()
-            await self.application.shutdown()
+            # Only stop if the bot was actually started
+            if hasattr(self.application, 'updater') and self.application.updater:
+                await self.application.updater.stop()
+            if hasattr(self.application, 'stop'):
+                await self.application.stop()
+            if hasattr(self.application, 'shutdown'):
+                await self.application.shutdown()
             logger.info("Telegram bot stopped")
         except Exception as e:
             logger.error(f"Error stopping Telegram bot: {e}")

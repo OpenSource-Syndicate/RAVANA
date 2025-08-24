@@ -283,7 +283,7 @@ async def run_integration_test():
         print("✓ Error handling: survived null state")
         
         # Test status report
-        status = agent.get_status()
+        status = await agent.get_status()
         print(f"✓ Status report: {json.dumps(status, indent=2, default=str)}")
         
     except Exception as e:

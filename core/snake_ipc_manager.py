@@ -652,8 +652,19 @@ class SnakeIPCManager:
         if channel:
             channel.add_handler(message_type, handler)
     
-    def get_status(self) -> Dict[str, Any]:
+    async def get_status(self) -> Dict[str, Any]:
         """Get IPC manager status"""
+        channel_statuses = {}
+        for name, channel in self.channels.items():
+            # Handle both sync and async get_status methods
+            if hasattr(channel.get_status, "__call__"):
+                if asyncio.iscoroutinefunction(channel.get_status):
+                    channel_statuses[name] = await channel.get_status()
+                else:
+                    channel_statuses[name] = channel.get_status()
+            else:
+                channel_statuses[name] = str(channel.get_status)
+        
         return {
             "manager_id": self.manager_id,
             "running": self.running,
@@ -663,10 +674,7 @@ class SnakeIPCManager:
             ),
             "pending_requests": len(self.pending_requests),
             "registered_components": len(self.component_registry.components),
-            "channels": {
-                name: channel.get_status()
-                for name, channel in self.channels.items()
-            },
+            "channels": channel_statuses,
             "component_registry": {
                 comp_id: {
                     "type": info["component_type"],

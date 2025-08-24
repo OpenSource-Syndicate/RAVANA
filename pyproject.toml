@@ -44,6 +44,7 @@ dependencies = [
     "tqdm>=4.65.0",
     "transformers>=4.28.1",
     "uvicorn>=0.21.1",
+    "watchdog>=6.0.0",
     "whisper>=1.1.10",
     "wikipedia>=1.4.0",
 ]

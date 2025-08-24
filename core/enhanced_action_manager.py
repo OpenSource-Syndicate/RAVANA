@@ -82,10 +82,66 @@ class EnhancedActionManager(ActionManager):
                 return await self.execute_action_enhanced(decision)
         
         tasks = [execute_with_semaphore(decision) for decision in decisions]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
         
-        logger.info(f"Executed {len(decisions)} actions in parallel")
-        return results
+        # Execute with error handling
+        try:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Process results to handle exceptions
+            processed_results = []
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(f"Action {i} failed with exception: {result}")
+                    processed_results.append({
+                        "error": str(result),
+                        "action_index": i,
+                        "success": False
+                    })
+                else:
+                    processed_results.append(result)
+            
+            logger.info(f"Executed {len(decisions)} actions in parallel with {len([r for r in processed_results if not r.get('error')])} successful")
+            return processed_results
+            
+        except Exception as e:
+            logger.error(f"Parallel execution failed: {e}")
+            return [{"error": str(e), "success": False} for _ in decisions]
+    
+    async def execute_action_with_retry(self, decision: dict, max_retries: int = 3) -> Any:
+        """Execute an action with retry logic."""
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            try:
+                result = await self.execute_action_enhanced(decision)
+                
+                # If successful, return result
+                if not result.get("error"):
+                    return result
+                    
+                # If it's a retryable error, continue
+                error_msg = result.get("error", "").lower()
+                if any(keyword in error_msg for keyword in ["timeout", "network", "connection", "retry"]):
+                    logger.warning(f"Action failed with retryable error (attempt {attempt + 1}/{max_retries}): {error_msg}")
+                    last_exception = result.get("error")
+                    if attempt < max_retries - 1:  # Don't sleep on last attempt
+                        await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                    continue
+                    
+                # Non-retryable error, return immediately
+                return result
+                
+            except Exception as e:
+                logger.error(f"Action execution failed (attempt {attempt + 1}/{max_retries}): {e}")
+                last_exception = str(e)
+                if attempt < max_retries - 1:  # Don't sleep on last attempt
+                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                    
+        # All retries exhausted
+        return {
+            "error": f"Action failed after {max_retries} attempts. Last error: {last_exception}",
+            "success": False
+        }
     
     async def process_image_action(self, image_path: str, analysis_prompt: str = None) -> dict:
         """Action to process and analyze an image."""

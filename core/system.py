@@ -12,7 +12,7 @@ import threading
 import time
 
 from core.llm import decision_maker_loop
-from core.shutdown_coordinator import ShutdownCoordinator, load_previous_state, cleanup_state_file
+from core.shutdown_coordinator import ShutdownCoordinator, ShutdownPriority, load_previous_state, cleanup_state_file
 from modules.reflection_module import ReflectionModule
 from modules.experimentation_module import ExperimentationModule
 from modules.situation_generator.situation_generator import SituationGenerator
@@ -139,6 +139,8 @@ class AGISystem:
         # Initialize Conversational AI if enabled
         self.conversational_ai = None
         self.conversational_ai_thread = None
+        # Track if Conversational AI has been started to prevent multiple instances
+        self._conversational_ai_started = False
         if Config.CONVERSATIONAL_AI_ENABLED and CONVERSATIONAL_AI_AVAILABLE:
             try:
                 self.conversational_ai = ConversationalAI()
@@ -161,9 +163,12 @@ class AGISystem:
         self.shutdown_coordinator.register_cleanup_handler(self._cleanup_models)
         self.shutdown_coordinator.register_cleanup_handler(self._save_final_state, is_async=True)
         
+        # Register MemoryService with shutdown coordinator
+        self.shutdown_coordinator.register_component(self.memory_service, ShutdownPriority.MEDIUM, is_async=True)
+        
         # Register Snake Agent cleanup if enabled
         if self.snake_agent:
-            self.shutdown_coordinator.register_cleanup_handler(self._cleanup_snake_agent, is_async=True)
+            self.shutdown_coordinator.register_component(self.snake_agent, ShutdownPriority.HIGH, is_async=True)
             
         # Register Conversational AI cleanup if enabled
         if self.conversational_ai:
@@ -200,7 +205,7 @@ class AGISystem:
                 if len(self.shared_state.search_results) > 10:
                     self.shared_state.search_results = self.shared_state.search_results[-10:]
                 
-                # Add to memory for long-term retention
+                # Add to memory for long-term retention with better error handling
                 try:
                     memory_summary = f"Search result retrieved: {search_result[:300]}..."
                     memories_to_save = await self.memory_service.extract_memories(memory_summary, "")
@@ -228,13 +233,248 @@ class AGISystem:
         except Exception as e:
             logger.error(f"Error in search result processing: {e}", exc_info=True)
 
-    async def stop(self, reason: str = "manual"):
-        """Gracefully stops the AGI system using the shutdown coordinator."""
-        if self._shutdown.is_set():
-            logger.warning("Stop already called, ignoring duplicate request")
-            return
+    async def initialize_components(self):
+        """Initialize all system components with better error handling and retry logic."""
+        logger.info("Initializing RAVANA AGI system components...")
+        
+        # Initialize components in order of dependency
+        components = [
+            ("Database Session", self._initialize_database_session),
+            ("Embedding Model", self._initialize_embedding_model),
+            ("Sentiment Classifier", self._initialize_sentiment_classifier),
+            ("Data Service", self._initialize_data_service),
+            ("Knowledge Service", self._initialize_knowledge_service),
+            ("Memory Service", self._initialize_memory_service),
+            ("Blog Scheduler", self._initialize_blog_scheduler),
+            ("Modules", self._initialize_modules),
+            ("Action Manager", self._initialize_action_manager),
+            ("Personality", self._initialize_personality),
+            ("Snake Agent", self._initialize_snake_agent),
+            ("Conversational AI", self._initialize_conversational_ai),
+            ("Shutdown Coordinator", self._initialize_shutdown_coordinator)
+        ]
+        
+        initialized_components = []
+        failed_components = []
+        
+        for component_name, init_func in components:
+            try:
+                logger.info(f"Initializing {component_name}...")
+                # Check if the function is a coroutine (async) or regular function
+                if asyncio.iscoroutinefunction(init_func):
+                    await init_func()
+                else:
+                    # For synchronous functions, call them directly without await
+                    init_func()
+                initialized_components.append(component_name)
+                logger.info(f"✓ {component_name} initialized successfully")
+            except Exception as e:
+                logger.error(f"✗ Failed to initialize {component_name}: {e}", exc_info=True)
+                failed_components.append((component_name, str(e)))
+                
+                # For critical components, we might want to stop initialization
+                if component_name in ["Database Session", "Embedding Model"]:
+                    logger.error(f"Critical component {component_name} failed, stopping initialization")
+                    break
+        
+        logger.info(f"Initialization complete. {len(initialized_components)} components initialized, {len(failed_components)} failed.")
+        
+        if failed_components:
+            logger.warning("Failed components:")
+            for name, error in failed_components:
+                logger.warning(f"  - {name}: {error}")
+        
+        return len(failed_components) == 0
+
+    async def _initialize_database_session(self):
+        """Initialize database session."""
+        try:
+            self.session = Session(self.engine)
+            logger.info("Database session initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize database session: {e}")
+            raise
+
+    def _initialize_embedding_model(self):
+        """Initialize embedding model."""
+        try:
+            self.embedding_model = SentenceTransformer(Config.EMBEDDING_MODEL)
+            logger.info(f"Embedding model '{Config.EMBEDDING_MODEL}' initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize embedding model: {e}")
+            raise
+
+    def _initialize_sentiment_classifier(self):
+        """Initialize sentiment classifier."""
+        try:
+            self.sentiment_classifier = pipeline('sentiment-analysis')
+            logger.info("Sentiment classifier initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize sentiment classifier: {e}")
+            raise
+
+    def _initialize_data_service(self):
+        """Initialize data service."""
+        try:
+            self.data_service = DataService(
+                self.engine,
+                Config.FEED_URLS,
+                self.embedding_model,
+                self.sentiment_classifier
+            )
+            logger.info("Data service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize data service: {e}")
+            raise
+
+    def _initialize_knowledge_service(self):
+        """Initialize knowledge service."""
+        try:
+            self.knowledge_service = KnowledgeService(self.engine)
+            logger.info("Knowledge service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize knowledge service: {e}")
+            raise
+
+    def _initialize_memory_service(self):
+        """Initialize memory service."""
+        try:
+            self.memory_service = MemoryService()
+            logger.info("Memory service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize memory service: {e}")
+            raise
+
+    def _initialize_blog_scheduler(self):
+        """Initialize blog scheduler."""
+        try:
+            if BLOG_SCHEDULER_AVAILABLE:
+                self.blog_scheduler = AutonomousBlogScheduler(self)
+                logger.info("Autonomous blog scheduler initialized")
+            else:
+                self.blog_scheduler = None
+                logger.info("Autonomous blog scheduler not available")
+        except Exception as e:
+            logger.error(f"Failed to initialize blog scheduler: {e}")
+            self.blog_scheduler = None
+
+    def _initialize_modules(self):
+        """Initialize core modules."""
+        try:
+            self.situation_generator = SituationGenerator(
+                embedding_model=self.embedding_model,
+                sentiment_classifier=self.sentiment_classifier
+            )
+            self.emotional_intelligence = EmotionalIntelligence()
+            self.curiosity_trigger = CuriosityTrigger(blog_scheduler=self.blog_scheduler)
+            self.reflection_module = ReflectionModule(self, blog_scheduler=self.blog_scheduler)
+            self.experimentation_module = ExperimentationModule(self, blog_scheduler=self.blog_scheduler)
+            self.experimentation_engine = AGIExperimentationEngine(self, blog_scheduler=self.blog_scheduler)
+            logger.info("Core modules initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize core modules: {e}")
+            raise
+
+    def _initialize_action_manager(self):
+        """Initialize action manager."""
+        try:
+            self.action_manager = EnhancedActionManager(self, self.data_service)
+            logger.info("Enhanced action manager initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize action manager: {e}")
+            raise
+
+    def _initialize_personality(self):
+        """Initialize personality."""
+        try:
+            self.personality = Personality(
+                name=Config.PERSONA_NAME,
+                origin=Config.PERSONA_ORIGIN,
+                creativity=Config.PERSONA_CREATIVITY
+            )
+            logger.info("Personality initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize personality: {e}")
+            raise
+
+    def _initialize_snake_agent(self):
+        """Initialize Snake Agent with better error handling."""
+        try:
+            self.snake_agent = None
+            if Config.SNAKE_AGENT_ENABLED:
+                try:
+                    # Try enhanced version first, fall back to original if needed
+                    enhanced_mode = getattr(Config, 'SNAKE_ENHANCED_MODE', True)
+                    if enhanced_mode:
+                        from core.snake_agent_enhanced import EnhancedSnakeAgent
+                        self.snake_agent = EnhancedSnakeAgent(self)
+                        logger.info("Enhanced Snake Agent initialized and ready")
+                    else:
+                        from core.snake_agent import SnakeAgent
+                        self.snake_agent = SnakeAgent(self)
+                        logger.info("Standard Snake Agent initialized and ready")
+                except Exception as e:
+                    logger.error(f"Failed to initialize Snake Agent: {e}")
+                    # Fallback to standard version if enhanced fails
+                    try:
+                        from core.snake_agent import SnakeAgent
+                        self.snake_agent = SnakeAgent(self)
+                        logger.info("Fallback to standard Snake Agent successful")
+                    except Exception as fallback_error:
+                        logger.error(f"Fallback Snake Agent also failed: {fallback_error}")
+                        self.snake_agent = None
+        except Exception as e:
+            logger.error(f"Error in Snake Agent initialization: {e}")
+            self.snake_agent = None
+
+    def _initialize_conversational_ai(self):
+        """Initialize Conversational AI."""
+        try:
+            self.conversational_ai = None
+            self.conversational_ai_thread = None
+            if Config.CONVERSATIONAL_AI_ENABLED and CONVERSATIONAL_AI_AVAILABLE:
+                try:
+                    # Initialize Conversational AI with standalone=False since it will run in the main system
+                    self.conversational_ai = ConversationalAI()
+                    logger.info("Conversational AI module initialized")
+                except Exception as e:
+                    logger.error(f"Failed to initialize Conversational AI module: {e}")
+                    self.conversational_ai = None
+        except Exception as e:
+            logger.error(f"Error in Conversational AI initialization: {e}")
+            self.conversational_ai = None
+
+    def _initialize_shutdown_coordinator(self):
+        """Initialize shutdown coordinator."""
+        try:
+            self.shutdown_coordinator = ShutdownCoordinator(self)
             
-        logger.info(f"AGI System stop requested - Reason: {reason}")
+            # Register cleanup handlers
+            self.shutdown_coordinator.register_cleanup_handler(self._cleanup_database_session)
+            self.shutdown_coordinator.register_cleanup_handler(self._cleanup_models)
+            self.shutdown_coordinator.register_cleanup_handler(self._save_final_state, is_async=True)
+            
+            # Register Snake Agent cleanup if enabled
+            if self.snake_agent:
+                self.shutdown_coordinator.register_cleanup_handler(self._cleanup_snake_agent, is_async=True)
+                
+            # Register Conversational AI cleanup if enabled
+            if self.conversational_ai:
+                self.shutdown_coordinator.register_cleanup_handler(self._cleanup_conversational_ai, is_async=False)
+                
+            logger.info("Shutdown coordinator initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize shutdown coordinator: {e}")
+            raise
+
+    async def stop(self, reason: str = "system_shutdown"):
+        """
+        Stop the AGI system gracefully.
+        
+        Args:
+            reason: Reason for stopping the system
+        """
+        logger.info(f"Stopping AGI system - Reason: {reason}")
         await self.shutdown_coordinator.initiate_shutdown(reason)
     
     def _cleanup_database_session(self):
@@ -286,12 +526,8 @@ class AGISystem:
                 # Set the shutdown event if it exists
                 if hasattr(self.conversational_ai, '_shutdown'):
                     self.conversational_ai._shutdown.set()
-                # Wait for the thread to finish
-                if self.conversational_ai_thread and self.conversational_ai_thread.is_alive():
-                    # Give the thread a moment to shut down gracefully
-                    self.conversational_ai_thread.join(timeout=5)
-                    if self.conversational_ai_thread.is_alive():
-                        logger.warning("Conversational AI thread did not stop within timeout")
+                # Reset the started flag
+                self._conversational_ai_started = False
         except Exception as e:
             logger.error(f"Error cleaning up Conversational AI: {e}")
 
@@ -309,38 +545,43 @@ class AGISystem:
     async def start_conversational_ai(self):
         """Start Conversational AI module in a separate thread."""
         if self.conversational_ai and Config.CONVERSATIONAL_AI_ENABLED:
+            # Check if already started to prevent multiple instances
+            if self._conversational_ai_started:
+                logger.warning("Conversational AI module already started, skipping...")
+                return
+                
             try:
                 logger.info("Starting Conversational AI module...")
                 
-                # Create a thread to run the Conversational AI
-                def run_conversational_ai():
+                # Create a task to run the Conversational AI in the same event loop
+                async def run_conversational_ai():
                     try:
                         # Add a small delay to allow the main system to initialize
-                        time.sleep(Config.CONVERSATIONAL_AI_START_DELAY)
+                        await asyncio.sleep(Config.CONVERSATIONAL_AI_START_DELAY)
                         # Run the conversational AI as part of the main system (not standalone)
-                        asyncio.run(self.conversational_ai.start(standalone=False))
+                        await self.conversational_ai.start(standalone=False)
                     except Exception as e:
-                        logger.error(f"Error in Conversational AI thread: {e}")
+                        logger.error(f"Error in Conversational AI: {e}")
                 
-                self.conversational_ai_thread = threading.Thread(
-                    target=run_conversational_ai,
-                    name="ConversationalAI",
-                    daemon=True
-                )
-                self.conversational_ai_thread.start()
-                logger.info("Conversational AI module started successfully in background thread")
+                # Schedule the Conversational AI to run as a task in the current event loop
+                conversational_ai_task = asyncio.create_task(run_conversational_ai())
+                self.background_tasks.append(conversational_ai_task)
+                # Mark as started
+                self._conversational_ai_started = True
+                logger.info("Conversational AI module started successfully as async task")
             except Exception as e:
                 logger.error(f"Failed to start Conversational AI module: {e}")
 
-    def get_snake_agent_status(self) -> Dict[str, Any]:
+    async def get_snake_agent_status(self) -> Dict[str, Any]:
         """Get Snake Agent status information."""
         if not self.snake_agent:
             return {"enabled": False, "status": "not_initialized"}
         
+        status = await self.snake_agent.get_status()
         return {
             "enabled": Config.SNAKE_AGENT_ENABLED,
             "status": "active" if self.snake_agent.running else "inactive",
-            **self.snake_agent.get_status()
+            **status
         }
     
     def get_conversational_ai_status(self) -> Dict[str, Any]:
@@ -881,7 +1122,7 @@ class AGISystem:
                 logger.error(f"Error in knowledge compression: {e}")
 
             try:
-                await asyncio.sleep(86400)
+                await asyncio.sleep(86600)
             except asyncio.CancelledError:
                 break
         logger.info("Knowledge compression task shut down.")

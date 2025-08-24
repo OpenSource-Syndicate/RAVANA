@@ -63,12 +63,10 @@ Guidelines:
 - Output the memories as a JSON object containing a list of strings.
 
 Example Output:
-{
-  "memories": [
-    "User is planning a trip to Paris.",
-    "User's favorite color is blue."
-  ]
-}
+```
+User is planning a trip to Paris.
+User's favorite color is blue.
+```
 
 Conversation to analyze:
 """
@@ -97,13 +95,10 @@ Example Input Memories:
 ]
 
 Example Output:
-{
-  "consolidated": [
-    "The user is a fan of sci-fi movies and recently watched 'Dune'.",
-    "The user's cat is named 'Leo'."
-  ],
-  "to_delete": ["mem_1", "mem_2", "mem_3"]
-}
+```
+The user is a fan of sci-fi movies and recently watched 'Dune'.",
+The user's cat is named 'Leo'."
+```
 
 Memories to process:
 """
@@ -181,7 +176,42 @@ async def startup_event():
     else:
         logging.info("Embedding model loaded from main application.")
     
-    logging.info("ChromaDB client initialized and collection is ready.")
+    # Initialize ChromaDB collection with error handling
+    try:
+        logging.info("Initializing ChromaDB client and collection...")
+        global chroma_client, chroma_collection, sentence_transformer_ef
+        
+        # Initialize embedding function
+        sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name=Config.EMBEDDING_MODEL
+        )
+        
+        # Initialize ChromaDB client with better error handling
+        chroma_client = chromadb.Client(Settings(
+            persist_directory=CHROMA_PERSIST_DIR, 
+            is_persistent=True
+        ))
+        
+        # Get or create collection
+        chroma_collection = chroma_client.get_or_create_collection(
+            name=CHROMA_COLLECTION,
+            embedding_function=sentence_transformer_ef
+        )
+        
+        logging.info("ChromaDB client initialized and collection is ready.")
+    except Exception as e:
+        logging.error(f"Failed to initialize ChromaDB: {e}")
+        # Fallback to in-memory storage
+        try:
+            chroma_client = chromadb.Client()
+            chroma_collection = chroma_client.get_or_create_collection(
+                name=CHROMA_COLLECTION,
+                embedding_function=sentence_transformer_ef
+            )
+            logging.warning("Using in-memory ChromaDB storage due to persistence error")
+        except Exception as fallback_error:
+            logging.error(f"Fallback ChromaDB initialization also failed: {fallback_error}")
+            raise Exception(f"Failed to initialize memory storage: {e}")
     
     # Initialize multi-modal service if available
     if MULTIMODAL_AVAILABLE:
@@ -189,7 +219,7 @@ async def startup_event():
             database_url = get_database_url()
             multimodal_service = MultiModalMemoryService(
                 database_url=database_url,
-                text_model_name="all-MiniLM-L6-v2"
+                text_model_name=Config.EMBEDDING_MODEL
             )
             await multimodal_service.initialize()
             logging.info("Multi-modal memory service initialized successfully")
@@ -426,29 +456,32 @@ async def list_memories_api(limit: int = 100):
         logging.error(f"Error listing memories: {e}", exc_info=True)
         return []
 
-@app.get("/health", response_model=StatusResponse, tags=["System"])
+@app.get("/health", response_model=HealthCheckResponse)
 async def health_check():
-    """Performs a health check of the service."""
+    """Health check endpoint."""
     try:
-        # Check ChromaDB connection
-        count = chroma_collection.count()
+        # Check if ChromaDB is responsive
+        collection_count = len(chroma_client.list_collections())
         
-        # Check multi-modal service if available
-        multimodal_status = {}
-        if multimodal_service:
-            multimodal_status = await multimodal_service.health_check()
+        # Check if embedding model is working
+        test_embedding = sentence_transformer_ef(["test"])
         
-        return StatusResponse(
-            status="ok", 
-            message="Service is healthy.", 
+        return HealthCheckResponse(
+            status="healthy",
             details={
-                "chroma_memory_count": count,
-                "multimodal_service": multimodal_status
+                "collections": collection_count,
+                "embedding_model": "ok",
+                "multimodal_service": "available" if multimodal_service else "unavailable"
             }
         )
     except Exception as e:
-        logging.error(f"Health check failed: {e}", exc_info=True)
-        raise HTTPException(status_code=503, detail=f"Service unavailable: {e}")
+        logging.error(f"Health check failed: {e}")
+        return HealthCheckResponse(
+            status="unhealthy",
+            details={
+                "error": str(e)
+            }
+        )
 
 # ===== NEW MULTI-MODAL ENDPOINTS =====
 

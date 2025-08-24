@@ -9,6 +9,8 @@ import json
 import pickle
 import logging
 import os
+import gzip
+import shutil
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -40,7 +42,7 @@ class StateManager:
         
         # State validation rules
         self.required_fields = ["timestamp", "version", "shutdown_info"]
-        self.supported_versions = ["1.0"]
+        self.supported_versions = ["1.0", "1.1"]
         
         logger.info(f"StateManager initialized - State file: {self.state_file}")
     
@@ -58,7 +60,7 @@ class StateManager:
             # Add metadata
             state_data.update({
                 "timestamp": datetime.utcnow().isoformat(),
-                "version": "1.0",
+                "version": "1.1",  # Updated version
                 "saved_by": "StateManager"
             })
             
@@ -71,9 +73,13 @@ class StateManager:
             if self.state_file.exists():
                 await self._create_backup()
             
-            # Save state data
-            with open(self.state_file, 'w', encoding='utf-8') as f:
-                json.dump(state_data, f, indent=2, default=str)
+            # Save state data with compression if enabled
+            if getattr(Config, 'SHUTDOWN_COMPRESSION_ENABLED', True):
+                await self._save_compressed_state(state_data)
+            else:
+                # Save state data
+                with open(self.state_file, 'w', encoding='utf-8') as f:
+                    json.dump(state_data, f, indent=2, default=str)
             
             logger.info(f"State saved successfully to {self.state_file}")
             
@@ -86,6 +92,37 @@ class StateManager:
             logger.error(f"Error saving state: {e}", exc_info=True)
             return False
     
+    async def _save_compressed_state(self, state_data: Dict[str, Any]) -> None:
+        """
+        Save state data with compression.
+        
+        Args:
+            state_data: State data to save with compression
+        """
+        try:
+            # Create temporary file for uncompressed data
+            temp_file = self.state_file.with_suffix('.tmp')
+            
+            # Save uncompressed data to temporary file
+            with open(temp_file, 'w', encoding='utf-8') as f:
+                json.dump(state_data, f, indent=2, default=str)
+            
+            # Compress to final file
+            with open(temp_file, 'rb') as f_in:
+                with gzip.open(self.state_file.with_suffix('.json.gz'), 'wb') as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+            
+            # Remove temporary file
+            temp_file.unlink()
+            
+            logger.info(f"Compressed state saved to {self.state_file.with_suffix('.json.gz')}")
+            
+        except Exception as e:
+            logger.error(f"Error saving compressed state: {e}")
+            # Fall back to uncompressed save
+            with open(self.state_file, 'w', encoding='utf-8') as f:
+                json.dump(state_data, f, indent=2, default=str)
+    
     async def load_state(self) -> Optional[Dict[str, Any]]:
         """
         Load system state with validation and recovery options.
@@ -94,6 +131,12 @@ class StateManager:
             Loaded state data or None if not available
         """
         try:
+            # Check for compressed state file first
+            compressed_file = self.state_file.with_suffix('.json.gz')
+            if compressed_file.exists():
+                return await self._load_compressed_state(compressed_file)
+            
+            # Fall back to uncompressed file
             if not self.state_file.exists():
                 logger.info("No state file found")
                 return None
@@ -119,6 +162,38 @@ class StateManager:
             logger.error(f"Error loading state: {e}")
             logger.info("Attempting backup recovery...")
             return await self._recover_from_backup()
+    
+    async def _load_compressed_state(self, compressed_file: Path) -> Optional[Dict[str, Any]]:
+        """
+        Load compressed state data.
+        
+        Args:
+            compressed_file: Path to compressed state file
+            
+        Returns:
+            Loaded state data or None if not available
+        """
+        try:
+            # Decompress file
+            with gzip.open(compressed_file, 'rb') as f_in:
+                state_data = json.loads(f_in.read().decode('utf-8'))
+            
+            # Validate loaded state
+            if not self._validate_state_data(state_data):
+                logger.warning("Compressed state file validation failed")
+                return None
+            
+            # Check if state is too old
+            if self._is_state_too_old(state_data):
+                logger.warning("Compressed state file is too old, skipping recovery")
+                return None
+            
+            logger.info("Compressed state loaded successfully")
+            return state_data
+            
+        except Exception as e:
+            logger.error(f"Error loading compressed state: {e}")
+            return None
     
     def _validate_state_data(self, state_data: Dict[str, Any]) -> bool:
         """Validate state data structure."""
@@ -170,11 +245,14 @@ class StateManager:
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
             backup_file = self.backup_dir / f"state_backup_{timestamp}.json"
             
-            # Copy current state file to backup
-            import shutil
-            shutil.copy2(self.state_file, backup_file)
+            # Check for compressed state file
+            compressed_file = self.state_file.with_suffix('.json.gz')
+            source_file = compressed_file if compressed_file.exists() else self.state_file
             
-            logger.info(f"State backup created: {backup_file}")
+            # Copy current state file to backup
+            if source_file.exists():
+                shutil.copy2(source_file, backup_file)
+                logger.info(f"State backup created: {backup_file}")
             
         except Exception as e:
             logger.warning(f"Error creating state backup: {e}")
@@ -182,7 +260,7 @@ class StateManager:
     async def _recover_from_backup(self) -> Optional[Dict[str, Any]]:
         """Attempt to recover state from backup files."""
         try:
-            backup_files = list(self.backup_dir.glob("state_backup_*.json"))
+            backup_files = list(self.backup_dir.glob("state_backup_*.json*"))
             
             if not backup_files:
                 logger.info("No backup files found")
@@ -193,8 +271,13 @@ class StateManager:
             
             for backup_file in backup_files:
                 try:
-                    with open(backup_file, 'r', encoding='utf-8') as f:
-                        state_data = json.load(f)
+                    # Handle compressed backup files
+                    if backup_file.suffix == '.gz':
+                        with gzip.open(backup_file, 'rb') as f:
+                            state_data = json.loads(f.read().decode('utf-8'))
+                    else:
+                        with open(backup_file, 'r', encoding='utf-8') as f:
+                            state_data = json.load(f)
                     
                     if self._validate_state_data(state_data):
                         logger.info(f"Recovered state from backup: {backup_file}")
@@ -214,7 +297,7 @@ class StateManager:
     async def _cleanup_old_backups(self, max_backups: int = 5) -> None:
         """Clean up old backup files."""
         try:
-            backup_files = list(self.backup_dir.glob("state_backup_*.json"))
+            backup_files = list(self.backup_dir.glob("state_backup_*.json*"))
             
             if len(backup_files) <= max_backups:
                 return
@@ -241,6 +324,11 @@ class StateManager:
                 self.base_dir / "action_cache.pkl",
                 self.base_dir / "shutdown_log.json"
             ]
+            
+            # Clean up compressed state files
+            compressed_file = self.state_file.with_suffix('.json.gz')
+            if compressed_file.exists():
+                files_to_clean.append(compressed_file)
             
             # Clean up component state files
             for state_file in self.base_dir.glob("*_state.json"):

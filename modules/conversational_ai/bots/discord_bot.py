@@ -34,6 +34,8 @@ class DiscordBot:
         
         # For graceful shutdown
         self._shutdown = asyncio.Event()
+        # Track if the bot has been started
+        self._started = False
         
         # Register event handlers
         self._register_events()
@@ -82,7 +84,8 @@ class DiscordBot:
                 # Update user profile with username
                 self.conversational_ai.user_profile_manager.update_username(user_id, message.author.name)
                 
-                response = self.conversational_ai.process_user_message(
+                # Use async version to prevent blocking the event loop
+                response = await self.conversational_ai.process_user_message_async(
                     platform="discord",
                     user_id=user_id,
                     message=message.content
@@ -136,20 +139,34 @@ You can also just message me directly or mention me in a server!
     async def start(self):
         """Start the Discord bot."""
         if self._shutdown.is_set():
+            logger.warning("Discord bot shutdown event is set, cannot start")
             return
+            
+        if self._started:
+            logger.warning("Discord bot already started, skipping...")
+            return
+            
         try:
+            self._started = True  # Mark as started
             await self.bot.start(self.token)
         except Exception as e:
+            self._started = False  # Reset on error
             if not self._shutdown.is_set():
                 logger.error(f"Error starting Discord bot: {e}")
             
     async def stop(self):
         """Stop the Discord bot."""
         if self._shutdown.is_set():
+            logger.info("Discord bot already shut down")
             return
+            
         self._shutdown.set()
-        await self.bot.close()
-        logger.info("Discord bot stopped")
+        self._started = False  # Reset started flag
+        try:
+            await self.bot.close()
+            logger.info("Discord bot stopped")
+        except Exception as e:
+            logger.error(f"Error stopping Discord bot: {e}")
         
     async def send_message(self, user_id: str, message: str):
         """
