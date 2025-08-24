@@ -100,7 +100,7 @@
     "api_keys": [
       {
         "id": "gemini_key_1",
-        "key": "AIzaSyCEWX5LXZO31_dCNHpLMnh1WPYwzHSgOtE",
+        "key": "AIzaSyBW-aVU-x7JCjBJVVKjPGUacups0-GBHvQ",
         "priority": 1,
         "rate_limit_reset_time": null,
         "failure_count": 0,
@@ -108,7 +108,7 @@
       },
       {
         "id": "gemini_key_2",
-        "key": "AIzaSyDAXnokI7ukWNOCZaF-84ZFjSEoQYTuv1M",
+        "key": "AIzaSyBW-aVU-x7JCjBJVVKjPGUacups0-GBHvQ",
         "priority": 2,
         "rate_limit_reset_time": null,
         "failure_count": 0,
@@ -116,7 +116,7 @@
       },
       {
         "id": "gemini_key_3",
-        "key": "AIzaSyD1MnOuHYY_4iZZOTV4-ryjmswGDRAsDjg",
+        "key": "AIzaSyC8hTaXE6jkWDFZyZDybFEoHfPR-4VSV-k",
         "priority": 3,
         "rate_limit_reset_time": null,
         "failure_count": 0,
@@ -124,7 +124,7 @@
       },
       {
         "id": "gemini_key_4",
-        "key": "AIzaSyBTPQm7RX3JSqODiwT4Qa7AbB0d0NRsWyc",
+        "key": "AIzaSyC5-FvfvCTkD4VdQ96lmi0Yv1r6Z9enuzo",
         "priority": 4,
         "rate_limit_reset_time": null,
         "failure_count": 0,
@@ -132,7 +132,7 @@
       },
       {
         "id": "gemini_key_5",
-        "key": "AIzaSyBQu3hQmB6NuLZmuyfH7O4fyp_BLHIbs2c",
+        "key": "AIzaSyBzKrEG8xBn9adqfOMhfNZcXNiwTIytEZM",
         "priority": 5,
         "rate_limit_reset_time": null,
         "failure_count": 0,
@@ -140,7 +140,7 @@
       },
       {
         "id": "gemini_key_6",
-        "key": "AIzaSyDXEOYmNk18Cd7NmDUrmoZyQ6rqMpljDBs",
+        "key": "AIzaSyBNeVd7a-haGinjRpluJ-zlG3jP2RUTEeE",
         "priority": 6,
         "rate_limit_reset_time": null,
         "failure_count": 0,
@@ -148,7 +148,7 @@
       },
       {
         "id": "gemini_key_7",
-        "key": "AIzaSyDjDELNQEWVZU3QrCR1lroLzlB2mQ5xjxI",
+        "key": "AIzaSyDw0Xb4_McwTdmyU9ag12AesFpGTNx_txU",
         "priority": 7,
         "rate_limit_reset_time": null,
         "failure_count": 0,
@@ -156,7 +156,7 @@
       },
       {
         "id": "gemini_key_8",
-        "key": "AIzaSyDEgu3kTn2hewewiMvhH2S-1dwGNqis6xw",
+        "key": "AIzaSyD5aoPRLOo8mlsVq1SFQtfIk1LvYhkAfVI",
         "priority": 8,
         "rate_limit_reset_time": null,
         "failure_count": 0,
@@ -164,7 +164,7 @@
       },
       {
         "id": "gemini_key_9",
-        "key": "AIzaSyAd0UT2vh4MMnlScjOw0p4yMz3v29MM4iU",
+        "key": "AIzaSyAsg16VugG9mnGfu2CZxJ4kL1tFrNE-Pl0",
         "priority": 9,
         "rate_limit_reset_time": null,
         "failure_count": 0,
@@ -172,7 +172,7 @@
       },
       {
         "id": "gemini_key_10",
-        "key": "AIzaSyCKeyakCb1G8X3Go5cg6yhgWGM5pW-dwbk",
+        "key": "AIzaSyBCQic67-TJmSXUVTCiW3SFU5fLZx7enII",
         "priority": 10,
         "rate_limit_reset_time": null,
         "failure_count": 0,
