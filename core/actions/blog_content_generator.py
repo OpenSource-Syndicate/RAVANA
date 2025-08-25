@@ -301,17 +301,12 @@ class BlogContentGenerator:
                 _, expanded_content = self._parse_llm_content_response(expanded_response)
                 content = expanded_content
             
-            # Truncate if too long
-            if len(content) > self.max_content_length:
-                logger.warning("Generated content too long, truncating...")
-                content = content[:self.max_content_length-100] + "\n\n*[Content truncated for length]*"
-            
             return title, content
             
         except Exception as e:
             logger.error(f"LLM content generation failed: {e}")
             raise BlogContentError(f"LLM generation failed: {e}")
-    
+
     def _build_content_generation_prompt(
         self,
         topic: str,
@@ -331,7 +326,7 @@ class BlogContentGenerator:
             self._get_style_guidance(style),
             "",
             "REQUIREMENTS:",
-            f"- Write {self.min_content_length}-{self.max_content_length} characters",
+            f"- Write at least {self.min_content_length} characters (no maximum limit)",
             "- Use proper markdown formatting with multiple headers (#, ##, ###)",
             "- Include at least 3 section headers to structure the content",
             "- Use code blocks with proper backticks (```language) when showing code examples",

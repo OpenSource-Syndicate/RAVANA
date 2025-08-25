@@ -157,7 +157,7 @@ class Config:
     
     # Content Generation Settings
     BLOG_DEFAULT_STYLE = os.environ.get("BLOG_DEFAULT_STYLE", "technical")
-    BLOG_MAX_CONTENT_LENGTH = int(os.environ.get("BLOG_MAX_CONTENT_LENGTH", "5000"))
+    BLOG_MAX_CONTENT_LENGTH = int(os.environ.get("BLOG_MAX_CONTENT_LENGTH", "1000000"))  # Effectively unlimited
     BLOG_MIN_CONTENT_LENGTH = int(os.environ.get("BLOG_MIN_CONTENT_LENGTH", "500"))
     BLOG_AUTO_TAGGING_ENABLED = bool(os.environ.get("BLOG_AUTO_TAGGING_ENABLED", "True").lower() in ["true", "1", "yes"])
     BLOG_MAX_TAGS = int(os.environ.get("BLOG_MAX_TAGS", "10"))

@@ -148,19 +148,12 @@ class BlogContentValidator:
         # Remove security threats
         sanitized_content = self._remove_security_threats(sanitized_content, "content")
         
-        # Length validation
+        # Length validation (only enforce minimum, not maximum)
         if len(sanitized_content) < self.min_length:
             raise ContentValidationError(
                 f"Content is too short (minimum {self.min_length} characters, got {len(sanitized_content)})",
                 "CONTENT_TOO_SHORT"
             )
-        
-        if len(sanitized_content) > self.max_length:
-            # Truncate at paragraph boundary if possible
-            truncated_content = self._smart_truncate(sanitized_content, self.max_length)
-            if truncated_content != sanitized_content:
-                sanitized_content = truncated_content
-                report["fixes_applied"].append(f"Content truncated to {self.max_length} characters")
         
         # Validate markdown structure
         self._validate_markdown_structure(sanitized_content, report)
