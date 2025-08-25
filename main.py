@@ -24,7 +24,15 @@ def setup_logging():
     log_file = 'ravana_agi.log'
     # Overwrite the log file on each run
     if os.path.exists(log_file):
-        os.remove(log_file)
+        try:
+            os.remove(log_file)
+        except PermissionError:
+            # If we can't remove the file (e.g., it's being used by another process on Windows),
+            # we'll append to it instead of overwriting
+            pass
+        except Exception as e:
+            # Handle any other unexpected errors
+            pass
     root_logger = logging.getLogger()
     root_logger.handlers = []  # Clear existing handlers
 
@@ -318,7 +326,7 @@ async def main():
                     try:
                         token = ai.config.get("telegram_token")
                         if token:
-                            telegram_bot_instance = TelegramBot(
+                            telegram_bot_instance = await TelegramBot.get_instance(
                                 token=token,
                                 command_prefix=ai.config["platforms"]["telegram"]["command_prefix"],
                                 conversational_ai=ai

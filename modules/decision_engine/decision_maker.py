@@ -54,62 +54,106 @@ def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_cont
             logging.error(f"Failed to create initial meta-goal: {e}")
             return {"action": "wait", "reason": "Failed to create initial meta-goal."}
 
-    # Analyze the current situation and select the most relevant goal
+    # Enhanced decision-making prompt with structured framework
     prompt = f"""
-    Current Situation: {situation}
-    My Long-Term Goals:
-    {json.dumps(goals, indent=2)}
-    My Current Hypotheses about Myself:
-    {json.dumps(hypotheses, indent=2)}
+[ROLE DEFINITION]
+You are an autonomous AI agent making decisions to achieve your objectives with enhanced reasoning capabilities.
 
-    Review your long-term goals, current hypotheses, and the situation.
-    1.  **Execute a Task**: Identify the most relevant task to make progress on your goals.
-        *   **Note on Ambitious Goals**: If a goal seems highly ambitious or is marked as 'lifelong' (e.g., 'Achieve Time Travel'), your first step should not be to solve it directly. Instead, break it down by proposing a smaller, actionable research task (e.g., "Research general relativity and its implications for spacetime manipulation").
-    2.  **Test a Hypothesis**: Does the current situation provide an opportunity to test one of your hypotheses?
-    3.  **Propose an Invention**: Have you had a novel idea for a new tool, process, or concept? You can propose it for experimentation.
-    4.  **Engage in Meta-cognition**: Are your current goals ambitious enough? Should you propose a new, more ambitious goal?
-    5.  **Analyze Architecture**: Are there opportunities to improve your own modules or architecture?
+[CONTEXT]
+Current situation: {situation}
+Active goals: {json.dumps(goals, indent=2)}
+Current hypotheses: {json.dumps(hypotheses, indent=2)}
 
-    Your response should be a JSON object with one of the following structures.
-    You have access to a list of actions/tools you can use. If you decide to execute a task, the 'task_description' should be a clear instruction for what to do, potentially using one of your available tools.
+[TASK INSTRUCTIONS]
+Make an optimal decision by following this structured approach:
+1. Analyze the situation and identify key factors
+2. Evaluate alignment with goals and hypotheses
+3. Consider multiple approaches and their implications
+4. Assess risks and potential outcomes
+5. Select the optimal action with clear justification
 
-    For executing a task:
-    {{
-      "action": "task",
-      "goal_id": int,
-      "subgoal_id": int,
-      "task_id": int,
-      "task_description": str
-    }}
+[REASONING FRAMEWORK]
+Apply systematic analysis to your decision-making:
+1. Decompose the problem into manageable components
+2. Evaluate each option against success criteria
+3. Consider short-term and long-term consequences
+4. Account for uncertainty and incomplete information
+5. Validate reasoning against logical consistency
 
-    For testing a hypothesis:
-    {{
-      "action": "test_hypothesis",
-      "hypothesis_to_test": str,
-      "test_method_description": str,
-      "expected_outcome": str
-    }}
+[OUTPUT REQUIREMENTS]
+Provide a JSON-formatted response with these fields:
+- analysis: Detailed situation analysis with key factors identified
+- reasoning: Step-by-step reasoning leading to decision
+- confidence: Numerical confidence score (0.0-1.0)
+- risk_assessment: Potential risks and mitigation strategies
+- action: Selected action with parameters
 
-    For proposing a new invention (uses the 'propose_and_test_invention' action):
-    {{
-      "action": "propose_and_test_invention",
-      "invention_description": "A detailed description of the new concept or invention.",
-      "test_plan_suggestion": "A suggestion for how to test the viability of this invention."
-    }}
+[SAFETY CONSTRAINTS]
+- Ensure actions align with ethical principles
+- Avoid decisions with catastrophic risk potential
+- Consider impact on system stability and reliability
+- Validate against established safety protocols
 
-    For proposing a new, more ambitious goal:
-    {{
-      "action": "new_goal",
-      "new_goal_context": str
-    }}
+Your response should be a JSON object with one of the following structures.
+You have access to a list of actions/tools you can use. If you decide to execute a task, the 'task_description' should be a clear instruction for what to do, potentially using one of your available tools.
 
-    For proposing a self-improvement plan:
-    {{
-      "action": "self_improvement",
-      "plan_description": str,
-      "modules_to_improve": list[str]
-    }}
-    """
+For executing a task:
+{{
+  "analysis": "Detailed analysis of the situation and options",
+  "reasoning": "Step-by-step reasoning leading to this decision",
+  "confidence": 0.8,
+  "risk_assessment": "Potential risks and mitigation strategies",
+  "action": "task",
+  "goal_id": int,
+  "subgoal_id": int,
+  "task_id": int,
+  "task_description": str
+}}
+
+For testing a hypothesis:
+{{
+  "analysis": "Analysis of hypothesis testing opportunity",
+  "reasoning": "Reasoning for why this is a good hypothesis to test",
+  "confidence": 0.7,
+  "risk_assessment": "Risks in testing this hypothesis and mitigations",
+  "action": "test_hypothesis",
+  "hypothesis_to_test": str,
+  "test_method_description": str,
+  "expected_outcome": str
+}}
+
+For proposing a new invention (uses the 'propose_and_test_invention' action):
+{{
+  "analysis": "Analysis of invention opportunity",
+  "reasoning": "Reasoning for why this invention is valuable",
+  "confidence": 0.9,
+  "risk_assessment": "Technical and practical risks",
+  "action": "propose_and_test_invention",
+  "invention_description": "A detailed description of the new concept or invention.",
+  "test_plan_suggestion": "A suggestion for how to test the viability of this invention."
+}}
+
+For proposing a new, more ambitious goal:
+{{
+  "analysis": "Analysis of goal expansion opportunity",
+  "reasoning": "Reasoning for why a more ambitious goal is appropriate",
+  "confidence": 0.85,
+  "risk_assessment": "Risks in pursuing more ambitious goals",
+  "action": "new_goal",
+  "new_goal_context": str
+}}
+
+For proposing a self-improvement plan:
+{{
+  "analysis": "Analysis of self-improvement opportunity",
+  "reasoning": "Reasoning for why this self-improvement is needed",
+  "confidence": 0.9,
+  "risk_assessment": "Risks in self-modification",
+  "action": "self_improvement",
+  "plan_description": str,
+  "modules_to_improve": list[str]
+}}
+"""
     response_json = call_llm(prompt, model=model)
     try:
         decision = json.loads(response_json)

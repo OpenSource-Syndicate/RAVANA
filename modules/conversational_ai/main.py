@@ -143,7 +143,7 @@ class ConversationalAI:
                 try:
                     from .bots.discord_bot import DiscordBot
                     discord_config = self.config["platforms"]["discord"]
-                    self.discord_bot = DiscordBot(
+                    self.discord_bot = DiscordBot.get_instance(
                         token=self.config["discord_token"],
                         command_prefix=discord_config["command_prefix"],
                         conversational_ai=self
@@ -159,7 +159,7 @@ class ConversationalAI:
                 try:
                     from .bots.telegram_bot import TelegramBot
                     telegram_config = self.config["platforms"]["telegram"]
-                    self.telegram_bot = TelegramBot(
+                    self.telegram_bot = await TelegramBot.get_instance(
                         token=self.config["telegram_token"],
                         command_prefix=telegram_config["command_prefix"],
                         conversational_ai=self

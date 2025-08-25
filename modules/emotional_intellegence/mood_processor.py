@@ -35,7 +35,7 @@ class MoodProcessor:
 
     def _extract_json_from_response(self, response: str) -> Dict:
         """
-        Extract JSON from LLM response with multiple fallback strategies.
+        Extract JSON from LLM response with multiple fallback strategies and enhanced error handling.
         
         Args:
             response: Raw LLM response string
@@ -43,20 +43,28 @@ class MoodProcessor:
         Returns:
             Dictionary parsed from JSON, or empty dict if parsing fails
         """
-        if not response or not response.strip():
-            logger.error("Empty response received from LLM")
+        # Handle empty or None responses
+        if not response or not str(response).strip():
+            logger.warning("Empty or None response received from LLM")
             return {}
             
-        response = response.strip()
+        response_text = str(response).strip()
+        
+        # Check for common error indicators
+        error_indicators = ["error", "exception", "[error", "failure"]
+        if any(indicator in response_text.lower() for indicator in error_indicators):
+            logger.warning(f"LLM response indicates error: {response_text[:100]}...")
+            return {}
         
         # Strategy 1: Try to parse the entire response as JSON
         try:
-            return json.loads(response)
-        except json.JSONDecodeError:
+            return json.loads(response_text)
+        except json.JSONDecodeError as e:
+            logger.debug(f"Direct JSON parsing failed: {e}")
             pass
             
         # Strategy 2: Look for JSON in markdown code blocks
-        json_match = re.search(r'```(?:json)?\s*({.*?})\s*```', response, re.DOTALL)
+        json_match = re.search(r'```(?:json)?\s*({.*?})\s*```', response_text, re.DOTALL)
         if json_match:
             try:
                 json_str = json_match.group(1)
@@ -65,26 +73,30 @@ class MoodProcessor:
                 logger.warning(f"Failed to parse JSON from code block: {e}")
                 
         # Strategy 3: Look for any JSON-like structure
-        json_match = re.search(r'({.*})', response, re.DOTALL)
+        json_match = re.search(r'({.*})', response_text, re.DOTALL)
         if json_match:
             try:
                 json_str = json_match.group(1)
+                # Fix common JSON issues
+                json_str = re.sub(r'(\w+):', r'"\1":', json_str)  # Add quotes to keys
+                json_str = re.sub(r',\s*}', '}', json_str)  # Remove trailing commas
+                json_str = re.sub(r',\s*\]', ']', json_str)  # Remove trailing commas
                 return json.loads(json_str)
             except json.JSONDecodeError as e:
                 logger.warning(f"Failed to parse extracted JSON structure: {e}")
                 
         # Strategy 4: Handle common LLM response patterns
         # Remove common prefixes/suffixes
-        cleaned_response = re.sub(r'^[^{]*', '', response)  # Remove everything before first {
+        cleaned_response = re.sub(r'^[^{]*', '', response_text)  # Remove everything before first {
         cleaned_response = re.sub(r'[^}]*$', '', cleaned_response)  # Remove everything after last }
         
-        if cleaned_response:
+        if cleaned_response and cleaned_response.startswith('{') and cleaned_response.endswith('}'):
             try:
                 return json.loads(cleaned_response)
             except json.JSONDecodeError as e:
                 logger.warning(f"Failed to parse cleaned response: {e}")
                 
-        logger.error(f"Could not extract valid JSON from LLM response: {response}")
+        logger.error(f"Could not extract valid JSON from LLM response (length: {len(response_text)}): {response_text[:200]}...")
         return {}
 
     def _get_llm_mood_update(self, prompt_template: str, current_mood: Dict[str, float], action_result: dict) -> Dict[str, float]:

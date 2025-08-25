@@ -1,6 +1,6 @@
 {
   "zuki": {
-    "api_key": "zu-ab9fba2aeef85c7ecb217b00ce7ca1fe",
+    "api_key": "985160dfa1fd499fd12af708d16552e37a8c6f77cbfb50ae400e3ff33fbd791bc7b3b82625379a1f5ca7568f1ee04eb81a0f8c06f0ba6c276d3dddfe13e9c18d",
     "base_url": "https://api.zukijourney.com/v1",
     "models": [
       "gpt-4o:online",
@@ -10,7 +10,7 @@
     ]
   },
   "electronhub": {
-    "api_key": "ek-nzrvzzeQG0kmNZVhmkTWrKjgyIyUVY0mQpLwbectvfcPDssXiz",
+    "api_key": "ek-sVvxMYfdFQ0Kl6Aj2tmV7b8n5v0Y0sDHVsOUZWyx2vbs0AbuAc",
     "base_url": "https://api.electronhub.ai",
     "models": [
       "deepseek-v3-0324",
@@ -187,7 +187,6 @@
     },
     "fallback": {
       "enabled": true,
-      "timeout": 30,
       "max_key_failures": 5
     }
   }

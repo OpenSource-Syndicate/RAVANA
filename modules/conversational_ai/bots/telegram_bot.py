@@ -7,9 +7,9 @@ from telegram.ext import Application, MessageHandler, CommandHandler, CallbackCo
 logger = logging.getLogger(__name__)
 
 class TelegramBot:
-    # Class variable to track if an instance has been started
-    _instance_started = False
-    _active_instance = None
+    # Class variables to track instances
+    _active_instances = {}  # Track instances by token
+    _lock = asyncio.Lock()  # Async lock for thread safety
     
     def __init__(self, token: str, command_prefix: str, conversational_ai):
         """
@@ -20,11 +20,6 @@ class TelegramBot:
             command_prefix: Command prefix (not used in Telegram but kept for consistency)
             conversational_ai: Reference to the main ConversationalAI instance
         """
-        # Check if another instance is already active
-        if TelegramBot._active_instance is not None:
-            logger.warning("TelegramBot instance already exists, returning existing instance")
-            return TelegramBot._active_instance
-            
         self.token = token
         self.command_prefix = command_prefix
         self.conversational_ai = conversational_ai
@@ -42,8 +37,41 @@ class TelegramBot:
         # Register handlers
         self._register_handlers()
         
-        # Set this as the active instance
-        TelegramBot._active_instance = self
+    @classmethod
+    async def get_instance(cls, token: str, command_prefix: str, conversational_ai):
+        """
+        Get a singleton instance of the TelegramBot for a specific token.
+        
+        Args:
+            token: Telegram bot token
+            command_prefix: Command prefix
+            conversational_ai: Reference to the main ConversationalAI instance
+            
+        Returns:
+            TelegramBot instance
+        """
+        async with cls._lock:
+            if token in cls._active_instances:
+                logger.warning(f"TelegramBot instance already exists for token {token[:10]}..., returning existing instance")
+                return cls._active_instances[token]
+            
+            instance = cls(token, command_prefix, conversational_ai)
+            cls._active_instances[token] = instance
+            logger.info(f"Created new TelegramBot instance for token {token[:10]}...")
+            return instance
+        
+    @classmethod
+    async def remove_instance(cls, token: str):
+        """
+        Remove an instance from the active instances dictionary.
+        
+        Args:
+            token: Telegram bot token
+        """
+        async with cls._lock:
+            if token in cls._active_instances:
+                del cls._active_instances[token]
+                logger.info(f"Removed TelegramBot instance for token {token[:10]}...")
         
     def _register_handlers(self):
         """Register Telegram bot handlers."""
@@ -159,11 +187,7 @@ Just send me a message and I'll respond!
             logger.warning("Telegram bot shutdown event is set, cannot start")
             return
             
-        # Check if any instance is already started
-        if TelegramBot._instance_started:
-            logger.warning("Telegram bot already started in another instance, skipping...")
-            return
-            
+        # Check if this specific instance is already started
         if self._started:
             logger.warning("Telegram bot already started, skipping...")
             return
@@ -176,7 +200,6 @@ Just send me a message and I'll respond!
             logger.info("Starting Telegram bot updater...")
             await self.application.updater.start_polling()
             self._started = True  # Mark as started
-            TelegramBot._instance_started = True  # Mark class as started
             self.connected = True
             self._running = True
             logger.info("Telegram bot started and connected successfully")
@@ -187,12 +210,13 @@ Just send me a message and I'll respond!
                 
         except Exception as e:
             self._started = False  # Reset on error
-            TelegramBot._instance_started = False  # Reset class on error
             self.connected = False
             self._running = False
             if not self._shutdown.is_set():
                 logger.error(f"Error starting Telegram bot: {e}")
                 logger.exception("Full traceback:")
+                # Remove from active instances on error
+                await TelegramBot.remove_instance(self.token)
                 raise  # Re-raise the exception so it's properly handled
             
     async def stop(self):
@@ -204,10 +228,8 @@ Just send me a message and I'll respond!
         logger.info("Stopping Telegram bot...")
         self._shutdown.set()
         self._started = False  # Reset started flag
-        TelegramBot._instance_started = False  # Reset class started flag
         self.connected = False
         self._running = False
-        TelegramBot._active_instance = None  # Clear active instance
         
         try:
             # Only stop if the bot was actually started
@@ -224,6 +246,9 @@ Just send me a message and I'll respond!
         except Exception as e:
             logger.error(f"Error stopping Telegram bot: {e}")
             logger.exception("Full traceback:")
+        finally:
+            # Remove from active instances
+            await TelegramBot.remove_instance(self.token)
         
     async def send_message(self, user_id: str, message: str):
         """

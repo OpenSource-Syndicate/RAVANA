@@ -133,7 +133,31 @@ class RelevantMemory(BaseModel):
     id: str
     text: str
     similarity: float
-
+    
+    def dict(self):
+        """Pydantic v1 style serialization (backward compatibility)"""
+        return {
+            "id": self.id,
+            "text": self.text,
+            "similarity": self.similarity
+        }
+    
+    def model_dump(self):
+        """Pydantic v2 style serialization"""
+        return {
+            "id": self.id,
+            "text": self.text,
+            "similarity": self.similarity
+        }
+    
+    def to_dict(self):
+        """Custom serialization method"""
+        return {
+            "id": self.id,
+            "text": self.text,
+            "similarity": self.similarity
+        }
+    
 class RelevantMemoriesResponse(BaseModel):
     relevant_memories: List[RelevantMemory]
 

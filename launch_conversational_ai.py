@@ -84,7 +84,7 @@ async def verify_telegram_bot(ai):
             
         # Import and create bot
         from modules.conversational_ai.bots.telegram_bot import TelegramBot
-        bot = TelegramBot(
+        bot = await TelegramBot.get_instance(
             token=token,
             command_prefix=ai.config["platforms"]["telegram"]["command_prefix"],
             conversational_ai=ai

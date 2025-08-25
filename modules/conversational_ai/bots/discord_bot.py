@@ -20,11 +20,6 @@ class DiscordBot:
             command_prefix: Command prefix for the bot
             conversational_ai: Reference to the main ConversationalAI instance
         """
-        # Check if another instance is already active
-        if DiscordBot._active_instance is not None:
-            logger.warning("DiscordBot instance already exists, returning existing instance")
-            return DiscordBot._active_instance
-            
         self.token = token
         self.command_prefix = command_prefix
         self.conversational_ai = conversational_ai
@@ -50,8 +45,25 @@ class DiscordBot:
         # Register event handlers
         self._register_events()
         
-        # Set this as the active instance
-        DiscordBot._active_instance = self
+    @classmethod
+    def get_instance(cls, token: str, command_prefix: str, conversational_ai):
+        """
+        Get a singleton instance of the DiscordBot.
+        
+        Args:
+            token: Discord bot token
+            command_prefix: Command prefix
+            conversational_ai: Reference to the main ConversationalAI instance
+            
+        Returns:
+            DiscordBot instance
+        """
+        if cls._active_instance is None:
+            cls._active_instance = cls(token, command_prefix, conversational_ai)
+            logger.info("Created new DiscordBot instance")
+        else:
+            logger.warning("DiscordBot instance already exists, returning existing instance")
+        return cls._active_instance
         
     def _register_events(self):
         """Register Discord bot event handlers."""
@@ -150,15 +162,31 @@ You can also just message me directly or mention me in a server!
                 await ctx.send(help_text)
 
     async def _process_discord_message(self, message, user_id):
-        """Process a Discord message asynchronously."""
+        """Process a Discord message asynchronously without blocking the event loop."""
         try:
-            # Use async version to prevent blocking the event loop
-            response = await self.conversational_ai.process_user_message_async(
-                platform="discord",
-                user_id=user_id,
-                message=message.content
+            # Offload the LLM processing to a background task to prevent blocking the event loop
+            logger.debug("Creating background task for LLM processing")
+            llm_task = asyncio.create_task(
+                self.conversational_ai.process_user_message_async(
+                    platform="discord",
+                    user_id=user_id,
+                    message=message.content
+                )
             )
             
+            # Add the task to a set to prevent it from being garbage collected
+            if not hasattr(self, '_background_tasks'):
+                self._background_tasks = set()
+            self._background_tasks.add(llm_task)
+            llm_task.add_done_callback(self._background_tasks.discard)
+            
+            # Wait for the LLM response
+            try:
+                response = await asyncio.wait_for(llm_task, timeout=60.0)  # 60 second timeout
+            except asyncio.TimeoutError:
+                logger.error("LLM processing timed out after 60 seconds")
+                response = "Sorry, I'm taking too long to respond. Please try again."
+                
             # Split long messages to comply with Discord's limits
             if len(response) > 2000:
                 chunks = [response[i:i+1990] for i in range(0, len(response), 1990)]
@@ -168,8 +196,9 @@ You can also just message me directly or mention me in a server!
             else:
                 if not self._shutdown.is_set():
                     await message.channel.send(response)
+                    
         except Exception as e:
-            logger.error(f"Error processing Discord message: {e}")
+            logger.error(f"Error processing Discord message: {e}", exc_info=True)
             if not self._shutdown.is_set():
                 await message.channel.send("Sorry, I encountered an error processing your message.")
 

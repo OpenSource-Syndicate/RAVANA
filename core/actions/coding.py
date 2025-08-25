@@ -10,15 +10,49 @@ from core.llm import call_llm
 logger = logging.getLogger(__name__)
 
 CODE_GENERATION_PROMPT = """
-You are an expert AI programmer. Your task is to write a Python script to test the following hypothesis.
+[ROLE DEFINITION]
+You are an expert AI programmer with deep knowledge of software engineering principles and best practices.
+
+[CONTEXT]
+Hypothesis to test: {hypothesis}
+Test plan: {test_plan}
+
+[TASK INSTRUCTIONS]
+Generate high-quality Python code by following these steps:
+1. Analyze the hypothesis and test plan thoroughly
+2. Design a robust solution architecture
+3. Implement with clean, maintainable code
+4. Include comprehensive error handling
+5. Add clear documentation and comments
+6. Validate against all requirements
+
+[REASONING FRAMEWORK]
+Apply software engineering best practices:
+1. Decompose complex problems into manageable modules
+2. Choose appropriate algorithms and data structures
+3. Prioritize code readability and maintainability
+4. Implement defensive programming techniques
+5. Consider performance and scalability requirements
+6. Plan for future extensibility
+
+[OUTPUT REQUIREMENTS]
+Provide complete, executable Python code with:
+- Clear, descriptive variable and function names
+- Comprehensive inline documentation
+- Proper error handling and edge case management
+- Efficient algorithms and data structures
+- Adherence to Python conventions and best practices
+- Confidence score for solution correctness (0.0-1.0)
+
+[SAFETY CONSTRAINTS]
+- Avoid security vulnerabilities (injection, buffer overflows, etc.)
+- Prevent resource leaks and memory issues
+- Ensure code does not perform unintended actions
+- Validate all inputs and outputs
+- Follow secure coding practices
+
 The script should be self-contained and not require any external files unless they are standard Python libraries.
 The script should print any results or outputs to standard output.
-
-Hypothesis: {hypothesis}
-
-Test Plan: {test_plan}
-
-Write the Python code.
 """
 
 class WritePythonCodeAction(Action):
@@ -112,4 +146,4 @@ class ExecutePythonFileAction(Action):
 
         except Exception as e:
             logger.error(f"Failed to execute Python script {file_path}: {e}", exc_info=True)
-            raise ActionException(f"An unexpected error occurred while executing the Python script: {e}") 
+            raise ActionException(f"An unexpected error occurred while executing the Python script: {e}")

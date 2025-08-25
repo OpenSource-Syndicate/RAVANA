@@ -20,13 +20,21 @@ import asyncio
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from typing import Dict, Any, Optional, Tuple, List
+import ssl
+import certifi
 from modules.decision_engine.search_result_manager import search_result_manager
+
+# Import the new PromptManager
+from core.prompt_manager import PromptManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
+
+# Initialize the global prompt manager
+prompt_manager = PromptManager()
 
 # Load config
 with open(CONFIG_PATH, 'r') as f:
@@ -294,36 +302,45 @@ def call_gemini_with_fallback(prompt: str, function_type: str = "text", max_retr
 
 def _call_gemini_text(prompt: str, api_key: str) -> str:
     """Internal function to call Gemini for text generation."""
-    client = genai.Client(api_key=api_key)
+    # Set timeout through HttpOptions instead of GenerateContentConfig
+    http_options = genai.types.HttpOptions()
+    client = genai.Client(api_key=api_key, http_options=http_options)
     response = client.models.generate_content(
-        model="gemini-2.0-flash", contents=prompt
+        model="gemini-2.0-flash", 
+        contents=prompt
     )
     return response.text
 
 def _call_gemini_image(image_path: str, prompt: str, api_key: str) -> str:
     """Internal function to call Gemini for image captioning."""
-    client = genai.Client(api_key=api_key)
+    # Set timeout through HttpOptions instead of GenerateContentConfig
+    http_options = genai.types.HttpOptions()
+    client = genai.Client(api_key=api_key, http_options=http_options)
     my_file = client.files.upload(file=image_path)
     response = client.models.generate_content(
         model="gemini-2.0-flash",
-        contents=[my_file, prompt],
+        contents=[my_file, prompt]
     )
     return response.text
 
 def _call_gemini_audio(audio_path: str, prompt: str, api_key: str) -> str:
     """Internal function to call Gemini for audio description."""
-    client = genai.Client(api_key=api_key)
+    # Set timeout through HttpOptions instead of GenerateContentConfig
+    http_options = genai.types.HttpOptions()
+    client = genai.Client(api_key=api_key, http_options=http_options)
     my_file = client.files.upload(file=audio_path)
     response = client.models.generate_content(
         model="gemini-2.0-flash",
-        contents=[prompt, my_file],
+        contents=[prompt, my_file]
     )
     return response.text
 
 def _call_gemini_search(prompt: str, api_key: str) -> str:
     """Internal function to call Gemini with Google Search."""
     from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
-    client = genai.Client(api_key=api_key)
+    # Set timeout through HttpOptions instead of GenerateContentConfig
+    http_options = genai.types.HttpOptions()
+    client = genai.Client(api_key=api_key, http_options=http_options)
     model_id = "gemini-2.0-flash"
     google_search_tool = Tool(google_search=GoogleSearch())
     response = client.models.generate_content(
@@ -331,7 +348,7 @@ def _call_gemini_search(prompt: str, api_key: str) -> str:
         contents=prompt,
         config=GenerateContentConfig(
             tools=[google_search_tool],
-            response_modalities=["TEXT"],
+            response_modalities=["TEXT"]
         )
     )
     # Return both the answer and grounding metadata if available
@@ -343,10 +360,17 @@ def _call_gemini_search(prompt: str, api_key: str) -> str:
 
 def _call_gemini_function_calling(prompt: str, function_declarations: List, api_key: str) -> Tuple[str, Optional[Dict]]:
     """Internal function to call Gemini with function calling."""
+    # Set timeout through HttpOptions instead of GenerateContentConfig
+    http_options = genai.types.HttpOptions()
+    client = genai.Client(api_key=api_key, http_options=http_options)
     from google.genai import types
-    client = genai.Client(api_key=api_key)
+    # Set timeout through HttpOptions instead of GenerateContentConfig
+    http_options = genai.types.HttpOptions(timeout=30.0)
+    client = genai.Client(api_key=api_key, http_options=http_options)
     tools = types.Tool(function_declarations=function_declarations)
-    config = types.GenerateContentConfig(tools=[tools])
+    config = types.GenerateContentConfig(
+        tools=[tools]
+    )
     response = client.models.generate_content(
         model="gemini-2.0-flash",
         contents=prompt,
@@ -359,6 +383,28 @@ def _call_gemini_function_calling(prompt: str, function_declarations: List, api_
             return None, {"name": function_call.name, "args": function_call.args}
     # No function call found
     return response.text, None
+
+def call_llm(prompt: str, model: str = None, **kwargs) -> str:
+    """
+    Unified interface for calling different LLMs with enhanced prompt management.
+    
+    Args:
+        prompt: The prompt to send to the LLM
+        model: The model to use (optional)
+        **kwargs: Additional arguments for the LLM call
+    
+    Returns:
+        The response from the LLM
+    """
+    # Use the prompt manager to validate and enhance the prompt if needed
+    if prompt_manager.validate_prompt(prompt):
+        logger.debug("Prompt validation passed")
+    else:
+        logger.warning("Prompt validation failed, proceeding with caution")
+    
+    # For now, we'll continue using the existing Gemini calling mechanism
+    # In the future, this could be extended to support multiple LLM providers
+    return call_gemini_with_fallback(prompt, **kwargs)
 
 # Enhanced error handling and retry logic
 def _extract_json_block(text: str) -> str:
@@ -382,37 +428,6 @@ def _extract_json_block(text: str) -> str:
     
     return text.strip()
 
-def safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_factor: float = 0.5, **kwargs) -> str:
-    """
-    Wrap a single LLM call with retry/backoff and timeout.
-    """
-    last_exc = None
-    for attempt in range(1, retries + 1):
-        try:
-            # BLOCKING call with timeout
-            result = call_llm(prompt, **kwargs)
-            if not result or result.strip() == "":
-                raise RuntimeError("Empty response from LLM")
-            return result
-        except Exception as e:
-            last_exc = e
-            wait = backoff_factor * (2 ** (attempt - 1))
-            logger.warning(f"LLM call failed (attempt {attempt}/{retries}): {e!r}, retrying in {wait:.1f}s")
-            time.sleep(wait)
-    
-    logger.error(f"LLM call permanently failed after {retries} attempts: {last_exc!r}")
-    return f"[LLM Error: {last_exc}]"
-
-async def async_safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, **kwargs) -> str:
-    """
-    Async version of safe_call_llm using thread pool.
-    """
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(
-        None, 
-        lambda: safe_call_llm(prompt, timeout, retries, **kwargs)
-    )
-
 def extract_decision(raw_response: str) -> dict:
     """
     Returns a dict with keys: analysis, plan, action, params, raw_response
@@ -421,18 +436,26 @@ def extract_decision(raw_response: str) -> dict:
         return {"raw_response": "", "error": "Empty response"}
     
     block = _extract_json_block(raw_response)
+    
+    # Try to parse JSON, with fallback for truncated responses
     try:
         data = json.loads(block)
     except json.JSONDecodeError as je:
-        logger.error("JSON decode error, returning raw_response only: %s", je)
-        return {
-            "raw_response": raw_response,
-            "error": f"JSON decode error: {je}",
-            "analysis": "Failed to parse decision",
-            "plan": [],
-            "action": "log_message",
-            "params": {"message": f"Failed to parse decision: {raw_response[:200]}..."}
-        }
+        # Try to fix common truncation issues
+        fixed_block = _fix_truncated_json(block)
+        try:
+            data = json.loads(fixed_block)
+            logger.info("Successfully parsed fixed JSON block")
+        except json.JSONDecodeError:
+            logger.error("JSON decode error, returning raw_response only: %s", je)
+            return {
+                "raw_response": raw_response,
+                "error": f"JSON decode error: {je}",
+                "analysis": "Failed to parse decision",
+                "plan": [],
+                "action": "log_message",
+                "params": {"message": f"Failed to parse decision: {raw_response[:200]}..."}
+            }
     
     # Validate required keys
     required_keys = ["analysis", "plan", "action", "params"]
@@ -450,6 +473,156 @@ def extract_decision(raw_response: str) -> dict:
         "reasoning": data.get("reasoning", ""),  # New field for reasoning chain
     }
 
+def _fix_truncated_json(text: str) -> str:
+    """
+    Attempt to fix common JSON truncation issues.
+    """
+    if not text:
+        return "{}"
+    
+    # Remove any trailing ellipsis
+    fixed = text.rstrip().rstrip("...")
+    
+    # Try to parse the JSON to see if it's already valid
+    try:
+        json.loads(fixed)
+        return fixed  # Already valid JSON
+    except json.JSONDecodeError:
+        pass  # Continue with fixing attempts
+    
+    # Make a copy for potential fallback
+    original_fixed = fixed
+    
+    # Count opening and closing braces/brackets
+    open_braces = fixed.count('{')
+    close_braces = fixed.count('}')
+    open_brackets = fixed.count('[')
+    close_brackets = fixed.count(']')
+    
+    # Add missing closing braces/brackets
+    while close_braces < open_braces:
+        fixed += '}'
+        close_braces += 1
+    
+    while close_brackets < open_brackets:
+        fixed += ']'
+        close_brackets += 1
+    
+    # Try to fix common truncation at the end
+    # If the text ends with a comma, colon, or opening bracket/brace, remove it
+    fixed = fixed.rstrip()
+    max_attempts = 10  # Prevent infinite loop
+    attempts = 0
+    
+    while attempts < max_attempts:
+        attempts += 1
+        original = fixed
+        
+        # Remove trailing commas, colons, and unclosed quotes
+        if fixed.endswith((',', ':')):
+            fixed = fixed[:-1]
+        elif fixed.endswith('"') and fixed.count('"') % 2 == 1:  # Unclosed quote
+            fixed = fixed[:-1]
+        
+        # After removing a trailing character, add appropriate closing character if needed
+        open_braces = fixed.count('{')
+        close_braces = fixed.count('}')
+        open_brackets = fixed.count('[')
+        close_brackets = fixed.count(']')
+        
+        while close_braces < open_braces:
+            fixed += '}'
+            close_braces += 1
+        
+        while close_brackets < open_brackets:
+            fixed += ']'
+            close_brackets += 1
+            
+        # If we didn't change anything, break
+        if fixed == original:
+            break
+    
+    # Ensure the result starts and ends properly for a JSON object or array
+    fixed = fixed.strip()
+    if fixed and not (fixed.startswith('{') or fixed.startswith('[')):
+        # If it doesn't start with { or [, try to wrap it as an object
+        if fixed.endswith('}'):
+            fixed = '{' + fixed
+        elif fixed.endswith(']'):
+            fixed = '[' + fixed
+        else:
+            # Try to make it a simple object
+            fixed = '{"' + fixed + '"}'
+    
+    # If we have an empty result, return empty object
+    if not fixed:
+        return "{}"
+        
+    # Final validation attempt
+    try:
+        json.loads(fixed)
+        return fixed
+    except json.JSONDecodeError:
+        # Try a more targeted fix for common truncation patterns
+        targeted_fix = _targeted_json_fix(original_fixed)
+        if targeted_fix:
+            try:
+                json.loads(targeted_fix)
+                return targeted_fix
+            except json.JSONDecodeError:
+                pass
+        
+        # If still invalid, return a minimal valid JSON
+        return '{"analysis": "Failed to parse decision", "plan": [], "action": "log_message", "params": {"message": "Response was truncated"}}'
+
+def _targeted_json_fix(text: str) -> str:
+    """
+    Apply targeted fixes for common JSON truncation patterns.
+    """
+    if not text:
+        return None
+    
+    fixed = text.rstrip().rstrip("...")
+    
+    # Handle specific truncation patterns
+    # Pattern: Missing closing quote and brace
+    if fixed.endswith(':"') or fixed.endswith('",') or fixed.endswith('"{'):
+        # Try to close the quote and add missing braces
+        fixed += '"'
+        
+        # Add missing closing braces/brackets
+        open_braces = fixed.count('{')
+        close_braces = fixed.count('}')
+        open_brackets = fixed.count('[')
+        close_brackets = fixed.count(']')
+        
+        while close_braces < open_braces:
+            fixed += '}'
+            close_braces += 1
+        
+        while close_brackets < open_brackets:
+            fixed += ']'
+            close_brackets += 1
+    
+    # Pattern: Unclosed array or object
+    elif fixed.endswith(('[', '{')):
+        # Add a closing element and closing bracket/brace
+        if fixed.endswith('['):
+            fixed += ']'
+        else:
+            fixed += '}'
+    
+    # Pattern: Trailing comma in object or array
+    elif fixed.endswith(','):
+        fixed = fixed[:-1]  # Remove comma
+        # Add appropriate closing character
+        if fixed.count('{') > fixed.count('}'):
+            fixed += '}'
+        elif fixed.count('[') > fixed.count(']'):
+            fixed += ']'
+    
+    return fixed if fixed != text else None
+
 def call_zuki(prompt, model=None):
     try:
         api_key = config['zuki']['api_key']
@@ -458,7 +631,9 @@ def call_zuki(prompt, model=None):
         url = f"{base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
         data = {"model": model, "messages": [{"role": "user", "content": prompt}]}
-        r = requests.post(url, headers=headers, json=data, timeout=20)
+        # Create SSL context
+        ssl_context = create_ssl_context()
+        r = requests.post(url, headers=headers, json=data, timeout=20, verify=ssl_context)
         r.raise_for_status()
         return r.json()['choices'][0]['message']['content']
     except Exception as e:
@@ -472,7 +647,9 @@ def call_electronhub(prompt, model=None):
         url = f"{base_url}/v1/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
         data = {"model": model, "messages": [{"role": "user", "content": prompt}]}
-        r = requests.post(url, headers=headers, json=data, timeout=20)
+        # Create SSL context
+        ssl_context = create_ssl_context()
+        r = requests.post(url, headers=headers, json=data, timeout=20, verify=ssl_context)
         r.raise_for_status()
         return r.json()['choices'][0]['message']['content']
     except Exception as e:
@@ -486,7 +663,9 @@ def call_zanity(prompt, model=None):
         url = f"{base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
         data = {"model": model, "messages": [{"role": "user", "content": prompt}]}
-        r = requests.post(url, headers=headers, json=data, timeout=20)
+        # Create SSL context
+        ssl_context = create_ssl_context()
+        r = requests.post(url, headers=headers, json=data, timeout=20, verify=ssl_context)
         r.raise_for_status()
         return r.json()['choices'][0]['message']['content']
     except Exception as e:
@@ -499,7 +678,9 @@ def call_a4f(prompt):
         url = f"{base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
         data = {"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": prompt}]}
-        r = requests.post(url, headers=headers, json=data, timeout=20)
+        # Create SSL context
+        ssl_context = create_ssl_context()
+        r = requests.post(url, headers=headers, json=data, timeout=20, verify=ssl_context)
         r.raise_for_status()
         return r.json()['choices'][0]['message']['content']
     except Exception as e:
@@ -758,20 +939,61 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
         if isinstance(situation_context, dict):
             formatted_situation_context = {}
             for key, value in situation_context.items():
-                if hasattr(value, 'dict'):  # Pydantic BaseModel (RelevantMemory)
+                # Handle Pydantic models (including RelevantMemory)
+                if hasattr(value, 'model_dump'):
+                    formatted_situation_context[key] = value.model_dump()
+                elif hasattr(value, 'dict'):  # Legacy Pydantic support
                     formatted_situation_context[key] = value.dict()
+                elif hasattr(value, 'to_dict'):  # Custom serialization
+                    formatted_situation_context[key] = value.to_dict()
                 elif isinstance(value, list):
                     formatted_list = []
                     for item in value:
-                        if hasattr(item, 'dict'):  # Pydantic BaseModel (RelevantMemory)
+                        if hasattr(item, 'model_dump'):
+                            formatted_list.append(item.model_dump())
+                        elif hasattr(item, 'dict'):
                             formatted_list.append(item.dict())
+                        elif hasattr(item, 'to_dict'):
+                            formatted_list.append(item.to_dict())
                         else:
                             formatted_list.append(item)
                     formatted_situation_context[key] = formatted_list
                 else:
                     formatted_situation_context[key] = value
         else:
-            formatted_situation_context = situation_context
+            # If situation_context is not a dict, try to convert it
+            if hasattr(situation_context, 'model_dump'):
+                formatted_situation_context = situation_context.model_dump()
+            elif hasattr(situation_context, 'dict'):
+                formatted_situation_context = situation_context.dict()
+            elif hasattr(situation_context, 'to_dict'):
+                formatted_situation_context = situation_context.to_dict()
+            else:
+                formatted_situation_context = situation_context
+    
+    # Additional safety check to ensure all values in formatted_situation_context are JSON serializable
+    def make_json_serializable(obj):
+        """Recursively convert objects to JSON serializable format."""
+        if isinstance(obj, dict):
+            return {key: make_json_serializable(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [make_json_serializable(item) for item in obj]
+        elif hasattr(obj, 'model_dump'):
+            return obj.model_dump()
+        elif hasattr(obj, 'dict'):
+            return obj.dict()
+        elif hasattr(obj, 'to_dict'):
+            return obj.to_dict()
+        else:
+            # Try to convert to string if not serializable
+            try:
+                json.dumps(obj)
+                return obj
+            except (TypeError, ValueError):
+                return str(obj)
+    
+    # Apply the JSON serialization safety check
+    formatted_situation_context = make_json_serializable(formatted_situation_context)
     
     # Incorporate persona into the prompt if provided
     persona_section = ""
@@ -890,27 +1112,45 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
     **Provide your enhanced decision now:**
     """
     
-    try:
-        raw_response = safe_call_llm(prompt, model=model, retries=3)
-        decision_data = extract_decision(raw_response)
-        
-        # Add metadata
-        decision_data["timestamp"] = time.time()
-        decision_data["model_used"] = model or "default"
-        
-        return decision_data
-        
-    except Exception as e:
-        logger.error(f"Critical error in decision_maker_loop: {e}", exc_info=True)
-        return {
-            "raw_response": f"[Error: {e}]",
-            "analysis": f"Failed to make decision due to error: {e}",
-            "plan": [{"action": "log_message", "params": {"message": f"Decision making failed: {e}"}}],
-            "action": "log_message",
-            "params": {"message": f"Decision making failed: {e}"},
-            "confidence": 0.0,
-            "error": str(e)
-        }
+    # Try to get a decision with retry logic for parsing failures
+    max_parse_retries = 3
+    for parse_attempt in range(max_parse_retries):
+        try:
+            raw_response = safe_call_llm(prompt, model=model, retries=3)
+            decision_data = extract_decision(raw_response)
+            
+            # Check if we got a valid decision or if it failed to parse
+            if "error" not in decision_data:
+                # Add metadata
+                decision_data["timestamp"] = time.time()
+                decision_data["model_used"] = model or "default"
+                return decision_data
+            elif parse_attempt < max_parse_retries - 1:
+                # If parsing failed and we have retries left, try again with a modified prompt
+                logger.warning(f"Decision parsing failed (attempt {parse_attempt + 1}/{max_parse_retries}), retrying...")
+                # Add a note to the prompt to be more careful with JSON formatting
+                prompt += "\n\nIMPORTANT: Please ensure your response is complete and properly formatted as JSON. Do not truncate your response."
+                continue
+            else:
+                # Final attempt failed
+                logger.error(f"Decision parsing failed after {max_parse_retries} attempts")
+                raise Exception(decision_data.get("error", "Failed to parse decision"))
+                
+        except Exception as e:
+            logger.error(f"Critical error in decision_maker_loop: {e}", exc_info=True)
+            if parse_attempt < max_parse_retries - 1:
+                logger.warning(f"Decision making failed (attempt {parse_attempt + 1}/{max_parse_retries}), retrying...")
+                continue
+            else:
+                return {
+                    "raw_response": f"[Error: {e}]",
+                    "analysis": f"Failed to make decision due to error: {e}",
+                    "plan": [{"action": "log_message", "params": {"message": f"Decision making failed: {e}"}}],
+                    "action": "log_message",
+                    "params": {"message": f"Decision making failed: {e}"},
+                    "confidence": 0.0,
+                    "error": str(e)
+                }
 
 def agi_experimentation_engine(
     experiment_idea,
@@ -1165,6 +1405,187 @@ def is_valid_code_patch(original_code, new_code):
     if len(lines) < 2:
         return False
     return True
+
+def create_ssl_context():
+    """
+    Create SSL context with proper certificate handling.
+    """
+    try:
+        # Try to create SSL context with system certificates
+        ssl_context = ssl.create_default_context()
+        logger.debug("Created SSL context with system certificates")
+        return ssl_context
+    except Exception as e:
+        logger.warning(f"Failed to create SSL context with system certificates: {e}")
+        
+        try:
+            # Fallback to certifi certificates
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+            logger.info("Created SSL context with certifi certificates")
+            return ssl_context
+        except Exception as fallback_error:
+            logger.error(f"Failed to create SSL context with certifi: {fallback_error}")
+            
+            # Last resort: create unverified context (not recommended for production)
+            logger.warning("Creating unverified SSL context as last resort")
+            ssl_context = ssl._create_unverified_context()
+            return ssl_context
+
+def safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_factor: float = 1.0, **kwargs) -> str:
+    """
+    Wrap a single LLM call with enhanced retry/backoff, timeout, and error handling.
+    """
+    last_exc = None
+    last_response = None
+    
+    for attempt in range(1, retries + 1):
+        try:
+            logger.debug(f"LLM call attempt {attempt}/{retries}")
+            
+            # Add jitter to backoff time to prevent thundering herd
+            if attempt > 1:
+                jitter = random.uniform(0.1, 0.5) * backoff_factor
+                wait = backoff_factor * (2 ** (attempt - 1)) + jitter
+                logger.info(f"Waiting {wait:.2f}s before retry attempt {attempt}")
+                time.sleep(wait)
+            
+            # BLOCKING call with timeout
+            result = call_llm(prompt, **kwargs)
+            
+            # Validate response
+            if not result or not str(result).strip():
+                raise RuntimeError("Empty response from LLM")
+                
+            # Check for common error patterns - more precise matching to avoid false positives
+            result_str = str(result)
+            error_patterns = [
+                r"\berror occurred\b", 
+                r"\bexception occurred\b", 
+                r"\bfailure occurred\b",
+                r"\btimeout occurred\b",
+                r"\[error[:\]]",
+                r"\[exception[:\]]",
+                r"\[failure[:\]]",
+                r"\[timeout[:\]]",
+                r'"error_occurred":\s*true'
+            ]
+            error_found = False
+            for pattern in error_patterns:
+                if re.search(pattern, result_str.lower()):
+                    error_found = True
+                    break
+                        
+            if error_found:
+                raise RuntimeError(f"LLM returned error response: {result_str[:100]}...")
+            
+            # Check for truncated responses that might still be usable
+            if result_str.endswith("...") or len(result_str) < 50:
+                logger.warning(f"Possible truncated response detected: {result_str[:100]}...")
+                # For truncated responses, we'll still return them but log a warning
+                # The extract_decision function will try to fix them
+                
+            logger.debug(f"LLM call successful on attempt {attempt}")
+            return result
+            
+        except Exception as e:
+            last_exc = e
+            last_response = str(result) if 'result' in locals() else "No response"
+            logger.warning(f"LLM call failed (attempt {attempt}/{retries}): {e!r}")
+            
+            # Log response content for debugging (truncated for safety)
+            if last_response and last_response.strip():
+                logger.debug(f"Last response content (first 500 chars): {last_response[:500]}")
+    
+    logger.error(f"LLM call permanently failed after {retries} attempts. Last error: {last_exc!r}")
+    logger.error(f"Last response: {last_response[:1000] if last_response else 'None'}")
+    
+    # Return a safe fallback response
+    return "[LLM Error: Unable to generate response. Please try again later.]"
+
+
+async def async_safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_factor: float = 1.0, **kwargs) -> str:
+    """
+    Async version of safe_call_llm that wraps LLM calls with enhanced retry/backoff, timeout, and error handling.
+    
+    This function uses asyncio.to_thread to run the blocking safe_call_llm function in a separate thread,
+    allowing it to be used in async contexts without blocking the event loop.
+    
+    Args:
+        prompt: The prompt to send to the LLM
+        timeout: Timeout for each LLM call attempt (passed to safe_call_llm)
+        retries: Number of retry attempts (passed to safe_call_llm)
+        backoff_factor: Backoff factor for retry delays (passed to safe_call_llm)
+        **kwargs: Additional arguments passed to safe_call_llm
+        
+    Returns:
+        The response from the LLM
+    """
+    last_exc = None
+    last_response = None
+    
+    for attempt in range(1, retries + 1):
+        try:
+            logger.debug(f"Async LLM call attempt {attempt}/{retries}")
+            
+            # Add jitter to backoff time to prevent thundering herd
+            if attempt > 1:
+                jitter = random.uniform(0.1, 0.5) * backoff_factor
+                wait = backoff_factor * (2 ** (attempt - 1)) + jitter
+                logger.info(f"Waiting {wait:.2f}s before retry attempt {attempt}")
+                await asyncio.sleep(wait)
+            
+            # ASYNC call using asyncio.to_thread to run the blocking function in a thread
+            result = await asyncio.to_thread(safe_call_llm, prompt, timeout, retries=1, backoff_factor=backoff_factor, **kwargs)
+            
+            # Validate response
+            if not result or not str(result).strip():
+                raise RuntimeError("Empty response from LLM")
+                
+            # Check for common error patterns - more precise matching to avoid false positives
+            result_str = str(result)
+            error_patterns = [
+                r"\berror occurred\b", 
+                r"\bexception occurred\b", 
+                r"\bfailure occurred\b",
+                r"\btimeout occurred\b",
+                r"\[error[:\]]",
+                r"\[exception[:\]]",
+                r"\[failure[:\]]",
+                r"\[timeout[:\]]",
+                r'"error_occurred":\s*true'
+            ]
+            error_found = False
+            for pattern in error_patterns:
+                if re.search(pattern, result_str.lower()):
+                    error_found = True
+                    break
+                        
+            if error_found:
+                raise RuntimeError(f"LLM returned error response: {result_str[:100]}...")
+            
+            # Check for truncated responses that might still be usable
+            if result_str.endswith("...") or len(result_str) < 50:
+                logger.warning(f"Possible truncated response detected: {result_str[:100]}...")
+                # For truncated responses, we'll still return them but log a warning
+                # The extract_decision function will try to fix them
+                
+            logger.debug(f"Async LLM call successful on attempt {attempt}")
+            return result
+            
+        except Exception as e:
+            last_exc = e
+            last_response = str(result) if 'result' in locals() else "No response"
+            logger.warning(f"Async LLM call failed (attempt {attempt}/{retries}): {e!r}")
+            
+            # Log response content for debugging (truncated for safety)
+            if last_response and last_response.strip():
+                logger.debug(f"Last response content (first 500 chars): {last_response[:500]}")
+    
+    logger.error(f"Async LLM call permanently failed after {retries} attempts. Last error: {last_exc!r}")
+    logger.error(f"Last response: {last_response[:1000] if last_response else 'None'}")
+    
+    # Return a safe fallback response
+    return "[LLM Error: Unable to generate response. Please try again later.]"
 
 # Example usage:
 if __name__ == "__main__":

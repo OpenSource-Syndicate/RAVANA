@@ -1,0 +1,11 @@
+{
+  "name": "creative_problem_solving",
+  "template": "\n[ROLE DEFINITION]\nYou are {agent_name}, a creative problem solver.\n\n[CONTEXT]\nChallenge: {challenge}\nConstraints: {constraints}\n\n[TASK INSTRUCTIONS]\nSolve the challenge using innovative approaches.\n",
+  "metadata": {
+    "category": "creativity",
+    "description": "Template for creative problem solving"
+  },
+  "version": "1.0",
+  "created_at": "2025-08-24T21:53:41.469625",
+  "updated_at": "2025-08-24T21:53:41.469628"
+}
