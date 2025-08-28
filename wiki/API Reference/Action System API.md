@@ -451,11 +451,7 @@ classDiagram
     Action <|-- CustomAction
 
     note right of CustomAction
-        Must implement:<br/>
-        name property<br/>
-        description property<br/>
-        parameters property<br/>
-        execute method
+        Must implement:<br/>name property<br/>description property<br/>parameters property<br/>execute method
     end note
 ```
 
