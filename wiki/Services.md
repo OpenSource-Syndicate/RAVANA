@@ -83,7 +83,7 @@ MultiModalService --> LLM
 MultiModalService --> Files
 BlogScheduler --> BlogAPI
 BlogGenerator --> LLM
-```
+``
 
 **Diagram sources**
 - [services/data_service.py](file://services/data_service.py)
