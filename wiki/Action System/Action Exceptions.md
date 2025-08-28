@@ -16,24 +16,25 @@ The exception hierarchy for action-related errors is structured to provide clear
 
 ```mermaid
 classDiagram
-class Exception {
-}
-class ActionError {
-<<Exception>>
-}
-class InvalidActionError {
-<<Exception>>
-}
-class InvalidActionParams {
-<<Exception>>
-}
-class ActionException {
-<<Exception>>
-}
-ActionError <|-- InvalidActionError
-ActionError <|-- InvalidActionParams
-Exception <|-- ActionError
-Exception <|-- ActionException
+    class Exception {
+        <<base>>
+    }
+    class ActionError {
+        <<Exception>>
+    }
+    class InvalidActionError {
+        <<Exception>>
+    }
+    class InvalidActionParams {
+        <<Exception>>
+    }
+    class ActionException {
+        <<Exception>>
+    }
+    ActionError <|-- InvalidActionError
+    ActionError <|-- InvalidActionParams
+    Exception <|-- ActionError
+    Exception <|-- ActionException
 ```
 
 **Diagram sources**
