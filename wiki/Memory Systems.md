@@ -732,7 +732,7 @@ The semantic memory system transforms episodic experiences into structured knowl
 
 The knowledge compression pipeline converts raw experiences into semantic summaries using LLM-driven analysis:
 
-``mermaid
+```mermaid
 flowchart TD
 A[Raw Experiences] --> B{Knowledge<br>Compression}
 B --> C[Pattern Recognition]
