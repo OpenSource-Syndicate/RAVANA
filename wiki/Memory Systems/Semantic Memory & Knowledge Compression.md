@@ -115,32 +115,35 @@ The `KnowledgeService` class imports `compress_knowledge` from the compression m
 ```mermaid
 classDiagram
 class CompressedMemory {
-+COMPRESSED_FILE : str
-+save_summary(entry)
-+load_summaries()
+  +COMPRESSED_FILE : str
+  +save_summary(entry)
+  +load_summaries()
 }
+
 class KnowledgeService {
--engine
--embedding_model
--faiss_index
--id_map
-+add_knowledge(content, source, category)
-+get_knowledge_by_category(category, limit)
-+get_recent_knowledge(hours, limit)
-+search_knowledge(query, limit)
-+compress_and_save_knowledge()
+  -engine
+  -embedding_model
+  -faiss_index
+  -id_map
+  +add_knowledge(content, source, category)
+  +get_knowledge_by_category(category, limit)
+  +get_recent_knowledge(hours, limit)
+  +search_knowledge(query, limit)
+  +compress_and_save_knowledge()
 }
+
 class Summary {
-+id : int
-+timestamp : str
-+summary_text : str
-+source : str
-+category : str
-+content_hash : str
+  +id : int
+  +timestamp : str
+  +summary_text : str
+  +source : str
+  +category : str
+  +content_hash : str
 }
-CompressedMemory --> "writes to" Summary : via KnowledgeService
+
+CompressedMemory --> Summary : writes to
 KnowledgeService --> Summary : manages
-Summary ..> "database" : stored in
+note for Summary "Stored in database"
 ```
 
 **Diagram sources**
