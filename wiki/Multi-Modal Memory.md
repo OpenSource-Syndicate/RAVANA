@@ -19,7 +19,7 @@ The Multi-Modal Memory system is an advanced episodic memory module within the R
 ## Project Structure
 The multi-modal memory system is organized into a modular structure within the `modules/episodic_memory` directory. The core components include API endpoints, data models, database operations, embedding generation, and specialized processors for different media types. The system is designed for extensibility and integration with the broader RAVANA framework.
 
-``mermaid
+```mermaid
 graph TB
 subgraph "API Layer"
 A[memory.py] --> B[FastAPI Endpoints]
@@ -81,7 +81,7 @@ The Multi-Modal Memory system comprises several core components that work togeth
 ## Architecture Overview
 The Multi-Modal Memory system follows a layered architecture with clear separation of concerns. The API layer, implemented with FastAPI, exposes endpoints for memory operations and search. The service layer, centered around `MultiModalMemoryService`, coordinates all business logic and integrates various components. The data layer uses PostgreSQL with pgvector for persistent storage of memory records and their embeddings. The processing layer handles the generation of embeddings for different modalities and the extraction of features from audio and image content.
 
-``mermaid
+```mermaid
 graph TD
 A[Client] --> B[API Layer]
 B --> C[Service Layer]
@@ -131,7 +131,7 @@ style E fill:#6f9,stroke:#333
 ### MultiModalMemoryService Analysis
 The `MultiModalMemoryService` is the central orchestrator of the multi-modal memory system. It integrates the PostgreSQL store, embedding service, Whisper audio processor, and search engine to provide a unified interface for memory operations. The service is initialized with a database URL and model configurations, and it manages the lifecycle of its components through `initialize()` and `close()` methods.
 
-``mermaid
+```mermaid
 classDiagram
 class MultiModalMemoryService {
 -database_url : str
@@ -223,7 +223,7 @@ EmbeddingService --> WhisperAudioProcessor : "uses"
 ### Memory Record and Data Models
 The data model for the multi-modal memory system is defined in `models.py` using Pydantic. The `MemoryRecord` class is the core data structure, capable of storing information from various modalities. It includes fields for text, audio, image, and video content, along with their respective metadata and embeddings. The model supports validation through Pydantic validators, ensuring data integrity.
 
-``mermaid
+```mermaid
 classDiagram
 class MemoryRecord {
 id : Optional[UUID]
@@ -331,7 +331,7 @@ MemoryRecord --> VideoMetadata : "has"
 ### API Endpoints and Request Flow
 The API endpoints are implemented in `memory.py` using FastAPI. The system supports both legacy endpoints for backward compatibility and new endpoints for multi-modal operations. The request flow for processing an audio file involves uploading the file, transcribing it with Whisper, generating embeddings, and storing the memory record in PostgreSQL.
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant Client
 participant API as memory.py
@@ -370,7 +370,7 @@ Note over Client,DB : Audio memory processing flow
 ### Database Schema and Migration
 The database schema is defined in `schema.sql` and managed through `setup_database.py`. The system uses PostgreSQL with the pgvector extension to store memory records and their embeddings. The migration process allows for seamless transition from the legacy ChromaDB storage to the new PostgreSQL-based system, including data migration and schema creation.
 
-``mermaid
+```mermaid
 erDiagram
 memory_records ||--o{ audio_memories : "1:1"
 memory_records ||--o{ image_memories : "1:1"
@@ -435,7 +435,7 @@ string thumbnail_path
 ## Dependency Analysis
 The Multi-Modal Memory system has a well-defined dependency structure. The core dependencies include FastAPI for the web framework, asyncpg for PostgreSQL connectivity, sentence-transformers for text embeddings, and faster-whisper for audio processing. The system also depends on pgvector for vector similarity search in PostgreSQL. The component dependencies are managed through Python's import system, with clear interfaces between modules.
 
-``mermaid
+```mermaid
 graph TD
 A[FastAPI] --> B[memory.py]
 B --> C[multi_modal_service.py]
