@@ -138,7 +138,7 @@ class DataService:
 
 The DataService interacts with the following database models defined in `database/models.py`:
 
-``mermaid
+```mermaid
 erDiagram
 ARTICLE ||--o{ EVENT : "triggers"
 ARTICLE {
@@ -235,7 +235,7 @@ class KnowledgeService:
 
 The KnowledgeService primarily interacts with the Summary model:
 
-``mermaid
+```mermaid
 erDiagram
 SUMMARY {
 int id PK
@@ -295,7 +295,7 @@ class MemoryService:
 
 The MemoryService interacts with a ChromaDB collection for memory storage, with the following schema:
 
-``mermaid
+```mermaid
 erDiagram
 MEMORY {
 string id PK
@@ -568,7 +568,7 @@ The coordination with LLMs follows an asynchronous pattern to prevent blocking t
 
 Services are integrated with core modules through dependency injection:
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant System as AGISystem
 participant ActionManager as ActionManager
