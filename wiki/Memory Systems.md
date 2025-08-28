@@ -34,7 +34,7 @@ The RAVANA system implements a dual-memory architecture combining episodic and s
 
 ## Memory Architecture Overview
 
-``mermaid
+```mermaid
 graph TB
 subgraph "Memory Systems"
 EM[Episodic Memory]
@@ -109,7 +109,7 @@ The episodic memory system captures and stores specific events and interactions 
 
 Episodic memories are stored in PostgreSQL with pgvector extension, providing a production-grade database solution for vector similarity search. The system uses SentenceTransformers to generate embeddings for memory texts, enabling semantic search capabilities.
 
-``mermaid
+```mermaid
 classDiagram
 class MemoryRecord {
 +uuid id
@@ -221,7 +221,7 @@ The EmbeddingService provides multi-modal embedding generation for text, audio, 
 
 The embedding service supports multiple content types with specialized processing:
 
-``mermaid
+```mermaid
 flowchart TD
 A[Input Content] --> B{Content Type}
 B --> C[Text]
@@ -520,7 +520,7 @@ The MultiModalMemoryService orchestrates all components of the memory system, pr
 
 ### Service Architecture
 
-``mermaid
+```mermaid
 classDiagram
 class MultiModalMemoryService {
 +initialize()
@@ -804,7 +804,7 @@ class Summary(SQLModel, table=True):
 
 The `MemoryService` provides a unified interface for memory management operations, abstracting the underlying storage mechanisms.
 
-``mermaid
+```mermaid
 classDiagram
 class MemoryService {
 +get_relevant_memories(query_text)
@@ -992,7 +992,7 @@ The memory system incorporates several performance optimizations and scalability
 
 ### Vector Search Optimization
 
-``mermaid
+```mermaid
 flowchart TD
 A[Query Text] --> B[Generate Embedding]
 B --> C[Vector Search in PostgreSQL]
@@ -1114,7 +1114,7 @@ The Very Long-Term Memory (VLTM) system provides strategic knowledge management 
 
 The VLTM data models use junction tables to correctly implement many-to-many relationships:
 
-``mermaid
+```mermaid
 classDiagram
 class VeryLongTermMemory {
 +memory_id: str
@@ -1219,7 +1219,7 @@ The MemoryIntegrationManager coordinates memory flow between existing memory sys
 
 #### Integration Architecture
 
-``mermaid
+```mermaid
 classDiagram
 class MemoryIntegrationManager {
 +initialize()
