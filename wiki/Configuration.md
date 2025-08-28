@@ -39,7 +39,7 @@ The configuration system serves as the central nervous system for the AGI framew
 
 The system utilizes multiple JSON configuration files to manage different aspects of the AGI framework. The primary configuration file `core/config.json` contains LLM provider credentials, API endpoints, and model availability information. This file serves as the authoritative source for external service integrations.
 
-``mermaid
+```mermaid
 graph TD
 A[Configuration Files] --> B[core/config.json]
 A --> C[modules/conversational_ai/config.json]
@@ -82,7 +82,7 @@ class Config:
 
 The class uses Python's `os.environ.get()` method to retrieve environment variables with fallback to default values. Type conversion is explicitly handled for different data types: strings remain as-is, numeric values are converted using `int()` or `float()`, and boolean values are parsed from string representations ("true", "1", "yes") to Python boolean values.
 
-``mermaid
+```mermaid
 classDiagram
 class Config {
 +DATABASE_URL : str
@@ -190,7 +190,7 @@ The Gemini provider implements a sophisticated multi-key fallback system that al
 
 This configuration enables resilient operation by automatically switching to backup keys when the primary key encounters rate limiting or failures. The recent update has expanded the Gemini configuration to include 10 API keys with priority-based rotation.
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant Client as "Application"
 participant Config as "Config System"
@@ -362,7 +362,7 @@ timeout = Config.SNAKE_OLLAMA_TIMEOUT
 
 This pattern is used consistently across 25+ files in the codebase, demonstrating the central role of the Config class in the system architecture.
 
-``mermaid
+```mermaid
 flowchart TD
 A[Start] --> B[Load Environment Variables]
 B --> C{Variable Exists?}
@@ -513,7 +513,7 @@ class ShutdownCoordinator:
 
 The enhanced shutdown process follows a structured sequence of phases:
 
-``mermaid
+```mermaid
 graph TD
 A[Initiate Shutdown] --> B[Pre-Shutdown Validation]
 B --> C[Signal Received]
@@ -546,7 +546,7 @@ COMPONENT_SHUTDOWN_TIMEOUT = float(os.environ.get("COMPONENT_SHUTDOWN_TIMEOUT", 
 
 The system manages the full lifecycle of shutdown operations:
 
-``mermaid
+```mermaid
 stateDiagram-v2
 [*] --> PreShutdownValidation
 PreShutdownValidation --> SignalReceived : health checks passed
