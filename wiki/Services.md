@@ -45,7 +45,7 @@ The Ravana AGI system implements six primary services that handle different aspe
 
 These services are designed to be loosely coupled, allowing for independent development and replacement. They provide a clean API that abstracts away the complexity of underlying resources, enabling the core system and modules to interact with external systems through a consistent interface.
 
-``mermaid
+```mermaid
 graph TB
 subgraph "Core System"
 AGISystem[AGISystem]
@@ -83,7 +83,7 @@ MultiModalService --> LLM
 MultiModalService --> Files
 BlogScheduler --> BlogAPI
 BlogGenerator --> LLM
-``
+```
 
 **Diagram sources**
 - [services/data_service.py](file://services/data_service.py)
