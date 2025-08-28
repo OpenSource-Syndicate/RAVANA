@@ -29,22 +29,22 @@ The Multi-modal Service API follows a layered architecture that separates concer
 graph TB
 subgraph "Multi-modal Service"
 MultiModalService[MultiModalService]
-ProcessImage[process_image()]
-ProcessAudio[process_audio()]
-CrossModal[cross_modal_analysis()]
-GenerateSummary[generate_content_summary()]
-ProcessDirectory[process_directory()]
+ProcessImage["process_image()"]
+ProcessAudio["process_audio()"]
+CrossModal["cross_modal_analysis()"]
+GenerateSummary["generate_content_summary()"]
+ProcessDirectory["process_directory()"]
 end
 subgraph "Action System"
-ActionManager[EnhancedActionManager]
-ActionRegistry[ActionRegistry]
+ActionManager["EnhancedActionManager"]
+ActionRegistry["ActionRegistry"]
 end
 subgraph "LLM Integration"
-LLM[LLM Module]
-Gemini[Gemini API]
+LLM["LLM Module"]
+Gemini["Gemini API"]
 end
 subgraph "Knowledge System"
-KnowledgeService[KnowledgeService]
+KnowledgeService["KnowledgeService"]
 end
 MultiModalService --> LLM
 ActionManager --> MultiModalService
