@@ -104,34 +104,38 @@ The `KnowledgeService` class encapsulates all knowledge management functionality
 ```mermaid
 classDiagram
 class KnowledgeService {
-+engine
-+embedding_model
-+embedding_dim
-+faiss_index
-+id_map
-+index_file
-+id_map_file
-+__init__(engine, embedding_model)
-+_initialize_semantic_search()
-+add_knowledge(content, source, category) dict
-+get_knowledge_by_category(category, limit) List[dict]
-+get_recent_knowledge(hours, limit) List[dict]
-+search_knowledge(query, limit) List[dict]
-+_calculate_relevance(query, text) float
-+compress_and_save_knowledge() dict
+  +engine
+  +embedding_model
+  +embedding_dim
+  +faiss_index
+  +id_map
+  +index_file
+  +id_map_file
+  +__init__(engine, embedding_model)
+  +_initialize_semantic_search()
+  +add_knowledge(content, source, category) dict
+  +get_knowledge_by_category(category, limit) List[dict]
+  +get_recent_knowledge(hours, limit) List[dict]
+  +search_knowledge(query, limit) List[dict]
+  +_calculate_relevance(query, text) float
+  +compress_and_save_knowledge() dict
 }
 class Summary {
-+id
-+timestamp
-+summary_text
-+source
-+category
-+content_hash
+  +id
+  +timestamp
+  +summary_text
+  +source
+  +category
+  +content_hash
 }
-KnowledgeService --> Summary : "stores"
-KnowledgeService --> "SentenceTransformer" : "uses"
-KnowledgeService --> "FAISS" : "uses"
-KnowledgeService --> "compress_knowledge" : "calls"
+class SentenceTransformer
+class FAISS
+class compress_knowledge
+
+KnowledgeService --> Summary : stores
+KnowledgeService --> SentenceTransformer : uses
+KnowledgeService --> FAISS : uses
+KnowledgeService --> compress_knowledge : calls
 ```
 
 **Diagram sources**
