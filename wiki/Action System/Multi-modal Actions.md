@@ -66,6 +66,7 @@ graph TB
     O --> P
     E --> Q
     J
+```
 
 **Referenced Files in This Document**   
 - [core/actions/multi_modal.py](file://c:\Users\ASUS\Documents\GitHub\RAVANA\core\actions\multi_modal.py)
