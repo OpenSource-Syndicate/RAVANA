@@ -30,7 +30,7 @@ The Self-Improvement system within the RAVANA repository is a sophisticated fram
 ## Project Structure
 The self-improvement functionality is primarily contained within the `modules/agent_self_reflection` directory. This module is designed as a self-contained unit with a clear separation of concerns. It includes core logic for reflection and modification, a simple JSON-based database for persistence, and comprehensive test files. The module interacts with the core LLM system for AI-driven reasoning and with the broader episodic memory system for context. A key enhancement is the integration with the autonomous blog scheduler, which enables automatic publishing of significant insights.
 
-```
+```mermaid
 graph TD
 subgraph "agent_self_reflection Module"
 A[main.py] --> B[reflection_prompts.py]
@@ -73,7 +73,7 @@ The core components of the self-improvement system are the reflection engine, th
 ## Architecture Overview
 The self-improvement system follows a modular, event-driven architecture. The primary workflow begins with a task outcome, which triggers a reflection. This reflection is stored and later analyzed by the self-modification process. The architecture is built around a central loop: **Action → Outcome → Reflection → Insight → Code Patch → Test → Apply**. A new enhancement integrates this system with an autonomous blog scheduler that automatically publishes significant insights. Key architectural decisions include the use of a sandboxed environment for testing patches, the integration of LangChain for complex reflection workflows, and the use of a tool-calling mechanism within the LLM to safely extract bug information and code changes.
 
-```
+```mermaid
 graph TD
 A[Task Execution] --> B[Outcome]
 B --> C{Generate Reflection?}
@@ -204,7 +204,7 @@ The `run_self_modification` function orchestrates a multi-step process:
 4.  **Test the Patch**: The proposed patch is applied to a temporary copy of the codebase, and the test suite is run in a sandboxed environment.
 5.  **Apply or Reject**: If all tests pass, the patch is applied to the main codebase, and a new reflection is logged to record the successful self-modification. If tests fail, the patch is rejected.
 
-```
+```mermaid
 flowchart TD
 Start([Start Self-Modification]) --> FindActionable["Find Actionable Reflections"]
 FindActionable --> CheckFound{"Found Any?"}
@@ -339,7 +339,7 @@ class AutonomousLearningBlogGenerator:
 ## Dependency Analysis
 The self-improvement system has a well-defined set of dependencies. Its primary external dependency is the `core/llm.py` module, which provides the interface to various LLM providers and critical utility functions like `is_lazy_llm_response`. It also depends on the `episodic_memory` module for context, although this is currently imported via a path manipulation in `main.py`. The module uses standard Python libraries for file I/O, JSON handling, and subprocess management. The optional use of LangChain is noted in the README, indicating a soft dependency for enhanced reflection workflows. A new dependency is the autonomous blog scheduler, which enables automatic publishing of insights.
 
-```
+```mermaid
 graph LR
 A[agent_self_reflection] --> B[core/llm.py]
 A --> C[episodic_memory]
