@@ -277,40 +277,41 @@ Once initialized, the Enhanced Snake Agent enters a continuous coordination loop
 #### Flowchart
 ```mermaid
 flowchart TD
-Start([Start Autonomous Operation]) --> InitCheck{"Initialized?"}
-InitCheck --> |No| Initialize[initialize()]
-InitCheck --> |Yes| SetRunning[Set running = true]
-SetRunning --> StartComponents[Start all components]
-StartComponents --> CoordinationLoop[Enter coordination_loop()]
-CoordinationLoop --> CheckHealth{"5-min interval?"}
-CheckHealth --> |Yes| PerformHealth[perform_health_check()]
-CheckHealth --> |No| CheckMetrics{"10-min interval?"}
-CheckMetrics --> |Yes| LogMetrics[log_performance_metrics()]
-CheckMetrics --> |No| SaveState[save_state()]
-PerformHealth --> Wait
-LogMetrics --> Wait
-SaveState --> Wait
-Wait[Wait 10 seconds] --> CoordinationLoop
-CoordinationLoop --> |Shutdown requested| Cleanup[Run _cleanup()]
-Cleanup --> StopComponents[Stop all components]
-StopComponents --> SaveFinalState[_save_state()]
-SaveFinalState --> StopLogger[Stop log_manager]
-StopLogger --> End([Operation stopped])
-style Start fill:#4ECDC4,stroke:#333
-style End fill:#4ECDC4,stroke:#333
-style InitCheck fill:#FFD700,stroke:#333
-style Initialize fill:#FF6B6B,stroke:#333
-style SetRunning fill:#4ECDC4,stroke:#333
-style StartComponents fill:#4ECDC4,stroke:#333
-style CoordinationLoop fill:#45B7D1,stroke:#333
-style PerformHealth fill:#96CEB4,stroke:#333
-style LogMetrics fill:#96CEB4,stroke:#333
-style SaveState fill:#96CEB4,stroke:#333
-style Wait fill:#DDA0DD,stroke:#333
-style Cleanup fill:#4ECDC4,stroke:#333
-style StopComponents fill:#4ECDC4,stroke:#333
-style SaveFinalState fill:#4ECDC4,stroke:#333
-style StopLogger fill:#4ECDC4,stroke:#333
+    Start([Start Autonomous Operation]) --> InitCheck{"Initialized?"}
+    InitCheck --> |No| Initialize[Initialize]
+    InitCheck --> |Yes| SetRunning[Set running = true]
+    SetRunning --> StartComponents[Start all components]
+    StartComponents --> CoordinationLoop[Enter coordination loop]
+    CoordinationLoop --> CheckHealth{"5-min interval?"}
+    CheckHealth --> |Yes| PerformHealth[Perform health check]
+    CheckHealth --> |No| CheckMetrics{"10-min interval?"}
+    CheckMetrics --> |Yes| LogMetrics[Log performance metrics]
+    CheckMetrics --> |No| SaveState[Save state]
+    PerformHealth --> Wait
+    LogMetrics --> Wait
+    SaveState --> Wait
+    Wait[Wait 10 seconds] --> CoordinationLoop
+    CoordinationLoop --> |Shutdown requested| Cleanup[Run cleanup]
+    Cleanup --> StopComponents[Stop all components]
+    StopComponents --> SaveFinalState[Save final state]
+    SaveFinalState --> StopLogger[Stop log manager]
+    StopLogger --> End([Operation stopped])
+
+    style Start fill:#4ECDC4,stroke:#333
+    style End fill:#4ECDC4,stroke:#333
+    style InitCheck fill:#FFD700,stroke:#333
+    style Initialize fill:#FF6B6B,stroke:#333
+    style SetRunning fill:#4ECDC4,stroke:#333
+    style StartComponents fill:#4ECDC4,stroke:#333
+    style CoordinationLoop fill:#45B7D1,stroke:#333
+    style PerformHealth fill:#96CEB4,stroke:#333
+    style LogMetrics fill:#96CEB4,stroke:#333
+    style SaveState fill:#96CEB4,stroke:#333
+    style Wait fill:#DDA0DD,stroke:#333
+    style Cleanup fill:#4ECDC4,stroke:#333
+    style StopComponents fill:#4ECDC4,stroke:#333
+    style SaveFinalState fill:#4ECDC4,stroke:#333
+    style StopLogger fill:#4ECDC4,stroke:#333
 ```
 
 **Diagram sources**
