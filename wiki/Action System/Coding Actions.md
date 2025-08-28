@@ -123,6 +123,7 @@ sequenceDiagram
     Subprocess->>FS: Execute script.py
     FS-->>Subprocess: stdout, stderr, return_code
     Subprocess-->>EPFA: stdout, stderr, return_code
+```
 
 **Referenced Files in This Document**   
 - [coding.py](file://core/actions/coding.py)
