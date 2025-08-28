@@ -385,56 +385,60 @@ The database schema is defined in `schema.sql` and managed through `setup_databa
 
 ```mermaid
 erDiagram
-memory_records ||--o{ audio_memories : "1:1"
-memory_records ||--o{ image_memories : "1:1"
-memory_records ||--o{ video_memories : "1:1"
-memory_records {
-uuid id PK
-string content_type
-text content_text
-jsonb content_metadata
-string file_path
-vector text_embedding
-vector image_embedding
-vector audio_embedding
-vector unified_embedding
-timestamp created_at
-timestamp last_accessed
-int access_count
-string memory_type
-float emotional_valence
-float confidence_score
-string[] tags
-}
-audio_memories {
-uuid memory_id PK FK
-text transcript
-string language_code
-jsonb confidence_scores
-float duration_seconds
-jsonb audio_features
-int sample_rate
-int channels
-}
-image_memories {
-uuid memory_id PK FK
-int width
-int height
-jsonb object_detections
-text scene_description
-string image_hash
-jsonb color_palette
-jsonb image_features
-}
-video_memories {
-uuid memory_id PK FK
-float duration_seconds
-float frame_rate
-int width
-int height
-jsonb video_features
-string thumbnail_path
-}
+    memory_records ||--o{ audio_memories : "1:1"
+    memory_records ||--o{ image_memories : "1:1"
+    memory_records ||--o{ video_memories : "1:1"
+
+    memory_records {
+        uuid id PK
+        string content_type
+        string content_text "text"
+        string content_metadata "jsonb"
+        string file_path
+        string text_embedding "vector"
+        string image_embedding "vector"
+        string audio_embedding "vector"
+        string unified_embedding "vector"
+        date created_at "timestamp"
+        date last_accessed "timestamp"
+        int access_count
+        string memory_type
+        float emotional_valence
+        float confidence_score
+        string tags "array"
+    }
+
+    audio_memories {
+        uuid memory_id PK
+        string transcript "text"
+        string language_code
+        string confidence_scores "jsonb"
+        float duration_seconds
+        string audio_features "jsonb"
+        int sample_rate
+        int channels
+    }
+
+    image_memories {
+        uuid memory_id PK
+        int width
+        int height
+        string object_detections "jsonb"
+        string scene_description "text"
+        string image_hash
+        string color_palette "jsonb"
+        string image_features "jsonb"
+    }
+
+    video_memories {
+        uuid memory_id PK
+        float duration_seconds
+        float frame_rate
+        int width
+        int height
+        string video_features "jsonb"
+        string thumbnail_path
+    }
 ```
 
 **Diagram sources**
