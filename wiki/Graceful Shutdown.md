@@ -36,7 +36,7 @@ The graceful shutdown functionality is primarily located in the `core` module of
 
 The system follows a modular architecture where components register themselves with the `ShutdownCoordinator`, which then orchestrates their orderly shutdown through a phased process.
 
-``mermaid
+```mermaid
 graph TD
 A[Application Start] --> B[Component Registration]
 B --> C[Normal Operation]
@@ -72,7 +72,7 @@ These components enable a structured approach to application termination, allowi
 ## Architecture Overview
 The graceful shutdown architecture follows a phased execution model where each phase performs specific cleanup and preparation tasks. The system is designed to be resilient, with timeout handling and forced shutdown fallbacks to prevent indefinite hangs during termination.
 
-``mermaid
+```mermaid
 classDiagram
 class ShutdownCoordinator {
 +agi_system : Any
@@ -131,7 +131,7 @@ ComponentRegistration --> Shutdownable : "implements"
 The `ShutdownCoordinator` class is the central orchestrator of the graceful shutdown process. It manages the execution of shutdown phases, tracks component registration, and handles error conditions during termination.
 
 #### Shutdown Phases Flowchart
-``mermaid
+```mermaid
 flowchart TD
 Start([Initiate Shutdown]) --> Phase1["Phase 1: Pre-shutdown Validation"]
 Phase1 --> Phase2["Phase 2: Signal Received"]
@@ -150,7 +150,7 @@ style Complete fill:#4CAF50,stroke:#388E3C
 - [shutdown_coordinator.py](file://c:\Users\ASUS\Documents\GitHub\RAVANA\core\shutdown_coordinator.py#L219-L250)
 
 #### Shutdown Execution Sequence
-``mermaid
+```mermaid
 sequenceDiagram
 participant Coordinator as ShutdownCoordinator
 participant Component as Component
@@ -178,7 +178,7 @@ Coordinator->>Logger : Log shutdown summary
 The graceful shutdown behavior is highly configurable through environment variables and default settings in the `Config` class. These settings control timeouts, persistence options, and various cleanup operations.
 
 #### Shutdown Configuration Parameters
-``mermaid
+```mermaid
 flowchart TD
 A[Shutdown Configuration] --> B["SHUTDOWN_TIMEOUT: 30s"]
 A --> C["FORCE_SHUTDOWN_AFTER: 60s"]
@@ -206,7 +206,7 @@ A --> P["SHUTDOWN_VALIDATION_ENABLED: True"]
 ## Dependency Analysis
 The graceful shutdown system integrates with various components throughout the RAVANA AGI framework. The dependency graph shows how different modules interact with the shutdown coordinator.
 
-``mermaid
+```mermaid
 graph TD
 ShutdownCoordinator --> AGISystem
 ShutdownCoordinator --> Config
@@ -248,7 +248,7 @@ The two-tier timeout system (graceful timeout and force shutdown timeout) ensure
 When issues occur during graceful shutdown, the following patterns and solutions can help diagnose and resolve problems:
 
 ### Common Issues and Solutions
-``mermaid
+```mermaid
 flowchart TD
 A[Shutdown Issues] --> B{"Timeout Exceeded?"}
 B --> |Yes| C["Check COMPONENT_SHUTDOWN_TIMEOUT setting"]
