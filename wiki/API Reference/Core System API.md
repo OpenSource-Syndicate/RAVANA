@@ -83,22 +83,23 @@ participant Decision as Decision Engine
 participant Action as Action Manager
 participant Memory as Memory Service
 participant Knowledge as Knowledge Service
+
 System->>System : Initialize()
 System->>Loop : run_autonomous_loop()
 Loop->>System : Check search results
 Loop->>System : Handle behavior modifiers
 Loop->>System : Handle curiosity
 alt With current plan
-Loop->>System : Continue plan execution
+    Loop->>System : Continue plan execution
 else With current task
-Loop->>Memory : Retrieve relevant memories
-Memory-->>System : Return memories
-Loop->>Decision : Make decision
-Decision-->>System : Return decision
+    Loop->>Memory : Retrieve relevant memories
+    Memory-->>System : Return memories
+    Loop->>Decision : Make decision
+    Decision-->>System : Return decision
 else Autonomous mode
-Loop->>System : Generate situation
-Loop->>Decision : Make decision
-Decision-->>System : Return decision
+    Loop->>System : Generate situation
+    Loop->>Decision : Make decision
+    Decision-->>System : Return decision
 end
 Loop->>Action : Execute action
 Action-->>System : Return action output
