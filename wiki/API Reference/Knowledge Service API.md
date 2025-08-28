@@ -191,10 +191,10 @@ The compression process follows these steps:
 ```mermaid
 flowchart LR
 A[Recent Summaries] --> B[Format as JSON]
-B --> C[Apply COMPRESSION_PROMPT]
-C --> D[Call LLM via call_llm()]
+B --> C["Apply COMPRESSION_PROMPT"]
+C --> D["Call LLM via call_llm()"]
 D --> E[Create Summary Entry]
-E --> F[Save to compressed_memory.json]
+E --> F["Save to compressed_memory.json"]
 F --> G[Return Summary]
 ```
 
