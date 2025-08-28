@@ -31,7 +31,7 @@ The AGISystem class serves as the central orchestrator of the RAVANA framework, 
 ## Project Structure
 The RAVANA project follows a modular architecture with clear separation of concerns. Core system functionality resides in the `core/` directory, while specialized cognitive capabilities are implemented as independent modules in the `modules/` directory. Services provide reusable business logic, and external integrations are managed through dedicated components. The structure supports both autonomous operation and task-specific execution modes. Recent updates have introduced a comprehensive Snake Agent subsystem with dedicated components for file monitoring, threading, process management, and logging, as well as a Conversational AI module with enhanced bot connectivity management, improved error handling, and connection status tracking.
 
-``mermaid
+```mermaid
 graph TD
 subgraph "Core System"
 A[AGISystem]
@@ -125,7 +125,7 @@ The AGISystem integrates several key components that enable its autonomous behav
 ## Architecture Overview
 The AGISystem follows a modular, event-driven architecture with a central control loop. It initializes all components during startup, then enters either an autonomous loop or task-specific execution mode. The system maintains shared state that is updated throughout each iteration. Background tasks handle data collection, event detection, knowledge compression, and memory consolidation. The main execution flow involves situation generation, memory retrieval, decision making, action execution, mood updating, and reflection. The enhanced architecture now includes the Snake Agent subsystem, which operates in parallel to monitor code changes, perform analysis, and drive self-improvement experiments, as well as the Conversational AI module that runs in a separate thread to handle user interactions across multiple platforms with improved connectivity management and error handling.
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant System as AGISystem
 participant State as SharedState
@@ -178,7 +178,7 @@ end
 The AGISystem class serves as the central orchestrator, initializing and coordinating all modules, services, and state management components. It manages the system's lifecycle through startup, execution, and shutdown phases. The class has been enhanced to integrate the Snake Agent subsystem, which provides advanced code analysis and self-improvement capabilities, and the Conversational AI module, which enables cross-platform communication through a dedicated communication bridge with improved bot connectivity management and error handling.
 
 #### Class Structure
-```
+```mermaid
 classDiagram
 class AGISystem {
 +engine DatabaseEngine
@@ -302,7 +302,7 @@ ConversationalAI --> ConversationalEmotionalIntelligence : "uses"
 The AGISystem operates through a sophisticated autonomous execution loop that integrates multiple cognitive processes. Each iteration follows a structured sequence of operations that enables autonomous decision-making and behavior. The loop now includes integration with the Snake Agent subsystem, which runs in parallel to monitor code changes and initiate self-improvement experiments, and the Conversational AI module, which runs in a separate thread to handle user interactions with enhanced connectivity management.
 
 #### Execution Flow
-```
+```mermaid
 flowchart TD
 Start([Start Iteration]) --> CheckResults["Check for Search Results"]
 CheckResults --> HandleModifiers["Handle Behavior Modifiers"]
@@ -341,7 +341,7 @@ Sleep --> Start
 The AGISystem uses a centralized state management approach through the SharedState class, which maintains all critical system variables and enables coordination between components.
 
 #### State Structure
-```
+```mermaid
 classDiagram
 class SharedState {
 +mood Dict[str, float]
@@ -391,7 +391,7 @@ AGISystem --> Personality : "reads traits"
 The AGISystem integrates emotional processing through the EmotionalIntelligence module, which modulates behavior based on mood states and action outcomes.
 
 #### Mood Processing Flow
-```
+```mermaid
 sequenceDiagram
 participant System as AGISystem
 participant EI as EmotionalIntelligence
@@ -428,7 +428,7 @@ System->>System : Apply behavior modifiers
 The AGISystem incorporates adaptive learning through the AdaptiveLearningEngine, which analyzes decision patterns and generates strategies for performance improvement.
 
 #### Learning Workflow
-```
+```mermaid
 flowchart TD
 Start([Start Learning Cycle]) --> AnalyzePatterns["Analyze Decision Patterns"]
 AnalyzePatterns --> IdentifyFactors["Identify Success Factors"]
@@ -463,7 +463,7 @@ The AGISystem has been enhanced with the Snake Agent subsystem, which provides a
 ### Snake Agent Architecture
 The Snake Agent subsystem consists of several coordinated components that work together to monitor, analyze, and improve the system:
 
-```
+```mermaid
 classDiagram
 class SnakeAgent {
 +config SnakeAgentConfiguration
@@ -549,7 +549,7 @@ ContinuousFileMonitor --> SnakeLogManager : "logs to"
 The Snake Agent follows a structured initialization and lifecycle management process that integrates with the main AGISystem. The agent is initialized during system startup and participates in the graceful shutdown sequence.
 
 #### Initialization Flow
-```
+```mermaid
 sequenceDiagram
 participant System as AGISystem
 participant SA as SnakeAgent
@@ -587,7 +587,7 @@ SA-->>System : Ready for operation
 The Snake Agent components are tightly integrated with the main AGISystem through well-defined interfaces and callback mechanisms. This integration enables seamless coordination between the autonomous agent and its self-improvement subsystem.
 
 #### Integration Points
-```
+```mermaid
 flowchart TD
 SA[SnakeAgent] --> |File Change Events| AGI[AGISystem]
 AGI --> |Decision Context| SA
@@ -627,7 +627,7 @@ The AGISystem has been enhanced with the Conversational AI module, which provide
 ### Conversational AI Architecture
 The Conversational AI module consists of several coordinated components that work together to handle user interactions:
 
-```
+```mermaid
 classDiagram
 class ConversationalAI {
 +config Dict[str, Any]
@@ -728,7 +728,7 @@ RAVANACommunicator --> ConversationalAI : "communicates with"
 The Conversational AI module follows a structured initialization and lifecycle management process that integrates with the main AGISystem. The module is initialized during system startup and runs in a separate thread to handle user interactions while the main system continues its autonomous operations. The initialization process now includes enhanced error handling and connection status verification.
 
 #### Initialization Flow
-```
+```mermaid
 sequenceDiagram
 participant System as AGISystem
 participant CAI as ConversationalAI
@@ -763,7 +763,7 @@ CAI-->>System : Ready for user interactions
 The Conversational AI components are tightly integrated with the main AGISystem through well-defined interfaces and callback mechanisms. This integration enables seamless coordination between user interactions and the main system's cognitive processes. The integration now includes enhanced status monitoring and connection verification.
 
 #### Integration Points
-```
+```mermaid
 flowchart TD
 CAI[ConversationalAI] --> |User Messages| AGI[AGISystem]
 AGI --> |System State| CAI
@@ -805,7 +805,7 @@ end
 The Conversational AI module implements platform-specific bots for Discord and Telegram with enhanced connectivity management and error handling. Each bot maintains connection status and handles graceful shutdown.
 
 #### Bot Implementation Details
-```
+```mermaid
 classDiagram
 class DiscordBot {
 +token str
@@ -865,7 +865,7 @@ ConversationalAI --> TelegramBot : "delegates messages"
 ## Dependency Analysis
 The AGISystem has a complex dependency graph that connects cognitive modules, services, and external systems. The core system depends on all modules and services, while modules maintain loose coupling through the shared state and event-based communication. The recent addition of the Snake Agent subsystem has introduced new dependencies for code analysis, process management, and system monitoring, while the Conversational AI module has added dependencies for cross-platform communication and user profile management with enhanced connectivity features.
 
-```
+```mermaid
 graph TD
 AGISystem --> SharedState
 AGISystem --> EmotionalIntelligence
@@ -930,7 +930,7 @@ The AGISystem is designed for long-running operation with several performance op
 ### Snake Agent Performance Optimization
 The Snake Agent subsystem employs several strategies to optimize performance while maintaining system stability:
 
-```
+```mermaid
 flowchart TD
 subgraph "Threading Management"
 A[Thread Pool] --> B[Max Workers]
@@ -975,7 +975,7 @@ L --> Q
 ### Conversational AI Performance Optimization
 The Conversational AI module employs several strategies to optimize performance while maintaining responsiveness to user interactions:
 
-```
+```mermaid
 flowchart TD
 subgraph "Thread Management"
 A[Background Thread] --> B[Daemon Thread]
