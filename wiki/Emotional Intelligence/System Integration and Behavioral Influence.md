@@ -29,7 +29,7 @@ This document provides a comprehensive analysis of how emotional intelligence is
 ## Project Structure
 The RAVANA project is organized into several key directories that reflect its modular architecture. The core functionality resides in the `core` directory, which contains essential system components such as state management, configuration, and action execution. The `modules` directory houses specialized components including emotional intelligence, decision engine, adaptive learning, and memory systems. External services are abstracted in the `services` directory, while test cases are maintained in the `tests` directory. Configuration files and documentation are located at the root level, providing setup instructions and architectural overviews.
 
-``mermaid
+```mermaid
 graph TD
 A[RAVANA Project Root] --> B[core]
 A --> C[modules]
@@ -90,7 +90,7 @@ The emotional intelligence system integrates with the broader RAVANA architectur
 
 The Conversational AI module extends this architecture by implementing bidirectional emotional context synchronization with the core system. When users interact with the AI through platforms like Discord or Telegram, the emotional context from these interactions is processed and synchronized with the core RAVANA system, allowing emotional states to influence broader system behavior.
 
-``mermaid
+```mermaid
 graph LR
 A[Action Output] --> B[MoodProcessor]
 C[Action Result] --> B
@@ -126,7 +126,7 @@ Q --> N
 ### EmotionalIntelligence Class Analysis
 The `EmotionalIntelligence` class serves as the central manager for emotional states within the RAVANA system. It maintains a mood vector that represents the intensity of various emotional dimensions, including both positive moods (Confident, Curious, Reflective, Excited, Content) and negative moods (Frustrated, Stuck, Low Energy, Bored). The class provides a comprehensive API for interacting with emotional states, including methods for updating moods, retrieving the dominant mood, and generating behavior modifiers.
 
-``mermaid
+```mermaid
 classDiagram
 class EmotionalIntelligence {
 +BASIC_MOODS : List[str]
@@ -169,7 +169,7 @@ EmotionalIntelligence --> MoodProcessor : "contains"
 ### MoodProcessor Class Analysis
 The `MoodProcessor` class is responsible for interpreting system events and translating them into emotional responses. It processes both structured action results and natural language action outputs to determine appropriate mood updates. For structured action results, it applies predefined mood updates based on triggers defined in the configuration. For natural language outputs, it uses an LLM to analyze the text and classify it according to predefined triggers, providing a more nuanced understanding of emotional impact.
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant ActionOutput as "Action Output"
 participant MoodProcessor as "MoodProcessor"
@@ -198,7 +198,7 @@ The flow of emotional state data through the RAVANA system follows a well-define
 
 The integration begins in the core system loop, where the `_update_mood_and_reflect` method processes the action output using the `EmotionalIntelligence` component. This method first captures the current mood state, then processes the action output to update moods, and finally retrieves the updated mood vector to store in the shared system state. The emotional intelligence system uses both direct mood updates from action results and LLM-based analysis of natural language outputs to ensure comprehensive emotional tracking.
 
-``mermaid
+```mermaid
 flowchart TD
 A[Execute Action] --> B[Get Action Output]
 B --> C{Output Type}
@@ -232,7 +232,7 @@ For example, when the dominant mood is "Curious", the system may receive behavio
 
 The emotional intelligence system also influences LLM prompts by incorporating the current emotional state and persona into prompt construction. This ensures that the LLM's responses are contextually appropriate to the system's current emotional disposition. For instance, when processing natural language action outputs, the mood processor includes the dominant mood and persona in the classification prompt, allowing for more nuanced emotional analysis.
 
-``mermaid
+```mermaid
 flowchart LR
 A[Dominant Mood] --> B[influence_behavior()]
 B --> C[Behavior Modifiers]
@@ -266,7 +266,7 @@ When a user sends a message to the Conversational AI through platforms like Disc
 
 The synchronization process occurs through the `_synchronize_emotional_context` method in the `ConversationalAI` class, which packages the emotional context data and sends it to the core system via the `send_emotional_context_to_ravana` method of the `RAVANACommunicator`. This method uses the shared state channel for real-time communication, ensuring low-latency updates to the system's emotional state.
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant User as "User"
 participant ConversationalAI as "Conversational AI"
@@ -299,7 +299,7 @@ A key feedback mechanism is the self-reflection trigger, which activates when th
 
 Another important feedback loop involves the interaction between emotional state and decision confidence. The system's confidence in its decisions is influenced by its current emotional state, with positive moods generally increasing confidence and negative moods decreasing it. This confidence level then affects the system's willingness to pursue ambitious goals or take risks, creating a feedback loop between emotional state and goal prioritization.
 
-``mermaid
+```mermaid
 graph TD
 A[System Action] --> B[Mood Update]
 B --> C[Mood Vector]
