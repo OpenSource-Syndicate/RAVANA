@@ -53,6 +53,7 @@ graph LR
     B --> C[YouTube Transcript API]
     B --> D[Whisper Audio Transcription]
     C --> E
+```
 
 **Referenced Files in This Document**   
 - [youtube_transcription.py](file://modules/information_processing/youtube_transcription/youtube_transcription.py)
