@@ -152,30 +152,37 @@ The service uses synchronous operations wrapped in thread executors for async co
 ```mermaid
 classDiagram
 class MemoryService {
-+get_relevant_memories(query_text)
-+save_memories(memories)
-+extract_memories(user_input, ai_output)
-+consolidate_memories()
+    +get_relevant_memories(query_text)
+    +save_memories(memories)
+    +extract_memories(user_input, ai_output)
+    +consolidate_memories()
 }
 class DataService {
-+engine
-+feed_urls
-+fetch_and_save_articles()
-+detect_and_save_events()
-+save_action_log(action_name, params, status, result)
-+save_mood_log(mood_vector)
-+save_situation_log(situation)
-+save_decision_log(situation_id, raw_response)
-+save_experiment_log(hypothesis, results)
+    +engine
+    +feed_urls
+    +fetch_and_save_articles()
+    +detect_and_save_events()
+    +save_action_log(action_name, params, status, result)
+    +save_mood_log(mood_vector)
+    +save_situation_log(situation)
+    +save_decision_log(situation_id, raw_response)
+    +save_experiment_log(hypothesis, results)
 }
 class AGISystem {
-+memory_service
-+data_service
+    +memory_service
+    +data_service
 }
+class EpisodicMemoryModule {
+    <<external>>
+}
+class DatabaseModels {
+    <<external>>
+}
+
 AGISystem --> MemoryService : "uses"
 AGISystem --> DataService : "uses"
-MemoryService --> "modules.episodic_memory.memory" : "delegates"
-DataService --> "database.models" : "persists"
+MemoryService --> EpisodicMemoryModule : "delegates to"
+DataService --> DatabaseModels : "persists to"
 ```
 
 **Diagram sources**
