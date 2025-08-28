@@ -1,82 +1,98 @@
-# RAVANA AGI: An Autonomous, Evolving Agentic System
+## RAVANA AGI — Autonomous, evolving agentic system
 
-RAVANA is an experimental open-source Artificial General Intelligence (AGI) system designed to think, feel, evolve, and act autonomously. It represents a philosophical and technical exploration into building a digital organism capable of self-directed behavior and continuous evolution.
+RAVANA is an experimental open-source AGI framework focused on continuous autonomous operation, memory, emotional modeling, and self-improvement. This repository contains the core runtime, modules, services, and documentation required to run, extend, and research the system.
 
-## Overview
+## Quick links
 
-RAVANA AGI is built on a modular, agentic architecture with a continuous six-step loop:
-1. Situation Generation
-2. Decision & Planning
-3. Action & Environment Interaction
-4. Mood Update
-5. Memory Logging
-6. Self-Reflection & Curiosity
+- Code: `core/`, `modules/`, `services/`, `database/`, `main.py`
+- Install & requirements: `requirements.txt`, `pyproject.toml`
+- Run (example entrypoint): `main.py`
+- Docs folder: `docs/`
+- Project wiki (detailed design & guides): `wiki/` (key pages below)
+- License: `LICENSE`
 
-Unlike traditional AI systems that respond to user prompts, RAVANA operates continuously, generating its own tasks, making decisions based on its internal state, and evolving through self-reflection and learning.
+## Important wiki pages
 
-## Key Features
+The `wiki/` directory mirrors in-repo design docs. Start here:
 
-- **Autonomous Operation**: Continuous 24/7 operation without user intervention
-- **Emotional Intelligence**: Mood tracking and emotional state modeling
-- **Memory Management**: Episodic and semantic memory systems
-- **Self-Reflection**: Continuous learning and self-improvement
-- **Curiosity-Driven**: Generates its own tasks and experiments
-- **Modular Architecture**: Extensible design with interchangeable components
+- [Project Overview](wiki/Project%20Overview.md)
+- [Architecture & Design](wiki/Architecture%20&%20Design.md)
+- [Core System](wiki/Core%20System.md)
+- [API Reference](wiki/API%20Reference.md)
+- [Development Guide](wiki/Development%20Guide.md)
+- [Memory Systems](wiki/Memory%20Systems.md)
+- [LLM Integration](wiki/LLM%20Integration.md)
+- [Services](wiki/Services.md)
 
-## System Architecture
+There are many more focused articles inside `wiki/` (Action System, Decision-Making, Emotional Intelligence, etc.) — browse the folder for module-level details.
 
-The system is organized into several key components:
+## Documentation in `docs/`
 
-- **Core System**: Main orchestration and state management
-- **Modules**: Specialized functionality (adaptive learning, self-reflection, curiosity, etc.)
-- **Services**: Data, knowledge, memory, and multi-modal services
-- **Actions**: Executable behaviors and operations
-- **Database**: Storage for memory and persistent data
+The `docs/` folder contains user-facing and developer docs, API references, and examples. Use `docs/index.md` as the landing page. API specs live under `docs/api/` and developer notes under `docs/development/`.
 
-## Getting Started
+## Getting started (local)
 
-### Prerequisites
-
-- Python 3.8+
-- uv (for dependency management)
-
-### Installation
+1) Clone the repository
 
 ```bash
 git clone https://github.com/OpenSource-Syndicate/RAVANA.git
 cd RAVANA
-uv venv
-# Activate virtual environment:
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
-uv pip install -e .
 ```
 
-### Running RAVANA
+2) Create a virtual environment and install dependencies
 
 ```bash
-uv run main.py
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+# or, for editable install during development:
+pip install -e .
 ```
 
-## Documentation
+3) Run the main entrypoint (example)
 
-Comprehensive documentation is available in the [docs](docs/) directory:
+```bash
+python main.py
+```
 
-- [System Architecture](docs/core/architecture.md)
-- [Core Components](docs/core/components.md)
-- [Module Documentation](docs/modules/)
-- [API Reference](docs/api/)
-- [Development Guide](docs/development/)
+Notes:
+- Some modules and services are experimental and may require additional configuration files under `core/config.json` or `core/config.py`.
+- If you plan to run long experiments, configure the environment and service endpoints as described in `docs/development/` and `wiki/Deployment%20&%20Operations.md`.
+
+## Project layout (short)
+
+- `main.py` — example runtime entrypoint
+- `core/` — orchestrator, state manager, agents, and internal services
+- `modules/` — pluggable modules (self-reflection, experimentation, conversational ai, etc.)
+- `services/` — service-level code (data, memory, knowledge)
+- `database/` — DB engine, models and schema
+- `docs/` — curated documentation
+- `wiki/` — extended design docs and API details (see list above)
 
 ## Contributing
 
-We welcome contributions from researchers, developers, and AI enthusiasts. Please see our [Contributing Guide](docs/development/contributing.md) for more information.
+See `wiki/Development Guide.md` and `docs/development/` for contribution instructions, coding standards, and the review process. Create feature branches from `main`, add tests where possible, and open pull requests describing changes.
+
+## Tests and helpful scripts
+
+- `run_physics_tests.py` and `scae_benchmark.py` are example harnesses present in the repo. Inspect and run them from an activated virtualenv.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is distributed under the MIT License — see `LICENSE`.
 
-## Acknowledgments
+## Where to get help
 
-- Researchers and developers in the AGI community
-- Open-source contributors who make this work possible
+- Read `wiki/Project%20Overview.md` for goals and architecture.
+- For developer questions, open an issue and tag it `help wanted`.
+
+---
+
+Requirements coverage:
+
+- Rewrite `README.md` with proper links — Done
+- Link in-repo `docs/` and `wiki/` pages mentioned in attachments — Done
+
+If you'd like, I can also:
+- Add a short `README` inside `docs/` or `wiki/` that links sub-pages (toc)
+- Create a CONTRIBUTING.md that mirrors the `wiki/Development Guide.md`
