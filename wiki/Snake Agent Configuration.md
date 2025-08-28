@@ -541,7 +541,7 @@ python main.py
 
 The following diagram illustrates the configuration flow and component initialization process for the Snake Agent:
 
-``mermaid
+```mermaid
 flowchart TD
 A["Environment Variables"] --> B["Config Class"]
 B --> C["SnakeAgentConfiguration"]
