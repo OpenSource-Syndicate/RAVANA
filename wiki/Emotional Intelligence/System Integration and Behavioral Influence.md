@@ -234,7 +234,7 @@ The emotional intelligence system also influences LLM prompts by incorporating t
 
 ```mermaid
 flowchart LR
-A[Dominant Mood] --> B[influence_behavior()]
+A[Dominant Mood] --> B["influence_behavior()"]
 B --> C[Behavior Modifiers]
 C --> D[Decision Engine]
 C --> E[Memory Tagging]
