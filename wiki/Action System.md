@@ -30,7 +30,7 @@ The Action System is a core component of the Ravana AGI framework, responsible f
 
 The `Action` class serves as the abstract base class for all executable actions within the system. It defines a standardized interface that ensures consistency across different types of actions.
 
-```
+```mermaid
 classDiagram
 class Action {
 <<abstract>>
