@@ -32,7 +32,7 @@ The SharedState class serves as the central repository for dynamic runtime data 
 ## Project Structure
 The project follows a modular architecture with clear separation of concerns. The core functionality resides in the `core` directory, while specialized capabilities are organized into distinct modules. The SharedState class is located in the core package, reflecting its fundamental role in the system's operation.
 
-``mermaid
+```mermaid
 graph TD
 subgraph "Core System"
 State[state.py<br>SharedState]
@@ -87,7 +87,7 @@ The core components of the state management system include the SharedState class
 ## Architecture Overview
 The architecture centers around the AGISystem class, which maintains a single instance of SharedState accessible to all modules. State changes propagate through a well-defined sequence of operations: situation generation, memory retrieval, decision making, action execution, and mood updating. This loop ensures consistent state evolution while allowing for autonomous operation. The ShutdownCoordinator manages the graceful shutdown process, including state persistence, while the SnakeAgent operates as a background process with its own state that is integrated into the system's persistence mechanism.
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant AGISystem as "AGISystem"
 participant State as "SharedState"
@@ -126,7 +126,7 @@ Shutdown-->>AGISystem : Shutdown complete
 ### SharedState Class Analysis
 The SharedState class is a simple yet powerful data structure designed to hold the dynamic state of the AGI system. It uses Python's built-in types for maximum compatibility and ease of serialization.
 
-``mermaid
+```mermaid
 classDiagram
 class SharedState {
 +Dict[str, float] mood
@@ -236,7 +236,7 @@ State transitions occur through a well-defined sequence in the AGISystem's run_i
 
 The propagation of state changes is primarily push-based, with the AGISystem actively pushing updates to the shared state. However, some modules like CuriosityTrigger can also push updates directly when they generate new information.
 
-``mermaid
+```mermaid
 flowchart TD
 Start([Start Iteration]) --> ExternalUpdates["Update from external sources"]
 ExternalUpdates --> BehaviorHandling["Handle behavior modifiers"]
