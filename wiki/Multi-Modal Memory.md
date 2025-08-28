@@ -226,100 +226,113 @@ The data model for the multi-modal memory system is defined in `models.py` using
 ```mermaid
 classDiagram
 class MemoryRecord {
-id : Optional[UUID]
-content_type : ContentType
-content_text : Optional[str]
-content_metadata : Dict[str, Any]
-file_path : Optional[str]
-text_embedding : Optional[List[float]]
-image_embedding : Optional[List[float]]
-audio_embedding : Optional[List[float]]
-unified_embedding : Optional[List[float]]
-created_at : Optional[datetime]
-last_accessed : Optional[datetime]
-access_count : int
-memory_type : MemoryType
-emotional_valence : Optional[float]
-confidence_score : float
-tags : List[str]
-audio_metadata : Optional[AudioMetadata]
-image_metadata : Optional[ImageMetadata]
-video_metadata : Optional[VideoMetadata]
+  id : Optional[UUID]
+  content_type : ContentType
+  content_text : Optional[str]
+  content_metadata : Dict[str, Any]
+  file_path : Optional[str]
+  text_embedding : Optional[List[float]]
+  image_embedding : Optional[List[float]]
+  audio_embedding : Optional[List[float]]
+  unified_embedding : Optional[List[float]]
+  created_at : Optional[datetime]
+  last_accessed : Optional[datetime]
+  access_count : int
+  memory_type : MemoryType
+  emotional_valence : Optional[float]
+  confidence_score : float
+  tags : List[str]
+  audio_metadata : Optional[AudioMetadata]
+  image_metadata : Optional[ImageMetadata]
+  video_metadata : Optional[VideoMetadata]
 }
+
 class AudioMetadata {
-transcript : Optional[str]
-language_code : Optional[str]
-confidence_scores : Dict[str, float]
-duration_seconds : Optional[float]
-audio_features : Dict[str, Any]
-sample_rate : Optional[int]
-channels : Optional[int]
+  transcript : Optional[str]
+  language_code : Optional[str]
+  confidence_scores : Dict[str, float]
+  duration_seconds : Optional[float]
+  audio_features : Dict[str, Any]
+  sample_rate : Optional[int]
+  channels : Optional[int]
 }
+
 class ImageMetadata {
-width : Optional[int]
-height : Optional[int]
-object_detections : Dict[str, Any]
-scene_description : Optional[str]
-image_hash : Optional[str]
-color_palette : Dict[str, Any]
-image_features : Dict[str, Any]
+  width : Optional[int]
+  height : Optional[int]
+  object_detections : Dict[str, Any]
+  scene_description : Optional[str]
+  image_hash : Optional[str]
+  color_palette : Dict[str, Any]
+  image_features : Dict[str, Any]
 }
+
 class VideoMetadata {
-duration_seconds : Optional[float]
-frame_rate : Optional[float]
-width : Optional[int]
-height : Optional[int]
-video_features : Dict[str, Any]
-thumbnail_path : Optional[str]
+  duration_seconds : Optional[float]
+  frame_rate : Optional[float]
+  width : Optional[int]
+  height : Optional[int]
+  video_features : Dict[str, Any]
+  thumbnail_path : Optional[str]
 }
+
 class SearchRequest {
-query : str
-content_types : Optional[List[ContentType]]
-memory_types : Optional[List[MemoryType]]
-search_mode : SearchMode
-limit : int
-similarity_threshold : float
-include_metadata : bool
-tags : Optional[List[str]]
-query_content_type : Optional[ContentType]
-target_content_types : Optional[List[ContentType]]
-created_after : Optional[datetime]
-created_before : Optional[datetime]
+  query : str
+  content_types : Optional[List[ContentType]]
+  memory_types : Optional[List[MemoryType]]
+  search_mode : SearchMode
+  limit : int
+  similarity_threshold : float
+  include_metadata : bool
+  tags : Optional[List[str]]
+  query_content_type : Optional[ContentType]
+  target_content_types : Optional[List[ContentType]]
+  created_after : Optional[datetime]
+  created_before : Optional[datetime]
 }
+
 class SearchResult {
-memory_record : MemoryRecord
-similarity_score : float
-rank : int
-search_metadata : Dict[str, Any]
+  memory_record : MemoryRecord
+  similarity_score : float
+  rank : int
+  search_metadata : Dict[str, Any]
 }
+
 class SearchResponse {
-results : List[SearchResult]
-total_found : int
-search_time_ms : int
-search_mode : SearchMode
-query_metadata : Dict[str, Any]
+  results : List[SearchResult]
+  total_found : int
+  search_time_ms : int
+  search_mode : SearchMode
+  query_metadata : Dict[str, Any]
 }
-enum ContentType {
-TEXT
-AUDIO
-IMAGE
-VIDEO
+
+class ContentType {
+  <<enumeration>>
+  TEXT
+  AUDIO
+  IMAGE
+  VIDEO
 }
-enum MemoryType {
-EPISODIC
-SEMANTIC
-CONSOLIDATED
-WORKING
+
+class MemoryType {
+  <<enumeration>>
+  EPISODIC
+  SEMANTIC
+  CONSOLIDATED
+  WORKING
 }
-enum SearchMode {
-VECTOR
-TEXT
-HYBRID
-CROSS_MODAL
+
+class SearchMode {
+  <<enumeration>>
+  VECTOR
+  TEXT
+  HYBRID
+  CROSS_MODAL
 }
-MemoryRecord --> AudioMetadata : "has"
-MemoryRecord --> ImageMetadata : "has"
-MemoryRecord --> VideoMetadata : "has"
+
+MemoryRecord --> AudioMetadata : has
+MemoryRecord --> ImageMetadata : has
+MemoryRecord --> VideoMetadata : has
 ```
 
 **Diagram sources**
