@@ -208,20 +208,21 @@ The graceful shutdown system integrates with various components throughout the R
 
 ```mermaid
 graph TD
-ShutdownCoordinator --> AGISystem
-ShutdownCoordinator --> Config
-ShutdownCoordinator --> Logger
-ShutdownCoordinator --> MemoryService
-ShutdownCoordinator --> ActionManager
-AGISystem --> BackgroundTasks
-AGISystem --> EmotionalIntelligence
-AGISystem --> SnakeAgent
-MemoryService --> ChromaDB
-ActionManager --> Cache
-ShutdownCoordinator --> TempFiles
-AGISystem --> ShutdownCoordinator : "registers components"
-ShutdownCoordinator --> StatePersistence : "handles state saving"
-StatePersistence --> BackupSystem : "creates backups"
+    ShutdownCoordinator --> AGISystem
+    ShutdownCoordinator --> Config
+    ShutdownCoordinator --> Logger
+    ShutdownCoordinator --> MemoryService
+    ShutdownCoordinator --> ActionManager
+    AGISystem --> BackgroundTasks
+    AGISystem --> EmotionalIntelligence
+    AGISystem --> SnakeAgent
+    MemoryService --> ChromaDB
+    ActionManager --> Cache
+    ShutdownCoordinator --> TempFiles
+    AGISystem -->|registers components| ShutdownCoordinator
+    ShutdownCoordinator -->|handles state saving| StatePersistence
+    StatePersistence -->|creates backups| BackupSystem
+
 ```
 
 **Diagram sources**
