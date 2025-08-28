@@ -27,7 +27,7 @@ The Action Registry is a central component of the Ravana AGI system responsible 
 
 The ActionRegistry serves as a centralized repository for all actions that the AGI can perform. It enables the system to dynamically discover and register action classes, making it easy to extend the AGI's capabilities without modifying core system components.
 
-``mermaid
+```mermaid
 classDiagram
 class ActionRegistry {
 +actions : Dict[str, Action]
@@ -78,7 +78,7 @@ This dictionary serves as the core registry, where:
 
 The mapping structure supports O(1) average-case time complexity for both registration and retrieval operations, making it highly efficient for the AGI system's needs.
 
-``mermaid
+```mermaid
 flowchart TD
 Start([Action Registration]) --> CheckName{"Action name exists?"}
 CheckName --> |Yes| LogWarning["Log warning: Action will be overwritten"]
@@ -139,7 +139,7 @@ except Exception as e:
 
 This try-except block ensures that failures in instantiating individual actions do not prevent the registration of other valid actions, maintaining system resilience.
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant Client as "Action Client"
 participant Registry as "ActionRegistry"
@@ -221,7 +221,7 @@ class ActionManager:
 
 During initialization, the ActionManager creates an ActionRegistry instance, which automatically registers several built-in actions in its constructor, and then the system can call `discover_actions()` to find additional actions.
 
-``mermaid
+```mermaid
 flowchart TD
 Start([System Startup]) --> CreateRegistry["Create ActionRegistry instance"]
 CreateRegistry --> RegisterBuiltIn["Register built-in actions in constructor"]
@@ -297,7 +297,7 @@ class EnhancedActionManager(ActionManager):
 
 This demonstrates how the ActionRegistry can be extended with specialized actions while maintaining the same interface.
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant DecisionEngine as "Decision Engine"
 participant ActionManager as "ActionManager"
@@ -396,7 +396,7 @@ class HelloWorldAction(Action):
 
 Once created, the action will be automatically discovered and registered when the `discover_actions()` method is called, as it scans all modules in the `core.actions` package for classes that inherit from the Action base class.
 
-``mermaid
+```mermaid
 flowchart TD
 Start([Create Custom Action]) --> CreateFile["Create Python file in core/actions/"]
 CreateFile --> DefineClass["Define class inheriting from Action"]
@@ -473,7 +473,7 @@ if action.name in self.actions:
 | Module import failure | Action not discovered, import error in logs | Verify module path and dependencies |
 | Collaborative task action failure | Error in conversational AI integration | Verify system references and user ID parameters |
 
-``mermaid
+```mermaid
 flowchart TD
 Start([Troubleshooting]) --> CheckLogs["Check system logs for error messages"]
 CheckLogs --> IdentifyIssue["Identify the specific issue"]
