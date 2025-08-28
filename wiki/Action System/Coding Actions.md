@@ -83,20 +83,19 @@ The `WritePythonCodeAction` is responsible for generating Python code based on a
 
 ```mermaid
 sequenceDiagram
-participant User
-participant DM as Decision Engine
-participant AM as ActionManager
-participant WPCA as WritePythonCodeAction
-participant LLM
-participant FS as File System
-User->>DM : Request to test a hypothesis
-DM->>LLM : Generate decision with action
-LLM-->>DM : JSON with action=write_python_code
-DM->>AM : Execute decision
-AM->>WPCA : execute(file_path, hypothesis, test_plan)
-WPCA->>LLM : Send CODE_GENERATION_PROMPT
-LLM-->>WPCA : Response with code in
-```python block
+    participant User
+    participant DM as Decision Engine
+    participant AM as ActionManager
+    participant WPCA as WritePythonCodeAction
+    participant LLM
+    participant FS as File System
+    User->>DM : Request to test a hypothesis
+    DM->>LLM : Generate decision with action
+    LLM-->>DM : JSON with action=write_python_code
+    DM->>AM : Execute decision
+    AM->>WPCA : execute(file_path, hypothesis, test_plan)
+    WPCA->>LLM : Send CODE_GENERATION_PROMPT
+    LLM-->>WPCA : Response with Python code
     WPCA->>WPCA: Extract code using regex
     WPCA->>FS: Write code to file_path
     WPCA-->>AM: Return success and code
