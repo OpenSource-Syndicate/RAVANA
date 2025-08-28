@@ -44,7 +44,7 @@ The trigger mechanism evaluates multiple signals:
 
 When a trigger condition is met, the system generates a curiosity event that initiates a learning cycle. The trigger uses probabilistic assessment to avoid over-curiosity, incorporating randomness to prevent predictable behavior patterns.
 
-``mermaid
+```mermaid
 flowchart TD
 A["Monitor Internal State"] --> B["Detect Knowledge Gaps"]
 A --> C["Identify Novel Stimuli"]
@@ -80,7 +80,7 @@ The system can generate various types of situations:
 - **Ethical dilemmas**: Situations that test value alignment and decision-making
 - **Creative tasks**: Open-ended challenges that encourage innovative thinking
 
-``mermaid
+```mermaid
 flowchart TD
 A["Analyze Current Knowledge State"] --> B["Identify Learning Opportunities"]
 B --> C["Generate Hypothetical Scenarios"]
@@ -112,7 +112,7 @@ Key implementation details:
 - The system tracks word frequency over configurable time windows (default: 24 hours)
 - Results are presented as ranked lists of the most mentioned terms
 
-``mermaid
+```mermaid
 classDiagram
 class TrendAnalysisEngine {
 +DB_FILE : str
@@ -153,7 +153,7 @@ The scoring algorithm considers:
 
 Scores are normalized to a 0-1 scale, with higher values indicating greater priority. The system uses these scores to rank learning opportunities and determine which should be pursued immediately versus stored for later consideration.
 
-``mermaid
+```mermaid
 flowchart TD
 A["Identify Learning Opportunity"] --> B["Assess Novelty"]
 A --> C["Evaluate Relevance"]
@@ -186,7 +186,7 @@ The decision engine processes curiosity events through the following workflow:
 
 The system uses a probabilistic approach to avoid over-committing to curiosity-driven tasks, with a 10% chance of initiating experiments when no active experiment is running. This prevents the AGI from becoming distracted by endless exploration.
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant CT as CuriosityTrigger
 participant SG as SituationGenerator
