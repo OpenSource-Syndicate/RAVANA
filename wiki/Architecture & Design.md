@@ -48,8 +48,7 @@ The RAVANA project follows a layered, modular structure that separates concerns 
 
 This organization supports the system's philosophy of composability and emergent intelligence, allowing modules to evolve independently while being coordinated by the central AGISystem orchestrator.
 
-```
-mermaid
+```mermaid
 graph TD
 subgraph "Core Layer"
 A[AGISystem]
@@ -154,8 +153,7 @@ The system operates as a self-contained agent that interacts with the external w
 
 Components interact through well-defined interfaces with the AGISystem acting as the central coordinator. The system follows a dependency injection pattern where the AGISystem injects itself and necessary services into modules during initialization.
 
-```
-mermaid
+```mermaid
 graph LR
 A[AGISystem] --> B[SituationGenerator]
 A --> C[DecisionEngine]
@@ -222,8 +220,7 @@ The constructor accepts a database engine and configures all dependent component
 
 The core of the AGISystem is the `run_autonomous_loop` method, which executes continuously in a loop. Each iteration follows a structured cognitive process:
 
-```
-mermaid
+```mermaid
 flowchart TD
 A[Check for Search Results] --> B[Handle Behavior Modifiers]
 B --> C[Handle Curiosity]
@@ -304,8 +301,7 @@ The ActionRegistry in `core/actions/registry.py` implements the Registry pattern
 
 The registry enables dynamic action discovery and extensibility, allowing new actions to be added without modifying core orchestration logic.
 
-```
-mermaid
+```mermaid
 classDiagram
 class ActionRegistry {
 +actions : Dict[str, Action]
@@ -489,8 +485,7 @@ The Enhanced Snake Agent is a new component that provides continuous code improv
 
 The Enhanced Snake Agent uses a multi-layered architecture with distinct threading and multiprocessing components:
 
-```
-mermaid
+```mermaid
 graph TD
 subgraph "Enhanced Snake Agent"
 subgraph "Threading Layer"
@@ -581,8 +576,7 @@ The Enhanced Snake Agent consists of several key components that work together t
 
 The Enhanced Snake Agent follows a coordinated workflow for processing file changes and improvements:
 
-```
-mermaid
+```mermaid
 flowchart TD
 A[File Change Detected] --> B[Queue Analysis Task]
 B --> C[Threaded Code Analysis]
@@ -685,8 +679,7 @@ The Enhanced Graceful Shutdown system provides a robust mechanism for terminatin
 
 The Enhanced Graceful Shutdown system uses a multi-phase approach to ensure all components are properly terminated:
 
-```
-mermaid
+```mermaid
 graph TD
 subgraph "Shutdown Coordinator"
 A[Pre-Shutdown Validation]
@@ -758,8 +751,7 @@ The Enhanced Graceful Shutdown system consists of several key components that wo
 
 The Enhanced Graceful Shutdown system follows a coordinated workflow for terminating the system:
 
-```
-mermaid
+```mermaid
 flowchart TD
 A[Shutdown Initiated] --> B[Pre-Shutdown Validation]
 B --> C[Signal Received]
