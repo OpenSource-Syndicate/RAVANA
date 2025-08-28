@@ -266,22 +266,25 @@ This asynchronous design ensures that state monitoring and observer notification
 
 ```mermaid
 sequenceDiagram
-participant Loop as Autonomous Loop
-participant Iteration as run_iteration
-participant Mood as _update_mood_and_reflect
-participant Reflection as ReflectionModule
-participant Sleep as asyncio.sleep
-loop Loop
-Loop->>Iteration : await run_iteration()
-Iteration->>Mood : await _update_mood_and_reflect()
-alt Mood not improved
-Mood->>Reflection : reflect(shared_state)
-Reflection->>Reflection : process reflection
-end
-Mood->>Iteration : return
-Iteration->>Sleep : await asyncio.sleep()
-Sleep->>Loop : continue
-end loop
+    participant AutonomousLoop as Autonomous Loop
+    participant Iteration as run_iteration
+    participant Mood as _update_mood_and_reflect
+    participant Reflection as ReflectionModule
+    participant Sleep as asyncio.sleep
+    
+    loop
+        AutonomousLoop->>Iteration : await run_iteration()
+        Iteration->>Mood : await _update_mood_and_reflect()
+        
+        alt Mood not improved
+            Mood->>Reflection : reflect(shared_state)
+            Reflection->>Reflection : process reflection
+        end
+        
+        Mood->>Iteration : return
+        Iteration->>Sleep : await asyncio.sleep()
+        Sleep->>AutonomousLoop : continue
+    end
 ```
 
 **Diagram sources**
