@@ -304,7 +304,7 @@ Performance metrics for consolidation processes.
 ## Relationships and Schema Diagram
 The database schema entities are related through foreign key relationships and conceptual associations that reflect the AGI system's cognitive processes.
 
-``mermaid
+```mermaid
 erDiagram
 SITUATIONLOG {
 int id PK
