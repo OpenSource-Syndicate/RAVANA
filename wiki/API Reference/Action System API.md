@@ -433,27 +433,30 @@ class HelloWorldAction(Action):
 
 ```mermaid
 classDiagram
-class Action {
-<<abstract>>
-+name : str
-+description : str
-+parameters : List[Dict]
-+execute(**kwargs) : Any
-}
-class CustomAction {
-+name : str
-+description : str
-+parameters : List[Dict]
-+execute(**kwargs) : Any
-}
-Action <|-- CustomAction
-note right of CustomAction
-Must implement :
-• name property
-• description property
-• parameters property
-• execute method
-end note
+    class Action {
+        <<abstract>>
+        +name : str
+        +description : str
+        +parameters : List[Dict]
+        +execute(**kwargs) : Any
+    }
+
+    class CustomAction {
+        +name : str
+        +description : str
+        +parameters : List[Dict]
+        +execute(**kwargs) : Any
+    }
+
+    Action <|-- CustomAction
+
+    note right of CustomAction
+        Must implement:<br/>
+        name property<br/>
+        description property<br/>
+        parameters property<br/>
+        execute method
+    end note
 ```
 
 **Diagram sources**
