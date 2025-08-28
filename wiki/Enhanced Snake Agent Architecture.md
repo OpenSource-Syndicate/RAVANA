@@ -44,7 +44,7 @@ The core components are organized in the `core` directory, with specialized modu
 
 This structure enables the Enhanced Snake Agent to perform multiple tasks concurrently while maintaining clear separation between different types of operations and their associated resources.
 
-``mermaid
+```mermaid
 graph TD
 subgraph "Enhanced Snake Agent Core Components"
 A[EnhancedSnakeAgent] --> B[SnakeThreadingManager]
@@ -86,7 +86,7 @@ These components work together to create a robust system that can analyze code c
 
 The EnhancedSnakeAgent serves as the central coordinator, initializing all components, setting up callbacks between them, and managing the overall operation lifecycle. It uses a coordination loop to periodically check system health and log performance metrics.
 
-``mermaid
+```mermaid
 classDiagram
 class EnhancedSnakeAgent {
 +agi_system
@@ -282,7 +282,7 @@ The architecture consists of three main layers:
 
 The system uses a producer-consumer pattern where the main agent produces tasks that are consumed by worker threads and processes. This design enables the agent to process multiple tasks concurrently while maintaining clear separation between different types of operations.
 
-``mermaid
+```mermaid
 graph TD
 subgraph "Enhanced Snake Agent Architecture"
 subgraph "Threading Layer"
@@ -348,7 +348,7 @@ The agent follows a clear initialization sequence:
 
 This sequential initialization ensures that all components are properly set up before the agent begins its autonomous operation.
 
-``mermaid
+```mermaid
 flowchart TD
 Start([EnhancedSnakeAgent Initialization]) --> ValidateConfig["Validate Configuration"]
 ValidateConfig --> InitLogManager["Initialize Log Manager"]
@@ -384,7 +384,7 @@ The threading manager creates four types of worker threads:
 
 Each worker thread runs a dedicated worker function that continuously checks its assigned queue for tasks, processes them, and updates thread state accordingly.
 
-``mermaid
+```mermaid
 classDiagram
 class ThreadState {
 +thread_id
@@ -471,7 +471,7 @@ The process manager creates three types of worker processes:
 
 Each worker process runs independently and communicates with the main process through multiprocessing queues. The process manager uses a result collector loop to collect results from worker processes and dispatch them to appropriate callbacks.
 
-``mermaid
+```mermaid
 classDiagram
 class ProcessState {
 +process_id
@@ -551,7 +551,7 @@ Each worker thread runs a dedicated worker function that follows a standard patt
 
 This design ensures that worker threads remain responsive and can be gracefully shut down when needed.
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant TM as "SnakeThreadingManager"
 participant WT as "Worker Thread"
@@ -595,7 +595,7 @@ The multiprocessing architecture consists of three types of worker processes:
 
 The process manager uses multiprocessing queues for inter-process communication, allowing tasks to be distributed to worker processes and results to be collected efficiently.
 
-``mermaid
+```mermaid
 flowchart TD
 subgraph "Main Process"
 A[SnakeProcessManager]
@@ -648,7 +648,7 @@ The IPC system uses several key patterns:
 
 The IPC manager uses both multiprocessing queues (for cross-process communication) and threading queues (for same-process communication) to ensure efficient message delivery.
 
-``mermaid
+```mermaid
 classDiagram
 class MessageType {
 TASK_REQUEST
@@ -768,7 +768,7 @@ The primary interaction patterns include:
 
 The EnhancedSnakeAgent serves as the central coordinator, setting up callbacks between components during initialization and managing the overall flow of information.
 
-``mermaid
+```mermaid
 sequenceDiagram
 participant ESA as "EnhancedSnakeAgent"
 participant STM as "SnakeThreadingManager"
@@ -819,7 +819,7 @@ The state is stored in a JSON file (`enhanced_snake_state.json`) and includes th
 
 The agent saves its state periodically during the coordination loop and always saves the final state during shutdown. This approach ensures that state is preserved even in the event of unexpected termination.
 
-``mermaid
+```mermaid
 flowchart TD
 A[EnhancedSnakeAgent] --> B[_coordination_loop]
 B --> C{Periodic Check}
@@ -863,7 +863,7 @@ Key error handling features include:
 
 The agent uses a combination of synchronous and asynchronous error handling, with critical errors logged synchronously to ensure they are recorded even if the system crashes.
 
-``mermaid
+```mermaid
 flowchart TD
 A[Operation] --> B{Success?}
 B --> |Yes| C[Continue]
@@ -906,7 +906,7 @@ Performance metrics collected include:
 
 The agent logs performance metrics every 10 minutes and performs health checks every 5 minutes, providing regular insights into system performance.
 
-``mermaid
+```mermaid
 flowchart TD
 A[EnhancedSnakeAgent] --> B[_coordination_loop]
 B --> C{Time for Metrics?}
@@ -944,7 +944,7 @@ The logging system includes five specialized loggers:
 
 Each logger writes to both a text log file and a structured JSON log file, enabling both human-readable logs and machine-readable data for analysis.
 
-``mermaid
+```mermaid
 classDiagram
 class ImprovementRecord {
 +id
