@@ -4,15 +4,12 @@ Tests all components: embeddings, Whisper, PostgreSQL, search engine, and API en
 """
 
 import pytest
-import asyncio
 import tempfile
 import os
 import uuid
-from pathlib import Path
 from unittest.mock import Mock, patch, AsyncMock
 import numpy as np
 from datetime import datetime
-import json
 
 # Test imports
 try:
@@ -24,7 +21,8 @@ try:
     from .multi_modal_service import MultiModalMemoryService
 except ImportError:
     # For testing in isolation
-    pytest.skip("Multi-modal components not available", allow_module_level=True)
+    pytest.skip("Multi-modal components not available",
+                allow_module_level=True)
 
 # Test configuration
 TEST_DATABASE_URL = "postgresql://test:test@localhost:5433/test_ravana"
@@ -80,7 +78,8 @@ class TestEmbeddingService:
         embeddings = await embedding_service.batch_generate_embeddings(texts)
 
         assert len(embeddings) == len(texts)
-        assert all(len(emb) == embedding_service.text_embedding_dim for emb in embeddings)
+        assert all(
+            len(emb) == embedding_service.text_embedding_dim for emb in embeddings)
 
     @pytest.mark.asyncio
     async def test_similarity_computation(self, embedding_service):
@@ -143,8 +142,8 @@ class TestWhisperAudioProcessor:
         try:
             # Mock librosa functions
             with patch('librosa.load') as mock_load, \
-                 patch('librosa.get_duration') as mock_duration, \
-                 patch('soundfile.SoundFile') as mock_sf:
+                    patch('librosa.get_duration') as mock_duration, \
+                    patch('soundfile.SoundFile') as mock_sf:
 
                 mock_load.return_value = (np.random.random(16000), 16000)
                 mock_duration.return_value = 1.0
@@ -220,7 +219,8 @@ class TestPostgreSQLStore:
 
         result = await postgres_store.save_memory_record(memory_record)
         assert result == memory_record
-        postgres_store.save_memory_record.assert_called_once_with(memory_record)
+        postgres_store.save_memory_record.assert_called_once_with(
+            memory_record)
 
     @pytest.mark.asyncio
     async def test_vector_search(self, postgres_store):
@@ -262,7 +262,8 @@ class TestAdvancedSearchEngine:
         mock_postgres.text_search = AsyncMock()
         mock_embeddings.generate_text_embedding = AsyncMock()
 
-        engine = AdvancedSearchEngine(mock_postgres, mock_embeddings, mock_whisper)
+        engine = AdvancedSearchEngine(
+            mock_postgres, mock_embeddings, mock_whisper)
         yield engine
 
     @pytest.mark.asyncio
@@ -275,7 +276,8 @@ class TestAdvancedSearchEngine:
         )
 
         # Mock embedding generation
-        search_engine.embeddings.generate_text_embedding.return_value = [0.1] * 384
+        search_engine.embeddings.generate_text_embedding.return_value = [
+            0.1] * 384
 
         # Mock search results
         mock_memory = MemoryRecord(
@@ -284,7 +286,8 @@ class TestAdvancedSearchEngine:
             content_text="Test memory",
             memory_type=MemoryType.EPISODIC
         )
-        search_engine.postgres.vector_search.return_value = [(mock_memory, 0.8)]
+        search_engine.postgres.vector_search.return_value = [
+            (mock_memory, 0.8)]
 
         response = await search_engine.search(request)
 
@@ -303,7 +306,8 @@ class TestAdvancedSearchEngine:
         )
 
         # Mock embedding generation
-        search_engine.embeddings.generate_text_embedding.return_value = [0.1] * 384
+        search_engine.embeddings.generate_text_embedding.return_value = [
+            0.1] * 384
 
         # Mock vector search results
         vector_memory = MemoryRecord(
@@ -312,7 +316,8 @@ class TestAdvancedSearchEngine:
             content_text="Vector result",
             memory_type=MemoryType.EPISODIC
         )
-        search_engine.postgres.vector_search.return_value = [(vector_memory, 0.8)]
+        search_engine.postgres.vector_search.return_value = [
+            (vector_memory, 0.8)]
 
         # Mock text search results
         text_memory = MemoryRecord(
@@ -377,7 +382,8 @@ class TestMultiModalMemoryService:
 
         # Mock extraction result
         mock_memories = MemoriesList(
-            memories=["User is planning a trip to Paris", "Trip is scheduled for next month"],
+            memories=["User is planning a trip to Paris",
+                      "Trip is scheduled for next month"],
             memory_type=MemoryType.EPISODIC
         )
         memory_service.extract_memories_from_conversation.return_value = mock_memories
@@ -491,12 +497,15 @@ class TestIntegration:
         assert result.results[0].similarity_score == 0.85
 
 # Test utilities
+
+
 def create_test_audio_file(duration_seconds=1.0, sample_rate=16000):
     """Create a test audio file for testing."""
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
         # Create simple sine wave
         import numpy as np
-        t = np.linspace(0, duration_seconds, int(sample_rate * duration_seconds))
+        t = np.linspace(0, duration_seconds, int(
+            sample_rate * duration_seconds))
         audio_data = np.sin(2 * np.pi * 440 * t)  # 440 Hz sine wave
 
         # This would normally use soundfile to write the audio
@@ -517,6 +526,7 @@ def create_test_image_file():
     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
         image.save(temp_file.name, "JPEG")
         return temp_file.name
+
 
 # Pytest configuration
 pytest_plugins = ["pytest_asyncio"]

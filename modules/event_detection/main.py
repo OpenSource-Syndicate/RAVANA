@@ -19,8 +19,10 @@ app = FastAPI(
     version="0.1.0"
 )
 
+
 class ProcessRequest(BaseModel):
     texts: List[str]
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -33,6 +35,7 @@ async def startup_event():
         logger.exception("Error loading models during startup.")
         raise
 
+
 @app.post("/process/", response_model=Dict[str, Any])
 async def process_texts(request: ProcessRequest):
     """
@@ -43,7 +46,7 @@ async def process_texts(request: ProcessRequest):
     if not request.texts:
         logger.warning("No texts provided in request.")
         raise HTTPException(status_code=400, detail="No texts provided.")
-    
+
     try:
         results = process_data_for_events(request.texts)
         logger.info("Event detection completed successfully.")

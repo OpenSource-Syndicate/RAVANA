@@ -2,14 +2,15 @@
 """
 Targeted test script for the RAVANACommunicator.
 """
+from modules.conversational_ai.communication.ravana_bridge import RAVANACommunicator
 import asyncio
 import sys
 import os
 import logging
-from datetime import datetime
 
 # Add the project root directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), '..', '..'))
 
 # Set up logging
 logging.basicConfig(
@@ -19,11 +20,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Local imports
-from modules.conversational_ai.communication.ravana_bridge import RAVANACommunicator
 
 
 class MockConversationalAI:
     """Mock ConversationalAI for testing."""
+
     def __init__(self):
         pass
 
@@ -31,32 +32,32 @@ class MockConversationalAI:
 async def test_communicator():
     """Test the RAVANACommunicator."""
     logger.info("Starting RAVANACommunicator test...")
-    
+
     try:
         # Create a mock ConversationalAI
         mock_ai = MockConversationalAI()
-        
+
         # Test RAVANA Communicator
         logger.info("Creating RAVANACommunicator...")
         communicator = RAVANACommunicator("test_channel", mock_ai)
         logger.info("RAVANACommunicator created")
-        
+
         # Start the communicator
         logger.info("Starting RAVANACommunicator...")
         await communicator.start()
         logger.info("RAVANACommunicator started")
-        
+
         # Wait a short time
         await asyncio.sleep(0.5)
-        
+
         # Stop the communicator
         logger.info("Stopping RAVANACommunicator...")
         await communicator.stop()
         logger.info("RAVANACommunicator stopped")
-        
+
         logger.info("RAVANACommunicator test completed successfully!")
         return True
-        
+
     except Exception as e:
         logger.error(f"Error during RAVANACommunicator test: {e}")
         logger.exception("Full traceback:")

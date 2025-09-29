@@ -9,18 +9,18 @@ print("=" * 50)
 try:
     with open('core/config.json', 'r') as f:
         config = json.load(f)
-    
+
     gemini_config = config.get('gemini', {})
     api_keys = gemini_config.get('api_keys', [])
-    
+
     print(f"✅ Configuration loaded successfully")
     print(f"✅ Found {len(api_keys)} Gemini API keys")
-    
+
     if len(api_keys) >= 10:
         print(f"✅ All 10 API keys configured correctly")
     else:
         print(f"⚠️ Expected 10 keys, found {len(api_keys)}")
-        
+
 except Exception as e:
     print(f"❌ Configuration loading failed: {e}")
     sys.exit(1)
@@ -57,19 +57,20 @@ except Exception as e:
 try:
     print("\nTesting basic Gemini call...")
     result = call_gemini("What is the capital of Japan?")
-    
+
     if result and not result.startswith("[") and not result.startswith("Error"):
         print(f"✅ Basic call successful")
         print(f"   Result: {result[:100]}{'...' if len(result) > 100 else ''}")
-        
+
         # Check key usage
         final_stats = get_gemini_key_statistics()
-        used_keys = [k for k, v in final_stats['keys'].items() if v['total_requests'] > 0]
+        used_keys = [k for k, v in final_stats['keys'].items()
+                     if v['total_requests'] > 0]
         if used_keys:
             print(f"✅ Key rotation working: Used key {used_keys[0][:15]}...")
     else:
         print(f"⚠️ Call result: {result}")
-        
+
 except Exception as e:
     print(f"❌ Basic functionality test failed: {e}")
     import traceback

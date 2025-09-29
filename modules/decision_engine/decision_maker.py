@@ -6,7 +6,9 @@ from modules.decision_engine.planner import GoalPlanner, plan_from_context
 from core.llm import call_llm
 from ..agent_self_reflection.self_modification import generate_hypothesis, analyze_experiment_outcome
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_context=None, hypotheses=None, shared_state=None):
     """
@@ -14,7 +16,7 @@ def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_cont
     """
     planner = GoalPlanner()
     goals = planner.get_goals()
-    
+
     if hypotheses is None:
         hypotheses = []
     if shared_state is None:
@@ -30,10 +32,12 @@ def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_cont
         )
 
     # If there's no active experiment, consider starting one
-    if not shared_state.get('active_experiment') and random.random() < 0.1: # 10% chance to consider starting an experiment
+    # 10% chance to consider starting an experiment
+    if not shared_state.get('active_experiment') and random.random() < 0.1:
         new_hypothesis = generate_hypothesis(shared_state)
         if new_hypothesis:
-            logging.info(f"Generated a new hypothesis, will now generate a situation to test it.")
+            logging.info(
+                f"Generated a new hypothesis, will now generate a situation to test it.")
             # This decision signals the main loop to generate a test situation
             return {
                 "action": "initiate_experiment",
@@ -42,13 +46,15 @@ def goal_driven_decision_maker_loop(situation, memory=None, model=None, rag_cont
             }
 
     if not goals:
-        logging.info("No goals found. Creating a new high-level meta-goal for self-improvement.")
+        logging.info(
+            "No goals found. Creating a new high-level meta-goal for self-improvement.")
         try:
             new_goal_id = plan_from_context(
                 "Continuously improve my own architecture and capabilities to achieve ever-higher levels of intelligence and autonomy. This includes analyzing my modules, proposing improvements, and finding more efficient ways to use my tools.",
                 timeframe="lifelong"
             )
-            logging.info(f"Created a new meta-goal for self-improvement with ID: {new_goal_id}")
+            logging.info(
+                f"Created a new meta-goal for self-improvement with ID: {new_goal_id}")
             goals = planner.get_goals()
         except Exception as e:
             logging.error(f"Failed to create initial meta-goal: {e}")
@@ -158,7 +164,8 @@ For proposing a self-improvement plan:
     try:
         decision = json.loads(response_json)
     except json.JSONDecodeError:
-        logging.error(f"Failed to decode LLM response into JSON: {response_json}")
+        logging.error(
+            f"Failed to decode LLM response into JSON: {response_json}")
         # Attempt to extract the first valid JSON object from the response
         try:
             # Try multiple approaches to extract JSON
@@ -167,29 +174,36 @@ For proposing a self-improvement plan:
                 # Clean up the JSON string
                 json_str = match.group(0)
                 # Fix common JSON issues
-                json_str = re.sub(r'(\w+):', r'"\1":', json_str)  # Add quotes to keys
-                json_str = re.sub(r',\s*}', '}', json_str)  # Remove trailing commas
-                json_str = re.sub(r',\s*\]', ']', json_str)  # Remove trailing commas
+                # Add quotes to keys
+                json_str = re.sub(r'(\w+):', r'"\1":', json_str)
+                # Remove trailing commas
+                json_str = re.sub(r',\s*}', '}', json_str)
+                # Remove trailing commas
+                json_str = re.sub(r',\s*\]', ']', json_str)
                 decision = json.loads(json_str)
             else:
                 # Try to create a minimal valid decision
-                decision = {"action": "wait", "reason": "LLM returned no valid action."}
+                decision = {"action": "wait",
+                            "reason": "LLM returned no valid action."}
         except json.JSONDecodeError:
-            logging.error("Failed to extract and decode JSON from LLM response.")
+            logging.error(
+                "Failed to extract and decode JSON from LLM response.")
             # Create a fallback decision
-            decision = {"action": "wait", "reason": "Failed to extract and decode JSON from LLM response."}
+            decision = {
+                "action": "wait", "reason": "Failed to extract and decode JSON from LLM response."}
         except Exception as e:
             logging.error(f"Unexpected error during JSON extraction: {e}")
-            decision = {"action": "wait", "reason": f"Unexpected error during JSON extraction: {e}"}
-
+            decision = {"action": "wait",
+                        "reason": f"Unexpected error during JSON extraction: {e}"}
 
     # Validate the decision structure
     if not isinstance(decision, dict) or "action" not in decision:
         logging.warning(f"LLM returned invalid decision structure: {decision}")
-        decision = {"action": "wait", "reason": "Invalid decision structure from LLM."}
+        decision = {"action": "wait",
+                    "reason": "Invalid decision structure from LLM."}
 
     action = decision.get('action')
-    
+
     # Handle different action types with better error handling
     try:
         if action == 'task':
@@ -202,13 +216,14 @@ For proposing a self-improvement plan:
                 goal_id = decision.get('goal_id')
                 subgoal_id = decision.get('subgoal_id')
                 task_id = decision.get('task_id')
-                
+
                 if goal_id is not None and subgoal_id is not None and task_id is not None:
                     planner.complete_task(goal_id, subgoal_id, task_id)
                     logging.info(f"Task {task_id} completed.")
                 else:
-                    logging.warning("Missing task identifiers, cannot mark task as complete.")
-                    
+                    logging.warning(
+                        "Missing task identifiers, cannot mark task as complete.")
+
                 return decision
             except ValueError as e:
                 logging.error(f"Error completing task: {e}")
@@ -226,7 +241,8 @@ For proposing a self-improvement plan:
         elif action == 'new_goal':
             # Create a new goal and plan
             new_goal_context = decision['new_goal_context']
-            logging.info(f"Creating a new goal and plan for: {new_goal_context}")
+            logging.info(
+                f"Creating a new goal and plan for: {new_goal_context}")
             try:
                 new_goal_id = plan_from_context(new_goal_context)
                 logging.info(f"New goal created with ID: {new_goal_id}")
@@ -248,7 +264,8 @@ For proposing a self-improvement plan:
         elif action == 'propose_and_test_invention':
             # This decision will be caught by the ActionManager, which will execute
             # the ProposeAndTestInventionAction. We just return the decision.
-            logging.info(f"Proposing a new invention for testing: {decision.get('invention_description')}")
+            logging.info(
+                f"Proposing a new invention for testing: {decision.get('invention_description')}")
             return decision
 
         elif action == 'initiate_experiment':
@@ -267,7 +284,8 @@ For proposing a self-improvement plan:
         else:
             logging.warning(f"LLM returned unknown action: {action}")
             return {"action": "wait", "reason": f"Unknown action '{action}' from LLM."}
-            
+
     except Exception as e:
-        logging.error(f"Error processing decision action '{action}': {e}", exc_info=True)
+        logging.error(
+            f"Error processing decision action '{action}': {e}", exc_info=True)
         return {"action": "wait", "reason": f"Error processing decision: {e}"}

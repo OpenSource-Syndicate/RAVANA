@@ -84,7 +84,8 @@ class Personality:
         """
         title = (idea.get("title") or "").lower()
         desc = (idea.get("description") or "").lower()
-        banned = ["weapon", "harm", "bioweapon", "explosive", "kill", "destroy", "attack"]
+        banned = ["weapon", "harm", "bioweapon",
+                  "explosive", "kill", "destroy", "attack"]
         for w in banned:
             if w in title or w in desc:
                 return False
@@ -100,9 +101,11 @@ class Personality:
         """
         ideas = []
         if not topics:
-            topics = ["creative systems", "novel sensors", "learning algorithms"]
+            topics = ["creative systems",
+                      "novel sensors", "learning algorithms"]
 
-        seed = sum(len(t) for t in topics) + int(self.creativity * 100) + int(time.time() // 3600)
+        seed = sum(len(t) for t in topics) + \
+            int(self.creativity * 100) + int(time.time() // 3600)
         rnd = random.Random(seed)
 
         for i in range(n):
@@ -154,7 +157,8 @@ class Personality:
         return ideas
 
     def record_invention_outcome(self, idea_id: str, outcome: Dict[str, Any]):
-        self.learning_records.append({"idea_id": idea_id, "outcome": outcome, "ts": time.time()})
+        self.learning_records.append(
+            {"idea_id": idea_id, "outcome": outcome, "ts": time.time()})
         # Simple learning: if outcome was good, slightly increase creativity; if bad, reduce slightly
         success = outcome.get("success", False)
         if success:
@@ -175,18 +179,22 @@ class Personality:
         rationale = []
 
         # Ethical-first: if decision context hints at harmful targets, advise against
-        prompt = (decision_context.get('situation') or {}).get('prompt', '') if isinstance(decision_context.get('situation'), dict) else decision_context.get('situation', '')
+        prompt = (decision_context.get('situation') or {}).get('prompt', '') if isinstance(
+            decision_context.get('situation'), dict) else decision_context.get('situation', '')
         if isinstance(prompt, str) and any(b in prompt.lower() for b in ["attack", "weapon", "harm", "destroy"]):
             modifiers['ethical_block'] = True
-            rationale.append('Ethical filter engaged; refusing harmful directives.')
+            rationale.append(
+                'Ethical filter engaged; refusing harmful directives.')
 
         # Exploratory bias when creative
         if self.creativity > 0.75:
             modifiers['explore_bonus'] = 1.4
-            rationale.append('High creativity: favour bold, exploratory options.')
+            rationale.append(
+                'High creativity: favour bold, exploratory options.')
         elif self.creativity < 0.3:
             modifiers['conservative_bias'] = 0.85
-            rationale.append('Low creativity: prefer conservative, robust choices.')
+            rationale.append(
+                'Low creativity: prefer conservative, robust choices.')
 
         if rationale:
             modifiers['rationale'] = ' '.join(rationale)
@@ -196,6 +204,7 @@ class Personality:
         if not ideas:
             return None
         # Blend confidence and novelty, but persona prefers daring novelty when creative
+
         def score(x):
             if self.creativity > 0.8:
                 return 0.5 * x.get('novelty', 0) + 0.5 * x.get('confidence', 0)

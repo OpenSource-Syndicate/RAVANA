@@ -1,70 +1,89 @@
-# RAVANA AGI Documentation
+# RAVANA Documentation
 
-Welcome to the comprehensive documentation for RAVANA AGI, an experimental open-source Artificial General Intelligence system designed to think, feel, evolve, and act autonomously.
+Welcome to the documentation for RAVANA AGI - an autonomous, evolving agentic system.
 
 ## Table of Contents
 
-### Getting Started
-- [Quick Start Guide](core/quickstart.md) - Get RAVANA up and running in minutes
-- [Installation Guide](core/installation.md) - Detailed installation instructions
-- [Configuration Guide](core/configuration.md) - System configuration and customization
+* [Getting Started](#getting-started)
+* [Architecture](#architecture)
+* [Modules](#modules)
+* [Services](#services)
+* [Configuration](#configuration)
+* [Running the System](#running-the-system)
+* [Development](#development)
 
-### System Overview
-- [Architecture](core/architecture.md) - System design and components
-- [Core Components](core/components.md) - Detailed component documentation
+## Getting Started
 
-### Technical Documentation
-- [API Reference](api/index.md) - Programmatic access to system functionality
-- [Modules](modules/index.md) - Specialized functionality components
-- [Services](services/index.md) - Shared system services
+RAVANA is an experimental autonomous general intelligence system designed to run continuously, build and recall memory, model emotions, and self-improve over time.
 
-### Development
-- [Development Guide](development/index.md) - Contributing to RAVANA
-- [Module Development](development/index.md#module-development) - Creating new modules
-- [Service Development](development/index.md#service-development) - Creating new services
-- [Action Development](development/index.md#action-development) - Creating new actions
+To get started:
+1. Set up your environment (see [Development](#development))
+2. Run the main system: `python main.py`
+3. Explore the system's capabilities
 
-### Research
-- [Research Overview](research/index.md) - Theoretical foundations and research directions
-- [Experimental Framework](research/index.md#experimental-framework) - Research methodology
-- [Future Research](research/index.md#future-research-directions) - Planned research areas
+## Architecture
 
-## About RAVANA AGI
+RAVANA follows a modular architecture:
 
-RAVANA is an experimental open-source Artificial General Intelligence (AGI) system designed to think, feel, evolve, and act autonomously. It represents a philosophical and technical exploration into building a digital organism capable of self-directed behavior and continuous evolution.
+* **`core/`** - Core system components including orchestrator, state management, and configuration
+* **`modules/`** - Intelligence modules for reflection, experimentation, conversational AI, etc.
+* **`services/`** - Service abstractions for memory, knowledge bases, and environment interaction
+* **`database/`** - Data persistence with SQLModel-based schemas and engine
+* **`scripts/`** - Standalone scripts for special operations
+* **`tests/`** - Test suite for validating system behavior
+* **`docs/`** - Documentation (this directory)
+* **`assets/`** - Static assets like images and other media
+* **`wiki/`** - Detailed design documents and architecture breakdowns
 
-Unlike traditional AI systems that respond to user prompts, RAVANA operates continuously, generating its own tasks, making decisions based on its internal state, and evolving through self-reflection and learning.
+## Modules
 
-## Key Features
+The system is composed of several key modules:
+* **Reflection Module**: Self-reflection capabilities
+* **Experimentation Engine**: System for designing and running experiments
+* **Conversational AI**: Multi-platform bot system
+* **Emotional Intelligence**: Mood modeling and emotional responses
+* **Memory Systems**: Enhanced memory for episodic, semantic, and working memory
 
-- **Autonomous Operation**: Continuous 24/7 operation without user intervention
-- **Emotional Intelligence**: Mood tracking and emotional state modeling
-- **Memory Management**: Episodic and semantic memory systems
-- **Self-Reflection**: Continuous learning and self-improvement
-- **Curiosity-Driven**: Generates its own tasks and experiments
-- **Modular Architecture**: Extensible design with interchangeable components
+## Services
 
-## System Architecture
+Core services include:
+* **Memory Service**: Enhanced memory system for storing and retrieving experiences
+* **Knowledge Service**: Knowledge base management
+* **Data Service**: Data collection and processing
+* **Multi-Modal Service**: Multi-modal processing capabilities
 
-The system is organized into several key components:
+## Configuration
 
-- **Core System**: Main orchestration and state management
-- **Modules**: Specialized functionality (adaptive learning, self-reflection, curiosity, etc.)
-- **Services**: Data, knowledge, memory, and multi-modal services
-- **Actions**: Executable behaviors and operations
-- **Database**: Storage for memory and persistent data
+Configuration is handled through environment variables and the Config class in `core/config.py`. The system supports:
+* Database URL settings
+* Autonomous loop parameters
+* Emotional intelligence settings
+* Model settings for embeddings and LLMs
+* Snake Agent configuration
+* Blog integration configuration
+* Conversational AI settings
 
-## Contributing
+## Running the System
 
-We welcome contributions from researchers, developers, and AI enthusiasts. Please see our [Development Guide](development/index.md) for more information on how to contribute.
+To run RAVANA:
+```bash
+python main.py
+```
 
-## Support
+Additional command-line options:
+* `--physics-experiment "<experiment_name>"` - Run a specific physics experiment
+* `--discovery-mode` - Run in discovery mode
+* `--test-experiments` - Run experiment tests
+* `--single-task "<task_prompt>"` - Run a single task
 
-For support, please refer to:
-- [GitHub Issues](https://github.com/OpenSource-Syndicate/RAVANA/issues) for bug reports
-- [GitHub Discussions](https://github.com/OpenSource-Syndicate/RAVANA/discussions) for general discussion
-- Community forums and chat channels
+Standalone scripts are available in the `scripts/` directory for specialized operations.
 
-## License
+## Development
 
-This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details.
+For development:
+1. Create a virtual environment: `python3 -m venv .venv`
+2. Activate it: `source .venv/bin/activate` (Linux/Mac) or `source .venv/Scripts/activate` (Windows)
+3. Install dependencies: `pip install -r requirements.txt`
+4. Run tests: `pytest`
+
+The system includes extensive logging and debugging capabilities.

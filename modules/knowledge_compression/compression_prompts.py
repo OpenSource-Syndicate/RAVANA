@@ -3,4 +3,4 @@ COMPRESSION_PROMPT = (
     "Given the following logs, produce a concise summary report of new facts learned, key outcomes, and next goals.\n"
     "Logs: {logs}\n"
     "Respond in a clear, structured format."
-) 
+)

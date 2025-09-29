@@ -1,4 +1,3 @@
-import asyncio
 import pytest
 
 from modules.situation_generator.situation_generator import SituationGenerator
@@ -32,4 +31,5 @@ async def test_subconscious_structure_and_nudge():
     nudge = situation.get('nudge')
     polished = situation.get('prompt', '')
 
-    assert (nudge is not None) or ('pause' in polished.lower() or 're-evaluat' in polished.lower() or 'sanity' in polished.lower())
+    assert (nudge is not None) or ('pause' in polished.lower()
+                                   or 're-evaluat' in polished.lower() or 'sanity' in polished.lower())

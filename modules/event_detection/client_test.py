@@ -20,24 +20,26 @@ sample_data = {
     ]
 }
 
+
 def run_test():
     """
     Sends a POST request to the /process/ endpoint and prints the response.
     """
     print("Sending request to:", URL)
     print("Payload:", json.dumps(sample_data, indent=2))
-    
+
     try:
         response = requests.post(URL, json=sample_data)
         response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
-        
+
         print("\n--- Test Successful ---")
         print("Status Code:", response.status_code)
         print("Response JSON:", json.dumps(response.json(), indent=2))
-        
+
     except requests.exceptions.RequestException as e:
         print("\n--- Test Failed ---")
         print(f"An error occurred: {e}")
+
 
 def test_empty_request():
     """
@@ -52,7 +54,7 @@ def test_empty_request():
             print("Successfully caught empty request error.")
         else:
             print("Failed to catch empty request error.")
-            
+
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}")
 

@@ -13,8 +13,17 @@
     "api_key": "ek-sVvxMYfdFQ0Kl6Aj2tmV7b8n5v0Y0sDHVsOUZWyx2vbs0AbuAc",
     "base_url": "https://api.electronhub.ai",
     "models": [
-      "deepseek-v3-0324",
-      "gpt-4o-2024-11-20"
+      "deepseek-r1:free",
+      "deepseek-r1-0528:free",
+      "gpt-oss-20b:free",
+      "gpt-oss-120b:free",
+      "llama-3.3-70b-instruct:free",
+      "deepseek-r1-distill-qwen-32b:free",
+      "qwen3-next-80b-a3b-instruct:free",
+      "qwen3-next-80b-a3b-instruct-thinking:free",
+      "qwen3-coder-480b-a35b-instruct:free",
+      "seed-oss-36b-instruct:free",
+      "kimi-k2-instruct-0905:free"
     ]
   },
   "zanity": {
@@ -75,10 +84,6 @@
         "vision": true
       }
     ]
-  },
-  "a4f": {
-    "api_key": "ddc-a4f-7bbefd7518a74b36b1d32cb867b1931f",
-    "base_url": "https://api.a4f.co/v1"
   },
   "local_situation_generator": {
     "enabled": true,

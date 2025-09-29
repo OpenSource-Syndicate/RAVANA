@@ -1,6 +1,7 @@
 import unittest
 from curiosity_trigger import CuriosityTrigger
 
+
 class TestCuriosityTrigger(unittest.TestCase):
     def setUp(self):
         self.recent_topics = [
@@ -19,5 +20,6 @@ class TestCuriosityTrigger(unittest.TestCase):
         print("\nPrompt:", prompt)
         print("\nArticle (first 500 chars):\n", article[:500])
 
+
 if __name__ == "__main__":
-    unittest.main() 
+    unittest.main()

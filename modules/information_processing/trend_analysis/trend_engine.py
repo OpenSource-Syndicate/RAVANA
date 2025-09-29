@@ -8,6 +8,8 @@ import os
 DB_FILE = 'trends.db'
 
 # --------- SETUP DATABASE -----------
+
+
 def setup_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -25,6 +27,8 @@ def setup_db():
     conn.close()
 
 # --------- SAVE NEW ARTICLES -----------
+
+
 def save_article(title, link, published, source):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -36,6 +40,8 @@ def save_article(title, link, published, source):
     conn.close()
 
 # --------- FETCH RSS FEEDS -----------
+
+
 def fetch_feeds(feed_urls):
     for url in feed_urls:
         feed = feedparser.parse(url)
@@ -46,6 +52,8 @@ def fetch_feeds(feed_urls):
             save_article(title, link, published, url)
 
 # --------- ANALYZE TRENDS -----------
+
+
 def analyze_trends(last_hours=24):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -61,8 +69,10 @@ def analyze_trends(last_hours=24):
     all_text = all_text.translate(translator)
 
     words = all_text.split()
-    blacklist = set(['the', 'and', 'to', 'a', 'in', 'of', 'for', 'on', 'is', 'at', 'with', 'by', 'from'])
-    filtered_words = [word for word in words if word not in blacklist and len(word) > 2]
+    blacklist = set(['the', 'and', 'to', 'a', 'in', 'of',
+                    'for', 'on', 'is', 'at', 'with', 'by', 'from'])
+    filtered_words = [
+        word for word in words if word not in blacklist and len(word) > 2]
 
     word_counts = Counter(filtered_words)
     trending = word_counts.most_common(10)
@@ -72,6 +82,8 @@ def analyze_trends(last_hours=24):
         print(f"{word}: {count} mentions")
 
 # --------- MAIN LOOP -----------
+
+
 def main():
     setup_db()
 
@@ -86,6 +98,7 @@ def main():
 
         print("\n⏳ Sleeping for 15 minutes...\n")
         time.sleep(900)  # 15 minutes
+
 
 if __name__ == "__main__":
     main()

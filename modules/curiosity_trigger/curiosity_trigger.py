@@ -27,6 +27,7 @@ _FACT_CACHE = TTLCache(maxsize=500, ttl=7200)  # 2 hours cache
 _EMBED_MODEL = None  # Lazy loaded
 _TOPIC_CACHE = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache for topics
 
+
 def _get_embedding_model():
     """Lazy load the embedding model."""
     global _EMBED_MODEL
@@ -39,9 +40,10 @@ def _get_embedding_model():
             _EMBED_MODEL = None
     return _EMBED_MODEL
 
+
 async def fetch_html_async(url: str, headers: Optional[Dict] = None, timeout: int = 10) -> str:
     """Async HTML fetcher with timeout and error handling.
-    
+
     This function handles SSL certificate verification issues that commonly occur
     on Windows systems when accessing certain APIs like arXiv. It includes:
     - SSL context with relaxed certificate verification
@@ -53,7 +55,7 @@ async def fetch_html_async(url: str, headers: Optional[Dict] = None, timeout: in
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
-        
+
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         async with aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=timeout),
@@ -63,7 +65,8 @@ async def fetch_html_async(url: str, headers: Optional[Dict] = None, timeout: in
                 response.raise_for_status()
                 return await response.text()
     except aiohttp.ClientSSLError as ssl_error:
-        logger.warning(f"SSL error for {url}: {ssl_error}. Trying with no SSL verification...")
+        logger.warning(
+            f"SSL error for {url}: {ssl_error}. Trying with no SSL verification...")
         try:
             # Fallback: Try with completely disabled SSL
             connector = aiohttp.TCPConnector(ssl=False)
@@ -83,32 +86,35 @@ async def fetch_html_async(url: str, headers: Optional[Dict] = None, timeout: in
         logger.warning(f"Failed to fetch {url}: {e}")
         return ""
 
+
 def _filter_similar_topics(candidates: List[str], recent: List[str], threshold: float = 0.7) -> List[str]:
     """Filter out topics too similar to recent ones using embeddings."""
     model = _get_embedding_model()
     if not model or not recent or not candidates:
         return candidates
-    
+
     try:
         # Encode all at once for efficiency
         candidate_embeddings = model.encode(candidates, convert_to_tensor=True)
         recent_embeddings = model.encode(recent, convert_to_tensor=True)
-        
+
         filtered = []
         for i, candidate_emb in enumerate(candidate_embeddings):
             # Calculate similarity with all recent topics
             similarities = util.cos_sim(candidate_emb, recent_embeddings)
             max_similarity = similarities.max().item()
-            
+
             if max_similarity < threshold:
                 filtered.append(candidates[i])
-                
-        logger.info(f"Filtered {len(candidates)} candidates to {len(filtered)} unique topics")
+
+        logger.info(
+            f"Filtered {len(candidates)} candidates to {len(filtered)} unique topics")
         return filtered
-        
+
     except Exception as e:
         logger.warning(f"Embedding filtering failed: {e}")
         return candidates
+
 
 class CuriosityTrigger:
     WIKI_DYK_URL = "https://en.wikipedia.org/wiki/Wikipedia:Recent_additions"
@@ -117,7 +123,7 @@ class CuriosityTrigger:
     ARXIV_URL = "http://export.arxiv.org/api/query?search_query=all&start=0&max_results=20&sortBy=submittedDate&sortOrder=descending"
     USER_AGENT = {'User-agent': 'CuriosityTriggerBot/0.3'}
     WIKI_SUMMARY_API = "https://en.wikipedia.org/api/rest_v1/page/summary/{}"
-    
+
     def __init__(self, blog_scheduler=None):
         self.sources = {
             'wikipedia': self.fetch_wikipedia_dyk_async,
@@ -133,12 +139,12 @@ class CuriosityTrigger:
         cache_key = "wiki_dyk"
         if cache_key in _FACT_CACHE:
             return _FACT_CACHE[cache_key]
-        
+
         try:
             html = await fetch_html_async(self.WIKI_DYK_URL)
             if not html:
                 return []
-                
+
             # Extract facts from the HTML using regex
             facts = re.findall(r'<li>(.*?)</li>', html, re.DOTALL)
             # Clean up HTML tags and filter
@@ -147,11 +153,11 @@ class CuriosityTrigger:
                 clean = re.sub('<.*?>', '', fact).strip()
                 if len(clean) > 30 and len(clean) < 500:  # Reasonable length
                     clean_facts.append(clean)
-            
+
             _FACT_CACHE[cache_key] = clean_facts
             logger.info(f"Fetched {len(clean_facts)} Wikipedia DYK facts")
             return clean_facts
-            
+
         except Exception as e:
             logger.warning(f"Failed to fetch Wikipedia DYK: {e}")
             return []
@@ -161,26 +167,27 @@ class CuriosityTrigger:
         cache_key = "reddit_til"
         if cache_key in _FACT_CACHE:
             return _FACT_CACHE[cache_key]
-        
+
         try:
             html = await fetch_html_async(self.REDDIT_TIL_URL, headers=self.USER_AGENT)
             if not html:
                 return []
-                
+
             data = json.loads(html)
             facts = []
             for post in data.get('data', {}).get('children', []):
                 title = post.get('data', {}).get('title', '')
                 if title:
                     # Remove 'TIL that' or 'TIL' prefix
-                    clean_title = re.sub(r'^TIL( that)?[\s:,-]*', '', title, flags=re.IGNORECASE)
+                    clean_title = re.sub(
+                        r'^TIL( that)?[\s:,-]*', '', title, flags=re.IGNORECASE)
                     if len(clean_title) > 20:
                         facts.append(clean_title)
-            
+
             _FACT_CACHE[cache_key] = facts
             logger.info(f"Fetched {len(facts)} Reddit TIL facts")
             return facts
-            
+
         except Exception as e:
             logger.warning(f"Failed to fetch Reddit TIL: {e}")
             return []
@@ -190,15 +197,15 @@ class CuriosityTrigger:
         cache_key = "hackernews"
         if cache_key in _FACT_CACHE:
             return _FACT_CACHE[cache_key]
-        
+
         try:
             # Get top story IDs
             story_ids_html = await fetch_html_async(self.HACKERNEWS_URL)
             if not story_ids_html:
                 return []
-                
+
             story_ids = json.loads(story_ids_html)[:10]  # Top 10 stories
-            
+
             stories = []
             for story_id in story_ids:
                 story_url = f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json"
@@ -208,11 +215,11 @@ class CuriosityTrigger:
                     title = story_data.get('title', '')
                     if title and len(title) > 10:
                         stories.append(title)
-            
+
             _FACT_CACHE[cache_key] = stories
             logger.info(f"Fetched {len(stories)} Hacker News stories")
             return stories
-            
+
         except Exception as e:
             logger.warning(f"Failed to fetch Hacker News: {e}")
             return []
@@ -222,12 +229,12 @@ class CuriosityTrigger:
         cache_key = "arxiv"
         if cache_key in _FACT_CACHE:
             return _FACT_CACHE[cache_key]
-        
+
         try:
             xml_data = await fetch_html_async(self.ARXIV_URL)
             if not xml_data:
                 return []
-            
+
             # Simple regex to extract titles (could use proper XML parsing)
             titles = re.findall(r'<title>(.*?)</title>', xml_data, re.DOTALL)
             papers = []
@@ -235,11 +242,11 @@ class CuriosityTrigger:
                 clean_title = re.sub(r'\s+', ' ', title.strip())
                 if len(clean_title) > 20 and not clean_title.startswith('ArXiv'):
                     papers.append(clean_title)
-            
+
             _FACT_CACHE[cache_key] = papers
             logger.info(f"Fetched {len(papers)} arXiv papers")
             return papers
-            
+
         except Exception as e:
             logger.warning(f"Failed to fetch arXiv: {e}")
             return []
@@ -257,14 +264,15 @@ class CuriosityTrigger:
     async def get_curiosity_topics_llm(self, recent_topics: List[str], n: int = 5, lateralness: float = 1.0) -> List[str]:
         """Enhanced LLM-based topic generation with caching and filtering."""
         # Create cache key
-        topics_hash = hashlib.md5(','.join(sorted(recent_topics)).encode()).hexdigest()[:8]
+        topics_hash = hashlib.md5(
+            ','.join(sorted(recent_topics)).encode()).hexdigest()[:8]
         cache_key = f"topics_{topics_hash}_{n}_{lateralness}"
-        
+
         if cache_key in _TOPIC_CACHE:
             return _TOPIC_CACHE[cache_key]
-        
+
         lateralness = min(max(lateralness, 0.0), 1.0)
-        
+
         # Enhanced relatedness descriptions
         if lateralness < 0.25:
             relatedness_phrase = "directly related and complementary topics"
@@ -278,7 +286,7 @@ class CuriosityTrigger:
         else:
             relatedness_phrase = "completely unrelated, surprising, or wildly creative topics"
             creativity_level = "think outside all conventional boundaries"
-        
+
         # Get diverse facts from multiple sources
         all_facts = []
         try:
@@ -287,7 +295,7 @@ class CuriosityTrigger:
                 all_facts.extend(facts[:5])  # Limit per source
         except Exception as e:
             logger.warning(f"Failed to fetch facts for topic generation: {e}")
-        
+
         # Enhanced prompt with current trends
         prompt = f"""
         You are a creative AI assistant specializing in generating fascinating and diverse topics for exploration.
@@ -319,34 +327,38 @@ class CuriosityTrigger:
         **Response Format:**
         Return exactly {n} topics as a simple comma-separated list, no numbering or extra text.
         """
-        
+
         try:
             # Use async LLM call
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(None, call_llm, prompt)
-            
+
             if not response:
                 return self._get_fallback_topics(recent_topics, n, lateralness)
-            
+
             # Parse topics
-            topics = [t.strip().strip('"\'') for t in response.split(',') if t.strip()]
-            topics = [t for t in topics if len(t) > 5 and len(t) < 200]  # Reasonable length
-            
+            topics = [t.strip().strip('"\'')
+                      for t in response.split(',') if t.strip()]
+            topics = [t for t in topics if len(
+                t) > 5 and len(t) < 200]  # Reasonable length
+
             # Filter similar topics using embeddings
-            filtered_topics = _filter_similar_topics(topics, recent_topics, threshold=0.6)
-            
+            filtered_topics = _filter_similar_topics(
+                topics, recent_topics, threshold=0.6)
+
             # Ensure we have enough topics
             if len(filtered_topics) < n and len(topics) > len(filtered_topics):
                 # Add some original topics back if filtering was too aggressive
                 remaining = [t for t in topics if t not in filtered_topics]
                 filtered_topics.extend(remaining[:n - len(filtered_topics)])
-            
+
             result = filtered_topics[:n]
             _TOPIC_CACHE[cache_key] = result
-            
-            logger.info(f"Generated {len(result)} curiosity topics with lateralness {lateralness}")
+
+            logger.info(
+                f"Generated {len(result)} curiosity topics with lateralness {lateralness}")
             return result
-            
+
         except Exception as e:
             logger.warning(f"LLM topic generation failed: {e}")
             return self._get_fallback_topics(recent_topics, n, lateralness)
@@ -355,7 +367,7 @@ class CuriosityTrigger:
         """Fallback topics when LLM fails."""
         fallback_pools = {
             'science': [
-                "quantum consciousness theories", "dark matter detection methods", 
+                "quantum consciousness theories", "dark matter detection methods",
                 "synthetic biology applications", "time crystal physics",
                 "neuroplasticity and learning", "extremophile organisms"
             ],
@@ -375,11 +387,11 @@ class CuriosityTrigger:
                 "synesthesia and creativity", "architectural psychology"
             ]
         }
-        
+
         all_topics = []
         for pool in fallback_pools.values():
             all_topics.extend(pool)
-        
+
         # Simple filtering based on recent topics
         if recent_topics:
             recent_words = set(' '.join(recent_topics).lower().split())
@@ -389,7 +401,7 @@ class CuriosityTrigger:
                 if len(recent_words.intersection(topic_words)) < 2:  # Less than 2 common words
                     filtered.append(topic)
             all_topics = filtered if filtered else all_topics
-        
+
         random.shuffle(all_topics)
         return all_topics[:n]
 
@@ -414,11 +426,11 @@ class CuriosityTrigger:
         try:
             curiosity_topics = await self.get_curiosity_topics_llm(recent_topics, n=10, lateralness=lateralness)
             random.shuffle(curiosity_topics)
-            
+
             selected_topic = None
             selected_content = None
             selected_prompt = None
-            
+
             for topic in curiosity_topics:
                 # Try multiple content sources
                 content_sources = [
@@ -426,40 +438,44 @@ class CuriosityTrigger:
                     self._fetch_topic_summary_async,
                     self._generate_topic_exploration_async
                 ]
-                
+
                 for source_func in content_sources:
                     try:
                         content = await source_func(topic)
                         if content and len(content) > 200:
-                            prompt = self._create_exploration_prompt(topic, lateralness, len(content))
-                            logger.info(f"Successfully triggered curiosity for topic: {topic}")
+                            prompt = self._create_exploration_prompt(
+                                topic, lateralness, len(content))
+                            logger.info(
+                                f"Successfully triggered curiosity for topic: {topic}")
                             selected_topic = topic
                             selected_content = content
                             selected_prompt = prompt
                             break
                     except Exception as e:
-                        logger.warning(f"Content source failed for {topic}: {e}")
+                        logger.warning(
+                            f"Content source failed for {topic}: {e}")
                         continue
-                
+
                 if selected_topic:
                     break
-            
+
             # Fallback if no topic worked
             if not selected_topic:
                 selected_topic = curiosity_topics[0] if curiosity_topics else "the nature of curiosity itself"
                 selected_content = await self._generate_topic_exploration_async(selected_topic)
-                selected_prompt = self._create_exploration_prompt(selected_topic, lateralness, len(selected_content))
-            
+                selected_prompt = self._create_exploration_prompt(
+                    selected_topic, lateralness, len(selected_content))
+
             # Register autonomous blog trigger for curiosity discovery
             await self._register_curiosity_blog_trigger(
-                selected_topic, 
-                selected_content, 
-                recent_topics, 
+                selected_topic,
+                selected_content,
+                recent_topics,
                 lateralness
             )
-            
+
             return selected_content, selected_prompt
-            
+
         except Exception as e:
             logger.error(f"Curiosity trigger failed: {e}")
             return "Curiosity is the engine of achievement.", "Explore the concept of curiosity and its role in learning and discovery."
@@ -504,11 +520,11 @@ class CuriosityTrigger:
             Write in an engaging, educational style that sparks curiosity.
             Aim for 800-1200 words.
             """
-            
+
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(None, call_llm, prompt)
             return response if response else ""
-            
+
         except Exception as e:
             logger.warning(f"Topic summary generation failed for {topic}: {e}")
             return ""
@@ -529,13 +545,14 @@ class CuriosityTrigger:
             Make it intellectually stimulating and curiosity-inducing.
             Length: 600-800 words.
             """
-            
+
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(None, call_llm, prompt)
             return response if response else f"An exploration of {topic} and its implications for understanding our world."
-            
+
         except Exception as e:
-            logger.warning(f"Topic exploration generation failed for {topic}: {e}")
+            logger.warning(
+                f"Topic exploration generation failed for {topic}: {e}")
             return f"Let's explore the fascinating topic of {topic} and its many dimensions."
 
     def _create_exploration_prompt(self, topic: str, lateralness: float, content_length: int) -> str:
@@ -548,7 +565,7 @@ class CuriosityTrigger:
             exploration_style = "thoughtful and connected"
         else:
             exploration_style = "deep and focused"
-        
+
         return f"""
         🧠 CURIOSITY TRIGGER ACTIVATED! 🧠
         
@@ -579,63 +596,66 @@ class CuriosityTrigger:
             
             Topics:
             """
-            
+
             loop = asyncio.get_event_loop()
             topics_str = await loop.run_in_executor(None, call_llm, prompt)
-            
+
             if topics_str:
-                recent_topics = [t.strip() for t in topics_str.split(',') if t.strip()]
+                recent_topics = [t.strip()
+                                 for t in topics_str.split(',') if t.strip()]
                 return await self.trigger(recent_topics, lateralness=lateralness)
             else:
                 return await self.trigger([], lateralness=lateralness)
-                
+
         except Exception as e:
             logger.error(f"Context-based curiosity trigger failed: {e}")
             return await self.trigger([], lateralness=lateralness)
-    
+
     async def _register_curiosity_blog_trigger(
-        self, 
-        topic: str, 
-        content: str, 
-        recent_topics: List[str], 
+        self,
+        topic: str,
+        content: str,
+        recent_topics: List[str],
         lateralness: float
     ):
         """Register a blog trigger for curiosity discovery."""
         if not BLOG_SCHEDULER_AVAILABLE or not self.blog_scheduler:
             return
-        
+
         try:
             self.discovery_count += 1
-            
+
             # Calculate importance based on lateralness and content quality
-            importance_score = min(0.9, 0.4 + (lateralness * 0.3) + (len(content) / 2000) * 0.2)
-            
+            importance_score = min(
+                0.9, 0.4 + (lateralness * 0.3) + (len(content) / 2000) * 0.2)
+
             # Higher importance for creative/unexpected discoveries
             if lateralness > 0.75:
                 importance_score += 0.1
-            
+
             # Determine emotional valence (curiosity is generally positive)
             emotional_valence = 0.3 + (lateralness * 0.4)  # 0.3 to 0.7 range
-            
+
             # Create reasoning
             reasoning_why = f"""Curiosity was triggered about '{topic}' because it represents a fascinating area 
 of exploration that could expand my understanding and spark new connections. The lateralness level 
 of {lateralness:.1f} suggests this is {'a highly creative and unexpected' if lateralness > 0.75 else 'a connected and thoughtful'} discovery."""
-            
+
             reasoning_how = f"""This discovery happened through my curiosity trigger system, which analyzed 
 my recent topics ({', '.join(recent_topics[:3])}{'...' if len(recent_topics) > 3 else ''}) and generated 
 novel exploration areas. The content was sourced and validated to ensure it provides valuable 
 learning opportunities."""
-            
+
             # Extract meaningful tags
             topic_words = re.findall(r'\b\w{4,}\b', topic.lower())
             tags = ['curiosity', 'discovery', 'learning'] + topic_words[:5]
-            
+
             await self.blog_scheduler.register_learning_event(
                 trigger_type=BlogTriggerType.CURIOSITY_DISCOVERY,
                 topic=f"Curiosity Discovery: {topic}",
                 context=f"Lateral exploration level: {lateralness:.1f}, Recent context: {', '.join(recent_topics[:5])}",
-                learning_content=content[:500] + ("..." if len(content) > 500 else ""),
+                learning_content=content[:500] +
+                ("..." if len(content) > 500 else ""),
                 reasoning_why=reasoning_why,
                 reasoning_how=reasoning_how,
                 emotional_valence=emotional_valence,
@@ -648,23 +668,25 @@ learning opportunities."""
                     'content_length': len(content)
                 }
             )
-            
-            logger.info(f"Registered curiosity blog trigger for: {topic} (importance: {importance_score:.2f})")
-            
+
+            logger.info(
+                f"Registered curiosity blog trigger for: {topic} (importance: {importance_score:.2f})")
+
         except Exception as e:
             logger.warning(f"Failed to register curiosity blog trigger: {e}")
-    
+
     @staticmethod
     def from_context(context: str, lateralness: float = 1.0, blog_scheduler=None) -> Tuple[str, str]:
         """Synchronous version for compatibility."""
         trigger = CuriosityTrigger(blog_scheduler=blog_scheduler)
         return asyncio.run(trigger.from_context_async(context, lateralness))
 
-    @staticmethod  
+    @staticmethod
     def trigger_sync(recent_topics: List[str], lateralness: float = 1.0, blog_scheduler=None) -> Tuple[str, str]:
         """Synchronous version for compatibility."""
         trigger = CuriosityTrigger(blog_scheduler=blog_scheduler)
         return asyncio.run(trigger.trigger(recent_topics, lateralness))
+
 
 # --- Example usage ---
 if __name__ == "__main__":
@@ -675,7 +697,7 @@ if __name__ == "__main__":
         "natural language processing", "reinforcement learning",
         "computer vision", "robotics"
     ]
-    
+
     # Create curiosity trigger with blog scheduler
     if BLOG_SCHEDULER_AVAILABLE:
         from core.services.autonomous_blog_scheduler import AutonomousBlogScheduler
@@ -683,13 +705,15 @@ if __name__ == "__main__":
         curiosity_trigger = CuriosityTrigger(blog_scheduler=blog_scheduler)
     else:
         curiosity_trigger = CuriosityTrigger()
-    
-    fact, prompt = asyncio.run(curiosity_trigger.trigger(recent_topics, lateralness=1.0))
+
+    fact, prompt = asyncio.run(
+        curiosity_trigger.trigger(recent_topics, lateralness=1.0))
     print(prompt)
     print(fact)
 
     # Example: using full AGI context
     agi_context = """The AGI has recently studied neural networks, deep learning, reinforcement learning,\ncomputer vision, natural language processing, robotics, and data science. It has also explored\nthe basics of quantum computing and ethical AI."""
-    curiosity_prompt, article = asyncio.run(curiosity_trigger.from_context_async(agi_context, lateralness=0.5))
+    curiosity_prompt, article = asyncio.run(
+        curiosity_trigger.from_context_async(agi_context, lateralness=0.5))
     print("\n[From Context]", curiosity_prompt)
-    print(article[:500]) 
+    print(article[:500])

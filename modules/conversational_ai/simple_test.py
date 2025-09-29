@@ -2,14 +2,18 @@
 """
 Simple test script to isolate the issue with the enhanced communication system.
 """
+from modules.conversational_ai.communication.message_queue_channel import MessageQueueChannel
+from modules.conversational_ai.communication.shared_state_channel import SharedStateChannel
+from modules.conversational_ai.communication.memory_service_channel import MemoryServiceChannel
+from modules.conversational_ai.communication.data_models import CommunicationMessage, CommunicationType, Priority
 import asyncio
 import sys
 import os
 import logging
-from datetime import datetime
 
 # Add the project root directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), '..', '..'))
 
 # Set up logging
 logging.basicConfig(
@@ -19,48 +23,45 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Local imports
-from modules.conversational_ai.communication.data_models import CommunicationMessage, CommunicationType, Priority
-from modules.conversational_ai.communication.memory_service_channel import MemoryServiceChannel
-from modules.conversational_ai.communication.shared_state_channel import SharedStateChannel
-from modules.conversational_ai.communication.message_queue_channel import MessageQueueChannel
 
 
 async def test_channels():
     """Test the communication channels individually."""
     logger.info("Starting simple channel test...")
-    
+
     try:
         # Test Memory Service Channel
         logger.info("Testing Memory Service Channel...")
         memory_channel = MemoryServiceChannel("test_memory_channel")
         await memory_channel.start()
         logger.info("Memory Service Channel started")
-        
+
         # Test Shared State Channel
         logger.info("Testing Shared State Channel...")
         shared_state_channel = SharedStateChannel("test_shared_state_channel")
         await shared_state_channel.start()
         logger.info("Shared State Channel started")
-        
+
         # Test Message Queue Channel
         logger.info("Testing Message Queue Channel...")
-        message_queue_channel = MessageQueueChannel("test_message_queue_channel")
+        message_queue_channel = MessageQueueChannel(
+            "test_message_queue_channel")
         await message_queue_channel.start()
         logger.info("Message Queue Channel started")
-        
+
         # Wait a short time
         await asyncio.sleep(0.5)
-        
+
         # Stop all channels
         logger.info("Stopping channels...")
         await memory_channel.stop()
         await shared_state_channel.stop()
         await message_queue_channel.stop()
         logger.info("All channels stopped")
-        
+
         logger.info("Simple channel test completed successfully!")
         return True
-        
+
     except Exception as e:
         logger.error(f"Error during simple channel test: {e}")
         logger.exception("Full traceback:")

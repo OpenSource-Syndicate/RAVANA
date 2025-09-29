@@ -560,15 +560,18 @@ DISCOVERY_PROMPTS = [
     "Could we develop a theory of quantum gravity by treating spacetime as an emergent property?"
 ]
 
+
 def get_random_experiment():
     """Get a random physics experiment prompt."""
     import random
     return random.choice(ADVANCED_PHYSICS_EXPERIMENTS)
 
+
 def get_discovery_prompt():
     """Get a random discovery-oriented prompt."""
     import random
     return random.choice(DISCOVERY_PROMPTS)
+
 
 def get_experiments_by_difficulty(difficulty):
     """Get experiments filtered by difficulty level."""

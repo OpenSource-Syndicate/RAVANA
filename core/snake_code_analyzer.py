@@ -10,8 +10,7 @@ import asyncio
 import logging
 import re
 import json
-from typing import Dict, Any, List, Optional, Set, Tuple
-from pathlib import Path
+from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -28,7 +27,7 @@ class CodeMetrics:
     todo_count: int = 0
     comment_ratio: float = 0.0
     max_line_length: int = 0
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "lines_of_code": self.lines_of_code,
@@ -51,7 +50,7 @@ class CodeIssue:
     line_number: Optional[int] = None
     suggestion: Optional[str] = None
     confidence: float = 0.0
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "type": self.type,
@@ -65,20 +64,32 @@ class CodeIssue:
 
 class ASTAnalyzer:
     """Analyzes Python AST for various code patterns and issues"""
-    
+
     def __init__(self):
         self.metrics = CodeMetrics()
         self.issues: List[CodeIssue] = []
-    
+
     def analyze_ast(self, tree: ast.AST, source_lines: List[str]) -> Tuple[CodeMetrics, List[CodeIssue]]:
         """Analyze AST and return metrics and issues"""
         self.metrics = CodeMetrics()
         self.issues = []
-        
+
+        # Accept either an AST node or a compiled code object; if a code object is passed
+        # reconstruct the AST from the provided source_lines.
+        if not isinstance(tree, ast.AST):
+            try:
+                # If a code object was passed (from compile()), parse the source_lines
+                tree = ast.parse('\n'.join(source_lines))
+            except Exception:
+                # Fallback: treat as empty tree
+                tree = ast.parse('')
+
         # Calculate basic metrics
-        self.metrics.lines_of_code = len([line for line in source_lines if line.strip()])
-        self.metrics.max_line_length = max(len(line) for line in source_lines) if source_lines else 0
-        
+        self.metrics.lines_of_code = len(
+            [line for line in source_lines if line.strip()])
+        self.metrics.max_line_length = max(
+            (len(line) for line in source_lines), default=0)
+
         # Count comments and TODOs
         comment_lines = 0
         for line in source_lines:
@@ -87,38 +98,38 @@ class ASTAnalyzer:
                 comment_lines += 1
             if 'TODO' in line.upper() or 'FIXME' in line.upper():
                 self.metrics.todo_count += 1
-        
+
         self.metrics.comment_ratio = comment_lines / max(len(source_lines), 1)
-        
+
         # Analyze AST nodes
         self._analyze_node(tree, source_lines)
-        
+
         return self.metrics, self.issues
-    
+
     def _analyze_node(self, node: ast.AST, source_lines: List[str]):
         """Recursively analyze AST nodes"""
         if isinstance(node, ast.ClassDef):
             self.metrics.class_count += 1
             self._analyze_class(node, source_lines)
-        
+
         elif isinstance(node, ast.FunctionDef):
             self.metrics.function_count += 1
             self._analyze_function(node, source_lines)
-        
+
         elif isinstance(node, ast.Import) or isinstance(node, ast.ImportFrom):
             self.metrics.import_count += 1
             self._analyze_import(node)
-        
+
         elif isinstance(node, ast.For) or isinstance(node, ast.While):
             self._analyze_loop(node, source_lines)
-        
+
         elif isinstance(node, ast.Try):
             self._analyze_exception_handling(node, source_lines)
-        
+
         # Recurse into child nodes
         for child in ast.iter_child_nodes(node):
             self._analyze_node(child, source_lines)
-    
+
     def _analyze_class(self, node: ast.ClassDef, source_lines: List[str]):
         """Analyze class definition"""
         # Check for very large classes
@@ -131,7 +142,7 @@ class ASTAnalyzer:
                 suggestion="Consider breaking this class into smaller, more focused classes",
                 confidence=0.8
             ))
-        
+
         # Check for missing docstring
         if not ast.get_docstring(node):
             self.issues.append(CodeIssue(
@@ -142,15 +153,15 @@ class ASTAnalyzer:
                 suggestion="Add a docstring describing the class purpose",
                 confidence=0.9
             ))
-    
+
     def _analyze_function(self, node: ast.FunctionDef, source_lines: List[str]):
         """Analyze function definition"""
         # Calculate cyclomatic complexity
         complexity = self._calculate_complexity(node)
         self.metrics.complexity += complexity
-        
-        # Check for high complexity
-        if complexity > 10:
+
+        # Check for high complexity (lower threshold to surface issues earlier)
+        if complexity > 5:
             self.issues.append(CodeIssue(
                 type="quality",
                 severity="high",
@@ -159,7 +170,7 @@ class ASTAnalyzer:
                 suggestion="Consider breaking this function into smaller functions",
                 confidence=0.9
             ))
-        
+
         # Check for very long functions
         if hasattr(node, 'end_lineno') and node.end_lineno:
             func_length = node.end_lineno - node.lineno
@@ -172,7 +183,7 @@ class ASTAnalyzer:
                     suggestion="Consider breaking this function into smaller functions",
                     confidence=0.8
                 ))
-        
+
         # Check for missing docstring
         if not ast.get_docstring(node) and not node.name.startswith('_'):
             self.issues.append(CodeIssue(
@@ -183,7 +194,7 @@ class ASTAnalyzer:
                 suggestion="Add a docstring describing the function purpose and parameters",
                 confidence=0.7
             ))
-        
+
         # Check for too many parameters
         if len(node.args.args) > 7:
             self.issues.append(CodeIssue(
@@ -194,7 +205,7 @@ class ASTAnalyzer:
                 suggestion="Consider using a configuration object or breaking the function",
                 confidence=0.8
             ))
-    
+
     def _analyze_import(self, node):
         """Analyze import statements"""
         # Check for unused imports (basic heuristic)
@@ -202,7 +213,7 @@ class ASTAnalyzer:
             for alias in node.names:
                 # This is a basic check - would need more sophisticated analysis
                 pass
-    
+
     def _analyze_loop(self, node, source_lines: List[str]):
         """Analyze loop constructs"""
         # Check for potential infinite loops (very basic)
@@ -217,7 +228,7 @@ class ASTAnalyzer:
                     suggestion="Ensure there's a proper break condition",
                     confidence=0.6
                 ))
-    
+
     def _analyze_exception_handling(self, node: ast.Try, source_lines: List[str]):
         """Analyze exception handling"""
         # Check for bare except clauses
@@ -231,38 +242,38 @@ class ASTAnalyzer:
                     suggestion="Catch specific exceptions instead of using bare except",
                     confidence=0.9
                 ))
-    
+
     def _calculate_complexity(self, node: ast.FunctionDef) -> int:
         """Calculate cyclomatic complexity of a function"""
         complexity = 1  # Base complexity
-        
+
         for child in ast.walk(node):
             if isinstance(child, (ast.If, ast.While, ast.For, ast.ExceptHandler)):
                 complexity += 1
             elif isinstance(child, ast.BoolOp):
                 complexity += len(child.values) - 1
-        
+
         return complexity
 
 
 class PatternAnalyzer:
     """Analyzes code for specific patterns and anti-patterns"""
-    
+
     def __init__(self):
         self.issues: List[CodeIssue] = []
-    
+
     def analyze_patterns(self, code: str, file_path: str) -> List[CodeIssue]:
         """Analyze code for patterns and anti-patterns"""
         self.issues = []
         lines = code.split('\n')
-        
+
         self._check_security_patterns(lines)
         self._check_performance_patterns(lines)
         self._check_async_patterns(lines)
         self._check_ravana_specific_patterns(lines, file_path)
-        
+
         return self.issues
-    
+
     def _check_security_patterns(self, lines: List[str]):
         """Check for security-related patterns"""
         for i, line in enumerate(lines, 1):
@@ -276,7 +287,7 @@ class PatternAnalyzer:
                     suggestion="Use parameterized queries instead of string formatting",
                     confidence=0.8
                 ))
-            
+
             # Check for hardcoded secrets
             if re.search(r'(password|secret|key)\s*=\s*["\'][^"\']+["\']', line, re.IGNORECASE):
                 self.issues.append(CodeIssue(
@@ -287,7 +298,7 @@ class PatternAnalyzer:
                     suggestion="Use environment variables or secure configuration",
                     confidence=0.7
                 ))
-    
+
     def _check_performance_patterns(self, lines: List[str]):
         """Check for performance-related patterns"""
         for i, line in enumerate(lines, 1):
@@ -301,7 +312,7 @@ class PatternAnalyzer:
                     suggestion="Use join() or list comprehension for better performance",
                     confidence=0.7
                 ))
-            
+
             # Check for synchronous operations in async functions
             if 'requests.get(' in line or 'requests.post(' in line:
                 # Look back for async def
@@ -316,7 +327,7 @@ class PatternAnalyzer:
                             confidence=0.8
                         ))
                         break
-    
+
     def _check_async_patterns(self, lines: List[str]):
         """Check for async/await patterns"""
         for i, line in enumerate(lines, 1):
@@ -325,7 +336,7 @@ class PatternAnalyzer:
                 # Look for potential missing awaits in the function
                 func_start = i
                 func_end = min(len(lines), i + 50)  # Check next 50 lines
-                
+
                 for j in range(func_start, func_end):
                     if lines[j].strip().startswith('return ') and '(' in lines[j]:
                         # Potential missing await on return
@@ -338,7 +349,7 @@ class PatternAnalyzer:
                                 suggestion="Check if this function call should be awaited",
                                 confidence=0.5
                             ))
-    
+
     def _check_ravana_specific_patterns(self, lines: List[str], file_path: str):
         """Check for RAVANA-specific patterns and best practices"""
         for i, line in enumerate(lines, 1):
@@ -352,7 +363,7 @@ class PatternAnalyzer:
                     suggestion="Use logger.info(), logger.debug(), etc. instead of print()",
                     confidence=0.8
                 ))
-            
+
             # Check for proper error handling in AGI modules
             if 'modules/' in file_path and 'try:' in line:
                 # Look for specific exception handling
@@ -361,7 +372,7 @@ class PatternAnalyzer:
                     if 'except Exception' in lines[j] or 'except:' in lines[j]:
                         has_specific_except = True
                         break
-                
+
                 if has_specific_except:
                     self.issues.append(CodeIssue(
                         type="quality",
@@ -375,12 +386,12 @@ class PatternAnalyzer:
 
 class SnakeCodeAnalyzer:
     """Main code analyzer for Snake Agent"""
-    
+
     def __init__(self, coding_llm):
         self.coding_llm = coding_llm
         self.ast_analyzer = ASTAnalyzer()
         self.pattern_analyzer = PatternAnalyzer()
-    
+
     async def analyze_code(self, code_content: str, file_path: str, change_type: str) -> Dict[str, Any]:
         """Perform comprehensive code analysis"""
         try:
@@ -395,24 +406,27 @@ class SnakeCodeAnalyzer:
                 "priority": "medium",
                 "confidence": 0.0
             }
-            
+
             # Static analysis
             metrics, static_issues = await self._perform_static_analysis(code_content, file_path)
             analysis_result["metrics"] = metrics.to_dict()
-            analysis_result["static_issues"] = [issue.to_dict() for issue in static_issues]
-            
+            analysis_result["static_issues"] = [issue.to_dict()
+                                                for issue in static_issues]
+
             # LLM-based analysis
             llm_analysis = await self._perform_llm_analysis(code_content, file_path, change_type)
             analysis_result["llm_analysis"] = llm_analysis
-            
+
             # Combine results and determine overall assessment
-            overall_assessment = self._combine_analysis_results(metrics, static_issues, llm_analysis)
+            overall_assessment = self._combine_analysis_results(
+                metrics, static_issues, llm_analysis)
             analysis_result.update(overall_assessment)
-            
-            logger.info(f"Code analysis completed for {file_path}: {len(static_issues)} static issues found")
-            
+
+            logger.info(
+                f"Code analysis completed for {file_path}: {len(static_issues)} static issues found")
+
             return analysis_result
-            
+
         except Exception as e:
             logger.error(f"Error analyzing code {file_path}: {e}")
             return {
@@ -422,18 +436,19 @@ class SnakeCodeAnalyzer:
                 "priority": "low",
                 "confidence": 0.0
             }
-    
+
     async def _perform_static_analysis(self, code_content: str, file_path: str) -> Tuple[CodeMetrics, List[CodeIssue]]:
         """Perform static analysis using AST and pattern matching"""
         all_issues = []
-        
+
         try:
             # AST analysis
             tree = ast.parse(code_content)
             source_lines = code_content.split('\n')
-            metrics, ast_issues = self.ast_analyzer.analyze_ast(tree, source_lines)
+            metrics, ast_issues = self.ast_analyzer.analyze_ast(
+                tree, source_lines)
             all_issues.extend(ast_issues)
-            
+
         except SyntaxError as e:
             # Handle syntax errors
             all_issues.append(CodeIssue(
@@ -445,13 +460,14 @@ class SnakeCodeAnalyzer:
                 confidence=1.0
             ))
             metrics = CodeMetrics()
-        
+
         # Pattern analysis
-        pattern_issues = self.pattern_analyzer.analyze_patterns(code_content, file_path)
+        pattern_issues = self.pattern_analyzer.analyze_patterns(
+            code_content, file_path)
         all_issues.extend(pattern_issues)
-        
+
         return metrics, all_issues
-    
+
     async def _perform_llm_analysis(self, code_content: str, file_path: str, change_type: str) -> Dict[str, Any]:
         """Perform LLM-based analysis"""
         try:
@@ -462,17 +478,17 @@ class SnakeCodeAnalyzer:
                 analysis_type = "modification_review"
             else:
                 analysis_type = "general_review"
-            
+
             # Get LLM analysis
             llm_response = await self.coding_llm.analyze_code(code_content, analysis_type)
-            
+
             # Parse LLM response
             return self._parse_llm_analysis(llm_response)
-            
+
         except Exception as e:
             logger.error(f"Error in LLM analysis: {e}")
             return {"error": str(e), "suggestions": [], "quality_score": 0.5}
-    
+
     def _parse_llm_analysis(self, llm_response: str) -> Dict[str, Any]:
         """Parse LLM analysis response"""
         try:
@@ -482,7 +498,7 @@ class SnakeCodeAnalyzer:
                 json_end = llm_response.find('```', json_start)
                 json_content = llm_response[json_start:json_end].strip()
                 return json.loads(json_content)
-            
+
             # Fallback: parse structured text response
             analysis = {
                 "suggestions": [],
@@ -491,7 +507,7 @@ class SnakeCodeAnalyzer:
                 "architecture_suggestions": [],
                 "raw_response": llm_response
             }
-            
+
             # Extract suggestions from text
             lines = llm_response.split('\n')
             for line in lines:
@@ -501,9 +517,9 @@ class SnakeCodeAnalyzer:
                     analysis["performance_notes"].append(line.strip())
                 elif 'architecture:' in line.lower():
                     analysis["architecture_suggestions"].append(line.strip())
-            
+
             return analysis
-            
+
         except Exception as e:
             logger.error(f"Error parsing LLM analysis: {e}")
             return {
@@ -512,14 +528,16 @@ class SnakeCodeAnalyzer:
                 "suggestions": [],
                 "quality_score": 0.5
             }
-    
-    def _combine_analysis_results(self, metrics: CodeMetrics, static_issues: List[CodeIssue], 
-                                llm_analysis: Dict[str, Any]) -> Dict[str, Any]:
+
+    def _combine_analysis_results(self, metrics: CodeMetrics, static_issues: List[CodeIssue],
+                                  llm_analysis: Dict[str, Any]) -> Dict[str, Any]:
         """Combine static and LLM analysis results"""
         # Calculate overall priority
-        high_severity_count = len([issue for issue in static_issues if issue.severity in ['high', 'critical']])
-        medium_severity_count = len([issue for issue in static_issues if issue.severity == 'medium'])
-        
+        high_severity_count = len(
+            [issue for issue in static_issues if issue.severity in ['high', 'critical']])
+        medium_severity_count = len(
+            [issue for issue in static_issues if issue.severity == 'medium'])
+
         # Determine if improvements are suggested
         improvements_suggested = (
             high_severity_count > 0 or
@@ -528,7 +546,7 @@ class SnakeCodeAnalyzer:
             metrics.complexity > 20 or
             metrics.lines_of_code > 500
         )
-        
+
         # Calculate priority
         if high_severity_count > 0 or metrics.complexity > 30:
             priority = "high"
@@ -536,14 +554,14 @@ class SnakeCodeAnalyzer:
             priority = "medium"
         else:
             priority = "low"
-        
+
         # Calculate confidence
         confidence = min(1.0, (
             len(static_issues) * 0.1 +
             len(llm_analysis.get("suggestions", [])) * 0.2 +
             (llm_analysis.get("quality_score", 0.5) * 0.5)
         ))
-        
+
         return {
             "improvements_suggested": improvements_suggested,
             "priority": priority,

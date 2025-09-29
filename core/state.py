@@ -1,9 +1,11 @@
 from typing import Dict, Any, List
 
+
 class SharedState:
     """
     A class to encapsulate the shared state of the AGI system.
     """
+
     def __init__(self, initial_mood: Dict[str, float]):
         self.mood: Dict[str, float] = initial_mood
         self.current_situation: Dict[str, Any] = None
@@ -27,4 +29,4 @@ class SharedState:
             f"Curiosity Topics: {self.curiosity_topics}\n"
             f"Search Results: {len(self.search_results)}"
         )
-        return summary 
+        return summary

@@ -4,6 +4,7 @@ from core.actions.action import Action
 
 logger = logging.getLogger(__name__)
 
+
 class LogMessageAction(Action):
     @property
     def name(self) -> str:
@@ -37,4 +38,4 @@ class LogMessageAction(Action):
         log_func = getattr(logger, level, logger.info)
         log_func(f"[AGI Thought]: {message}")
 
-        return {"status": "success", "message": f"Message logged with level '{level}'."} 
+        return {"status": "success", "message": f"Message logged with level '{level}'."}

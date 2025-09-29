@@ -1,9 +1,9 @@
-import os
 import json
 from datetime import datetime
 from core.llm import call_llm
 from .compression_prompts import COMPRESSION_PROMPT
 from .compressed_memory import save_summary, load_summaries
+
 
 def compress_knowledge(logs):
     """Summarize accumulated knowledge/logs using the LLM."""
@@ -15,6 +15,7 @@ def compress_knowledge(logs):
     }
     save_summary(entry)
     return entry
+
 
 def scheduled_compression(logs, schedule="weekly"):
     """
@@ -29,15 +30,19 @@ def scheduled_compression(logs, schedule="weekly"):
     # In a real deployment, this would be triggered by a scheduler.
     return compress_knowledge(logs)
 
+
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Knowledge Compression Module")
-    parser.add_argument('--logs', type=str, required=True, help='Path to logs/reflections JSON file')
+    parser = argparse.ArgumentParser(
+        description="Knowledge Compression Module")
+    parser.add_argument('--logs', type=str, required=True,
+                        help='Path to logs/reflections JSON file')
     args = parser.parse_args()
     with open(args.logs, 'r', encoding='utf-8') as f:
         logs = json.load(f)
     entry = compress_knowledge(logs)
     print(json.dumps(entry, indent=2))
+
 
 if __name__ == "__main__":
     main()

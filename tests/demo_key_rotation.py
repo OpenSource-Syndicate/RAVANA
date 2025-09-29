@@ -1,7 +1,7 @@
+from core.llm import call_gemini, get_gemini_key_statistics
 import sys
 sys.path.insert(0, '.')
 
-from core.llm import call_gemini, get_gemini_key_statistics
 
 print("🚀 Demonstrating Enhanced Gemini Key Rotation")
 print("=" * 50)
@@ -16,7 +16,7 @@ print(f"Available keys: {initial_stats['available_keys']}")
 print("\n🧪 Making multiple test calls...")
 test_prompts = [
     "What is 2 + 2?",
-    "What is the capital of Italy?", 
+    "What is the capital of Italy?",
     "Name a programming language."
 ]
 
@@ -41,5 +41,6 @@ if used_keys:
 else:
     print("No key usage recorded")
 
-print(f"\nTotal available keys: {final_stats['available_keys']}/{final_stats['total_keys']}")
+print(
+    f"\nTotal available keys: {final_stats['available_keys']}/{final_stats['total_keys']}")
 print("✅ Enhanced Gemini system is working correctly!")

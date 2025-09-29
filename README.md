@@ -39,7 +39,9 @@ Here’s how the project is organized:
 * **`modules/`** → Plug-and-play intelligence modules (reflection, experimentation, conversational AI, etc.)
 * **`services/`** → Service-level abstractions: memory, knowledge bases, environment interaction
 * **`database/`** → Schemas, models, and the database engine for long-term persistence
+* **`scripts/`** → Standalone scripts for special operations (physics experiments, conversational AI, cleanup, etc.)
 * **`docs/`** → Curated documentation: usage, API references, developer notes (`docs/index.md` is the hub)
+* **`assets/`** → Static assets like images and other media
 * **`wiki/`** → Deep design documents, architecture breakdowns, and module-level explorations
 
 Think of `docs/` as the **“how to use it”** layer and `wiki/` as the **“how it works under the hood”** layer.
@@ -98,8 +100,11 @@ python main.py
 
 The repo includes test harnesses to stretch RAVANA’s abilities:
 
-* `run_physics_tests.py` — physics interaction benchmarking
-* `scae_benchmark.py` — self-consistency and evaluation checks
+* `scripts/run_physics_tests.py` — physics interaction benchmarking
+* `scripts/physics_cli.py` — interactive physics experiment interface
+* `scripts/physics_experiment_prompts.py` — collection of physics experiment prompts
+* `scripts/cleanup_session.py` — clean up session data and temporary files
+* `scripts/launch_conversational_ai.py` — standalone conversational AI interface
 
 Run them from an active virtual environment to watch the system’s behavior unfold.
 

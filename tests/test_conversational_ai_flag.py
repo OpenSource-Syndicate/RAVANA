@@ -9,7 +9,7 @@ try:
     # Try to import the ConversationalAI class
     from modules.conversational_ai.main import ConversationalAI
     print("ConversationalAI import successful")
-    
+
     # Try the same import that's used in system.py
     try:
         from modules.conversational_ai.main import ConversationalAI
@@ -18,9 +18,10 @@ try:
     except ImportError as e:
         CONVERSATIONAL_AI_AVAILABLE = False
         print(f"CONVERSATIONAL_AI_AVAILABLE = False, error: {e}")
-        
-    print(f"Final value: CONVERSATIONAL_AI_AVAILABLE = {CONVERSATIONAL_AI_AVAILABLE}")
-    
+
+    print(
+        f"Final value: CONVERSATIONAL_AI_AVAILABLE = {CONVERSATIONAL_AI_AVAILABLE}")
+
 except Exception as e:
     print(f"Error: {e}")
     import traceback

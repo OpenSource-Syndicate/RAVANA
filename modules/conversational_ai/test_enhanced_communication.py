@@ -2,6 +2,8 @@
 """
 Test script for the enhanced communication system between conversational AI and RAVANA AGI.
 """
+from modules.conversational_ai.communication.data_models import CommunicationMessage, CommunicationType, Priority
+from modules.conversational_ai.main import ConversationalAI
 import asyncio
 import sys
 import os
@@ -9,7 +11,8 @@ import logging
 from datetime import datetime
 
 # Add the project root directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), '..', '..'))
 
 # Set up logging
 logging.basicConfig(
@@ -19,25 +22,23 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Local imports
-from modules.conversational_ai.main import ConversationalAI
-from modules.conversational_ai.communication.data_models import CommunicationMessage, CommunicationType, Priority
 
 
 async def test_enhanced_communication():
     """Test the enhanced communication system."""
     logger.info("Starting enhanced communication system test...")
-    
+
     try:
         # Initialize the conversational AI
         logger.info("Creating ConversationalAI instance...")
         conversational_ai = ConversationalAI()
         logger.info("Conversational AI instance created")
-        
+
         # Start the RAVANA communicator to initialize channels
         logger.info("Starting RAVANA communicator...")
         await conversational_ai.ravana_communicator.start()
         logger.info("RAVANA communicator started")
-        
+
         # Test Memory Service Channel
         logger.info("Testing Memory Service Channel...")
         memory_message = CommunicationMessage(
@@ -50,10 +51,12 @@ async def test_enhanced_communication():
             subject="Test thought exchange",
             content={"test": "This is a test message for memory service channel"}
         )
-        
-        memory_success = conversational_ai.ravana_communicator.memory_service_channel.send_message(memory_message)
-        logger.info(f"Memory Service Channel test: {'PASSED' if memory_success else 'FAILED'}")
-        
+
+        memory_success = conversational_ai.ravana_communicator.memory_service_channel.send_message(
+            memory_message)
+        logger.info(
+            f"Memory Service Channel test: {'PASSED' if memory_success else 'FAILED'}")
+
         # Test Shared State Channel
         logger.info("Testing Shared State Channel...")
         shared_state_message = CommunicationMessage(
@@ -66,10 +69,12 @@ async def test_enhanced_communication():
             subject="Test status update",
             content={"test": "This is a test message for shared state channel"}
         )
-        
-        shared_state_success = conversational_ai.ravana_communicator.shared_state_channel.send_message(shared_state_message)
-        logger.info(f"Shared State Channel test: {'PASSED' if shared_state_success else 'FAILED'}")
-        
+
+        shared_state_success = conversational_ai.ravana_communicator.shared_state_channel.send_message(
+            shared_state_message)
+        logger.info(
+            f"Shared State Channel test: {'PASSED' if shared_state_success else 'FAILED'}")
+
         # Test Message Queue Channel
         logger.info("Testing Message Queue Channel...")
         queue_message = CommunicationMessage(
@@ -82,38 +87,43 @@ async def test_enhanced_communication():
             subject="Test task result",
             content={"test": "This is a test message for message queue channel"}
         )
-        
-        queue_success = conversational_ai.ravana_communicator.message_queue_channel.send_message(queue_message)
-        logger.info(f"Message Queue Channel test: {'PASSED' if queue_success else 'FAILED'}")
-        
+
+        queue_success = conversational_ai.ravana_communicator.message_queue_channel.send_message(
+            queue_message)
+        logger.info(
+            f"Message Queue Channel test: {'PASSED' if queue_success else 'FAILED'}")
+
         # Test user platform tracking
         logger.info("Testing user platform tracking...")
         conversational_ai._track_user_platform("test_user_123", "discord")
-        
+
         # Verify platform tracking
-        profile = conversational_ai.user_profile_manager.get_user_platform_profile("test_user_123")
+        profile = conversational_ai.user_profile_manager.get_user_platform_profile(
+            "test_user_123")
         if profile and profile.last_platform == "discord":
             logger.info("User platform tracking test: PASSED")
         else:
             logger.info("User platform tracking test: FAILED")
-        
+
         # Test sending message to user with platform tracking
         logger.info("Testing message sending with platform tracking...")
         # This would normally send a message, but we'll just test the logic
-        logger.info("Message sending with platform tracking test: PASSED (logic test)")
-        
+        logger.info(
+            "Message sending with platform tracking test: PASSED (logic test)")
+
         # Wait a short time to allow any async operations to complete
         logger.info("Waiting for async operations to complete...")
         await asyncio.sleep(0.5)
-        
+
         # Stop the RAVANA communicator
         logger.info("Stopping RAVANA communicator...")
         await conversational_ai.ravana_communicator.stop()
         logger.info("RAVANA communicator stopped")
-        
-        logger.info("Enhanced communication system test completed successfully!")
+
+        logger.info(
+            "Enhanced communication system test completed successfully!")
         return True
-        
+
     except Exception as e:
         logger.error(f"Error during enhanced communication system test: {e}")
         logger.exception("Full traceback:")

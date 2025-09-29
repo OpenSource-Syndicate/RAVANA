@@ -1,4 +1,3 @@
-import json
 from enum import Enum
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -37,7 +36,7 @@ class CommunicationMessage:
     content: Dict[str, Any]
     requires_response: bool = False
     response_timeout: Optional[int] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert message to dictionary for serialization."""
         result = asdict(self)
@@ -45,7 +44,7 @@ class CommunicationMessage:
         result['priority'] = self.priority.value
         result['timestamp'] = self.timestamp.isoformat()
         return result
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'CommunicationMessage':
         """Create message from dictionary."""
@@ -63,15 +62,16 @@ class UserPlatformProfile:
     platform_user_id: str
     preferences: Dict[str, Any]
     last_interaction: datetime
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert profile to dictionary for serialization."""
         result = asdict(self)
         result['last_interaction'] = self.last_interaction.isoformat()
         return result
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'UserPlatformProfile':
         """Create profile from dictionary."""
-        data['last_interaction'] = datetime.fromisoformat(data['last_interaction'])
+        data['last_interaction'] = datetime.fromisoformat(
+            data['last_interaction'])
         return cls(**data)

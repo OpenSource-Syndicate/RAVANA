@@ -7,28 +7,29 @@ import sys
 import os
 import time
 
+
 def test_normal_launch():
     """Test the normal launcher functionality."""
     print("Testing normal launcher functionality...")
-    
+
     # Change to the project directory
     project_dir = r"c:\Users\ASUS\Documents\GitHub\RAVANA"
     os.chdir(project_dir)
-    
+
     # Run the launcher without --verify-bots flag for a short time
     try:
         process = subprocess.Popen([
-            sys.executable, 
+            sys.executable,
             "launch_conversational_ai.py"
-        ], 
-        stdout=subprocess.PIPE, 
-        stderr=subprocess.PIPE,
-        text=True
+        ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
         )
-        
+
         # Give it a few seconds to start
         time.sleep(5)
-        
+
         # Check if the process is still running
         if process.poll() is None:
             # Process is still running, terminate it
@@ -47,9 +48,10 @@ def test_normal_launch():
             print(stdout)
             print("STDERR:")
             print(stderr)
-            
+
     except Exception as e:
         print(f"ERROR: Failed to run normal launcher: {e}")
+
 
 if __name__ == "__main__":
     test_normal_launch()

@@ -5,20 +5,16 @@ from google import genai
 from openai import OpenAI
 import logging
 import random
-import tempfile
 import traceback
 import sys
-import contextlib
-import io
 import re
-import pkgutil
 import subprocess
 import importlib.util
 import threading
 import time
 import asyncio
 from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Dict, Any, Optional, Tuple, List
 import ssl
 import certifi
@@ -28,7 +24,8 @@ from modules.decision_engine.search_result_manager import search_result_manager
 from core.prompt_manager import PromptManager
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
@@ -39,6 +36,7 @@ prompt_manager = PromptManager()
 # Load config
 with open(CONFIG_PATH, 'r') as f:
     config = json.load(f)
+
 
 @dataclass
 class GeminiKeyStatus:
@@ -53,31 +51,32 @@ class GeminiKeyStatus:
     consecutive_failures: int = 0
     total_requests: int = 0
 
+
 class GeminiKeyManager:
     """Manages multiple Gemini API keys with fallback and rate limiting."""
-    
+
     def __init__(self):
         self._lock = threading.Lock()
         self._keys: Dict[str, GeminiKeyStatus] = {}
         self._load_keys_from_config()
-        
+
         # Rate limiting patterns to detect
         self.rate_limit_indicators = [
             "quota exceeded",
-            "rate limit exceeded", 
+            "rate limit exceeded",
             "too many requests",
             "429",
             "resource_exhausted",
             "quota_exceeded",
             "rate_limit_exceeded"
         ]
-    
+
     def _load_keys_from_config(self):
         """Load API keys from configuration file."""
         try:
             gemini_config = config.get('gemini', {})
             api_keys = gemini_config.get('api_keys', [])
-            
+
             # Also check environment variables for additional keys
             env_keys = []
             for i in range(1, 21):  # Check for up to 20 environment variables
@@ -88,19 +87,20 @@ class GeminiKeyManager:
                         "key": env_key,
                         "priority": 100 + i  # Lower priority than config keys
                     })
-            
+
             all_keys = api_keys + env_keys
-            
+
             # Add fallback key if no keys found
             if not all_keys:
-                logger.warning("No API keys found in config or environment, using fallback key")
+                logger.warning(
+                    "No API keys found in config or environment, using fallback key")
                 fallback_key = {
                     "id": "fallback_key",
                     "key": "AIzaSyAWR9C57V2f2pXFwjtN9jkNYKA_ou5Hdo4",
                     "priority": 999
                 }
                 all_keys.append(fallback_key)
-            
+
             for key_data in all_keys:
                 key_status = GeminiKeyStatus(
                     key_id=key_data['id'],
@@ -108,9 +108,9 @@ class GeminiKeyManager:
                     priority=key_data.get('priority', 999)
                 )
                 self._keys[key_status.key_id] = key_status
-                
+
             logger.info(f"Loaded {len(self._keys)} Gemini API keys")
-            
+
         except Exception as e:
             logger.error(f"Failed to load Gemini keys from config: {e}")
             # Fallback to hardcoded key if config fails
@@ -127,23 +127,23 @@ class GeminiKeyManager:
             # Filter available keys (not rate limited or rate limit has expired)
             available_keys = []
             current_time = datetime.now()
-            
+
             for key_status in self._keys.values():
                 if not key_status.is_available:
                     continue
-                    
+
                 # Check if rate limit has expired
                 if key_status.rate_limit_reset_time and key_status.rate_limit_reset_time <= current_time:
                     key_status.rate_limit_reset_time = None
                     key_status.is_available = True
-                
+
                 # Add to available keys if not currently rate limited
                 if key_status.is_available:
                     available_keys.append(key_status)
-            
+
             # Sort by priority (lower number = higher priority)
             available_keys.sort(key=lambda x: x.priority)
-            
+
             # Return highest priority available key
             return available_keys[0] if available_keys else None
 
@@ -155,7 +155,8 @@ class GeminiKeyManager:
                 key_status.total_requests += 1
                 key_status.last_success = datetime.now()
                 key_status.consecutive_failures = 0
-                key_status.failure_count = max(0, key_status.failure_count - 1)  # Decay failure count
+                key_status.failure_count = max(
+                    0, key_status.failure_count - 1)  # Decay failure count
                 key_status.is_available = True
 
     def mark_key_failed(self, key_id: str, error: Exception):
@@ -166,11 +167,12 @@ class GeminiKeyManager:
                 key_status.total_requests += 1
                 key_status.failure_count += 1
                 key_status.consecutive_failures += 1
-                
+
                 # Mark as unavailable if too many consecutive failures
                 if key_status.consecutive_failures >= 5:
                     key_status.is_available = False
-                    logger.warning(f"Key {key_id} marked as unavailable due to repeated failures")
+                    logger.warning(
+                        f"Key {key_id} marked as unavailable due to repeated failures")
 
     def mark_key_rate_limited(self, key_id: str, reset_time: datetime):
         """Mark a key as rate limited."""
@@ -179,21 +181,23 @@ class GeminiKeyManager:
                 key_status = self._keys[key_id]
                 key_status.rate_limit_reset_time = reset_time
                 key_status.is_available = False
-                logger.info(f"Key {key_id} marked as rate limited until {reset_time}")
+                logger.info(
+                    f"Key {key_id} marked as rate limited until {reset_time}")
 
     def is_rate_limit_error(self, error: Exception) -> Tuple[bool, Optional[datetime]]:
         """Check if an error is a rate limit error and extract reset time if available."""
         error_str = str(error).lower()
-        
+
         # Check if it's a rate limit error
-        is_rate_limited = any(indicator in error_str for indicator in self.rate_limit_indicators)
-        
+        is_rate_limited = any(
+            indicator in error_str for indicator in self.rate_limit_indicators)
+
         # Try to extract reset time (this is a simplified implementation)
         reset_time = None
         if is_rate_limited:
             # In a real implementation, you would parse the actual reset time from the error response
             reset_time = datetime.now() + timedelta(minutes=1)  # Default to 1 minute
-        
+
         return is_rate_limited, reset_time
 
     def get_key_statistics(self) -> Dict[str, Any]:
@@ -205,7 +209,7 @@ class GeminiKeyManager:
             "failed_keys": 0,
             "key_details": []
         }
-        
+
         for key in self._keys.values():
             key_stats = {
                 "id": key.key_id[:12] + "...",
@@ -216,47 +220,51 @@ class GeminiKeyManager:
                 "consecutive_failures": key.consecutive_failures,
                 "last_success": key.last_success.isoformat() if key.last_success else None
             }
-            
+
             stats["key_details"].append(key_stats)
-            
+
             if key.is_available:
                 stats["available_keys"] += 1
             if key.rate_limit_reset_time:
                 stats["rate_limited_keys"] += 1
             if key.failure_count > 0:
                 stats["failed_keys"] += 1
-                
+
         return stats
+
 
 # Global instance
 gemini_key_manager = GeminiKeyManager()
 
 # Enhanced Gemini call wrapper with automatic key rotation
+
+
 def call_gemini_with_fallback(prompt: str, function_type: str = "text", max_retries: int = 3, **kwargs) -> str:
     """
     Enhanced Gemini caller with automatic key rotation and rate limit handling.
-    
+
     Args:
         prompt: The text prompt to send
         function_type: Type of function call ("text", "image", "audio", "search", "function_calling")
         max_retries: Maximum number of retries across all keys
         **kwargs: Additional arguments specific to function type
-    
+
     Returns:
         Response text or error message
     """
     last_error = None
-    
+
     for attempt in range(max_retries):
         key_status = gemini_key_manager.get_available_key()
-        
+
         if not key_status:
             logger.error("No Gemini API keys available for request")
             return f"[All Gemini API keys exhausted: {last_error}]"
-        
+
         try:
-            logger.info(f"Using Gemini key {key_status.key_id[:12]}... for {function_type} request (attempt {attempt + 1}/{max_retries})")
-            
+            logger.info(
+                f"Using Gemini key {key_status.key_id[:12]}... for {function_type} request (attempt {attempt + 1}/{max_retries})")
+
             # Call the appropriate function based on type
             if function_type == "text":
                 result = _call_gemini_text(prompt, key_status.api_key)
@@ -264,41 +272,48 @@ def call_gemini_with_fallback(prompt: str, function_type: str = "text", max_retr
                 image_path = kwargs.get('image_path')
                 if not image_path:
                     return "[Error: image_path required for image function]"
-                result = _call_gemini_image(image_path, prompt, key_status.api_key)
+                result = _call_gemini_image(
+                    image_path, prompt, key_status.api_key)
             elif function_type == "audio":
                 audio_path = kwargs.get('audio_path')
                 if not audio_path:
                     return "[Error: audio_path required for audio function]"
-                result = _call_gemini_audio(audio_path, prompt, key_status.api_key)
+                result = _call_gemini_audio(
+                    audio_path, prompt, key_status.api_key)
             elif function_type == "search":
                 result = _call_gemini_search(prompt, key_status.api_key)
             elif function_type == "function_calling":
                 function_declarations = kwargs.get('function_declarations', [])
-                result = _call_gemini_function_calling(prompt, function_declarations, key_status.api_key)
+                result = _call_gemini_function_calling(
+                    prompt, function_declarations, key_status.api_key)
             else:
                 return f"[Error: Unknown function type '{function_type}']"
-            
+
             # Mark success and return result
             gemini_key_manager.mark_key_success(key_status.key_id)
             return result
-            
+
         except Exception as e:
             last_error = e
-            logger.warning(f"Gemini call failed with key {key_status.key_id[:12]}...: {e}")
-            
+            logger.warning(
+                f"Gemini call failed with key {key_status.key_id[:12]}...: {e}")
+
             # Check if this is a rate limiting error
-            is_rate_limited, reset_time = gemini_key_manager.is_rate_limit_error(e)
-            
+            is_rate_limited, reset_time = gemini_key_manager.is_rate_limit_error(
+                e)
+
             if is_rate_limited:
-                gemini_key_manager.mark_key_rate_limited(key_status.key_id, reset_time)
+                gemini_key_manager.mark_key_rate_limited(
+                    key_status.key_id, reset_time)
             else:
                 gemini_key_manager.mark_key_failed(key_status.key_id, e)
-            
+
             # Short delay before retry
             if attempt < max_retries - 1:
                 time.sleep(0.5 * (attempt + 1))  # Exponential backoff
-    
+
     return f"[All Gemini retry attempts failed: {last_error}]"
+
 
 def _call_gemini_text(prompt: str, api_key: str) -> str:
     """Internal function to call Gemini for text generation."""
@@ -306,10 +321,11 @@ def _call_gemini_text(prompt: str, api_key: str) -> str:
     http_options = genai.types.HttpOptions()
     client = genai.Client(api_key=api_key, http_options=http_options)
     response = client.models.generate_content(
-        model="gemini-2.0-flash", 
+        model="gemini-2.0-flash",
         contents=prompt
     )
     return response.text
+
 
 def _call_gemini_image(image_path: str, prompt: str, api_key: str) -> str:
     """Internal function to call Gemini for image captioning."""
@@ -323,6 +339,7 @@ def _call_gemini_image(image_path: str, prompt: str, api_key: str) -> str:
     )
     return response.text
 
+
 def _call_gemini_audio(audio_path: str, prompt: str, api_key: str) -> str:
     """Internal function to call Gemini for audio description."""
     # Set timeout through HttpOptions instead of GenerateContentConfig
@@ -334,6 +351,7 @@ def _call_gemini_audio(audio_path: str, prompt: str, api_key: str) -> str:
         contents=[prompt, my_file]
     )
     return response.text
+
 
 def _call_gemini_search(prompt: str, api_key: str) -> str:
     """Internal function to call Gemini with Google Search."""
@@ -353,10 +371,12 @@ def _call_gemini_search(prompt: str, api_key: str) -> str:
     )
     # Return both the answer and grounding metadata if available
     answer = "\n".join([p.text for p in response.candidates[0].content.parts])
-    grounding = getattr(response.candidates[0].grounding_metadata, 'search_entry_point', None)
+    grounding = getattr(
+        response.candidates[0].grounding_metadata, 'search_entry_point', None)
     if grounding and hasattr(grounding, 'rendered_content'):
         return answer + "\n\n[Grounding Metadata:]\n" + grounding.rendered_content
     return answer
+
 
 def _call_gemini_function_calling(prompt: str, function_declarations: List, api_key: str) -> Tuple[str, Optional[Dict]]:
     """Internal function to call Gemini with function calling."""
@@ -384,15 +404,16 @@ def _call_gemini_function_calling(prompt: str, function_declarations: List, api_
     # No function call found
     return response.text, None
 
+
 def call_llm(prompt: str, model: str = None, **kwargs) -> str:
     """
     Unified interface for calling different LLMs with enhanced prompt management.
-    
+
     Args:
         prompt: The prompt to send to the LLM
         model: The model to use (optional)
         **kwargs: Additional arguments for the LLM call
-    
+
     Returns:
         The response from the LLM
     """
@@ -401,32 +422,35 @@ def call_llm(prompt: str, model: str = None, **kwargs) -> str:
         logger.debug("Prompt validation passed")
     else:
         logger.warning("Prompt validation failed, proceeding with caution")
-    
+
     # For now, we'll continue using the existing Gemini calling mechanism
     # In the future, this could be extended to support multiple LLM providers
     return call_gemini_with_fallback(prompt, **kwargs)
 
 # Enhanced error handling and retry logic
+
+
 def _extract_json_block(text: str) -> str:
     """
     Pull out the first ```json ... ``` block; fallback to full text.
     """
     if not text:
         return "{}"
-    
+
     # Try to find JSON block
     patterns = [
         r"```json\s*(.*?)\s*```",
         r"```\s*(.*?)\s*```",
         r"\{.*\}",  # Any JSON-like structure
     ]
-    
+
     for pattern in patterns:
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         if match:
             return match.group(1).strip()
-    
+
     return text.strip()
+
 
 def extract_decision(raw_response: str) -> dict:
     """
@@ -434,9 +458,9 @@ def extract_decision(raw_response: str) -> dict:
     """
     if not raw_response:
         return {"raw_response": "", "error": "Empty response"}
-    
+
     block = _extract_json_block(raw_response)
-    
+
     # Try to parse JSON, with fallback for truncated responses
     try:
         data = json.loads(block)
@@ -447,7 +471,8 @@ def extract_decision(raw_response: str) -> dict:
             data = json.loads(fixed_block)
             logger.info("Successfully parsed fixed JSON block")
         except json.JSONDecodeError:
-            logger.error("JSON decode error, returning raw_response only: %s", je)
+            logger.error(
+                "JSON decode error, returning raw_response only: %s", je)
             return {
                 "raw_response": raw_response,
                 "error": f"JSON decode error: {je}",
@@ -456,22 +481,25 @@ def extract_decision(raw_response: str) -> dict:
                 "action": "log_message",
                 "params": {"message": f"Failed to parse decision: {raw_response[:200]}..."}
             }
-    
+
     # Validate required keys
     required_keys = ["analysis", "plan", "action", "params"]
     for key in required_keys:
         if key not in data:
             logger.warning("Key %r missing from decision JSON", key)
-    
+
     return {
         "raw_response": raw_response,
         "analysis": data.get("analysis", "No analysis provided"),
         "plan": data.get("plan", []),
         "action": data.get("action", "log_message"),
         "params": data.get("params", {"message": "No action specified"}),
-        "confidence": data.get("confidence", 0.5),  # New field for decision confidence
-        "reasoning": data.get("reasoning", ""),  # New field for reasoning chain
+        # New field for decision confidence
+        "confidence": data.get("confidence", 0.5),
+        # New field for reasoning chain
+        "reasoning": data.get("reasoning", ""),
     }
+
 
 def _fix_truncated_json(text: str) -> str:
     """
@@ -479,69 +507,69 @@ def _fix_truncated_json(text: str) -> str:
     """
     if not text:
         return "{}"
-    
+
     # Remove any trailing ellipsis
     fixed = text.rstrip().rstrip("...")
-    
+
     # Try to parse the JSON to see if it's already valid
     try:
         json.loads(fixed)
         return fixed  # Already valid JSON
     except json.JSONDecodeError:
         pass  # Continue with fixing attempts
-    
+
     # Make a copy for potential fallback
     original_fixed = fixed
-    
+
     # Count opening and closing braces/brackets
     open_braces = fixed.count('{')
     close_braces = fixed.count('}')
     open_brackets = fixed.count('[')
     close_brackets = fixed.count(']')
-    
+
     # Add missing closing braces/brackets
     while close_braces < open_braces:
         fixed += '}'
         close_braces += 1
-    
+
     while close_brackets < open_brackets:
         fixed += ']'
         close_brackets += 1
-    
+
     # Try to fix common truncation at the end
     # If the text ends with a comma, colon, or opening bracket/brace, remove it
     fixed = fixed.rstrip()
     max_attempts = 10  # Prevent infinite loop
     attempts = 0
-    
+
     while attempts < max_attempts:
         attempts += 1
         original = fixed
-        
+
         # Remove trailing commas, colons, and unclosed quotes
         if fixed.endswith((',', ':')):
             fixed = fixed[:-1]
         elif fixed.endswith('"') and fixed.count('"') % 2 == 1:  # Unclosed quote
             fixed = fixed[:-1]
-        
+
         # After removing a trailing character, add appropriate closing character if needed
         open_braces = fixed.count('{')
         close_braces = fixed.count('}')
         open_brackets = fixed.count('[')
         close_brackets = fixed.count(']')
-        
+
         while close_braces < open_braces:
             fixed += '}'
             close_braces += 1
-        
+
         while close_brackets < open_brackets:
             fixed += ']'
             close_brackets += 1
-            
+
         # If we didn't change anything, break
         if fixed == original:
             break
-    
+
     # Ensure the result starts and ends properly for a JSON object or array
     fixed = fixed.strip()
     if fixed and not (fixed.startswith('{') or fixed.startswith('[')):
@@ -553,11 +581,11 @@ def _fix_truncated_json(text: str) -> str:
         else:
             # Try to make it a simple object
             fixed = '{"' + fixed + '"}'
-    
+
     # If we have an empty result, return empty object
     if not fixed:
         return "{}"
-        
+
     # Final validation attempt
     try:
         json.loads(fixed)
@@ -571,9 +599,10 @@ def _fix_truncated_json(text: str) -> str:
                 return targeted_fix
             except json.JSONDecodeError:
                 pass
-        
+
         # If still invalid, return a minimal valid JSON
         return '{"analysis": "Failed to parse decision", "plan": [], "action": "log_message", "params": {"message": "Response was truncated"}}'
+
 
 def _targeted_json_fix(text: str) -> str:
     """
@@ -581,29 +610,29 @@ def _targeted_json_fix(text: str) -> str:
     """
     if not text:
         return None
-    
+
     fixed = text.rstrip().rstrip("...")
-    
+
     # Handle specific truncation patterns
     # Pattern: Missing closing quote and brace
     if fixed.endswith(':"') or fixed.endswith('",') or fixed.endswith('"{'):
         # Try to close the quote and add missing braces
         fixed += '"'
-        
+
         # Add missing closing braces/brackets
         open_braces = fixed.count('{')
         close_braces = fixed.count('}')
         open_brackets = fixed.count('[')
         close_brackets = fixed.count(']')
-        
+
         while close_braces < open_braces:
             fixed += '}'
             close_braces += 1
-        
+
         while close_brackets < open_brackets:
             fixed += ']'
             close_brackets += 1
-    
+
     # Pattern: Unclosed array or object
     elif fixed.endswith(('[', '{')):
         # Add a closing element and closing bracket/brace
@@ -611,7 +640,7 @@ def _targeted_json_fix(text: str) -> str:
             fixed += ']'
         else:
             fixed += '}'
-    
+
     # Pattern: Trailing comma in object or array
     elif fixed.endswith(','):
         fixed = fixed[:-1]  # Remove comma
@@ -620,8 +649,9 @@ def _targeted_json_fix(text: str) -> str:
             fixed += '}'
         elif fixed.count('[') > fixed.count(']'):
             fixed += ']'
-    
+
     return fixed if fixed != text else None
+
 
 def call_zuki(prompt, model=None):
     try:
@@ -630,14 +660,17 @@ def call_zuki(prompt, model=None):
         model = model or config['zuki']['models'][0]
         url = f"{base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
-        data = {"model": model, "messages": [{"role": "user", "content": prompt}]}
+        data = {"model": model, "messages": [
+            {"role": "user", "content": prompt}]}
         # Create SSL context
         ssl_context = create_ssl_context()
-        r = requests.post(url, headers=headers, json=data, timeout=20, verify=ssl_context)
+        r = requests.post(url, headers=headers, json=data,
+                          timeout=20, verify=ssl_context)
         r.raise_for_status()
         return r.json()['choices'][0]['message']['content']
     except Exception as e:
         return None
+
 
 def call_electronhub(prompt, model=None):
     try:
@@ -646,14 +679,17 @@ def call_electronhub(prompt, model=None):
         model = model or config['electronhub']['models'][0]
         url = f"{base_url}/v1/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
-        data = {"model": model, "messages": [{"role": "user", "content": prompt}]}
+        data = {"model": model, "messages": [
+            {"role": "user", "content": prompt}]}
         # Create SSL context
         ssl_context = create_ssl_context()
-        r = requests.post(url, headers=headers, json=data, timeout=20, verify=ssl_context)
+        r = requests.post(url, headers=headers, json=data,
+                          timeout=20, verify=ssl_context)
         r.raise_for_status()
         return r.json()['choices'][0]['message']['content']
     except Exception as e:
         return None
+
 
 def call_zanity(prompt, model=None):
     try:
@@ -662,14 +698,17 @@ def call_zanity(prompt, model=None):
         model = model or config['zanity']['models'][0]
         url = f"{base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
-        data = {"model": model, "messages": [{"role": "user", "content": prompt}]}
+        data = {"model": model, "messages": [
+            {"role": "user", "content": prompt}]}
         # Create SSL context
         ssl_context = create_ssl_context()
-        r = requests.post(url, headers=headers, json=data, timeout=20, verify=ssl_context)
+        r = requests.post(url, headers=headers, json=data,
+                          timeout=20, verify=ssl_context)
         r.raise_for_status()
         return r.json()['choices'][0]['message']['content']
     except Exception as e:
         return None
+
 
 def call_a4f(prompt):
     try:
@@ -677,26 +716,32 @@ def call_a4f(prompt):
         base_url = config['a4f']['base_url']
         url = f"{base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
-        data = {"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": prompt}]}
+        data = {"model": "gpt-3.5-turbo",
+                "messages": [{"role": "user", "content": prompt}]}
         # Create SSL context
         ssl_context = create_ssl_context()
-        r = requests.post(url, headers=headers, json=data, timeout=20, verify=ssl_context)
+        r = requests.post(url, headers=headers, json=data,
+                          timeout=20, verify=ssl_context)
         r.raise_for_status()
         return r.json()['choices'][0]['message']['content']
     except Exception as e:
         return None
 
+
 def call_gemini(prompt):
     """Enhanced Gemini text generation with automatic key rotation."""
     return call_gemini_with_fallback(prompt, function_type="text")
+
 
 def call_gemini_image_caption(image_path, prompt="Caption this image."):
     """Enhanced Gemini image captioning with automatic key rotation."""
     return call_gemini_with_fallback(prompt, function_type="image", image_path=image_path)
 
+
 def call_gemini_audio_description(audio_path, prompt="Describe this audio clip"):
     """Enhanced Gemini audio description with automatic key rotation."""
     return call_gemini_with_fallback(prompt, function_type="audio", audio_path=audio_path)
+
 
 def call_gemini_with_search(prompt):
     """Use Gemini with Google Search tool enabled (background execution)."""
@@ -705,23 +750,28 @@ def call_gemini_with_search(prompt):
             result = call_gemini_with_fallback(prompt, function_type="search")
             search_result_manager.add_result(result)
         except Exception as e:
-            search_result_manager.add_result(f"[Gemini with search failed: {e}]")
+            search_result_manager.add_result(
+                f"[Gemini with search failed: {e}]")
 
     thread = threading.Thread(target=search_thread)
     thread.start()
     return "Search started in the background. Check for results later."
 
+
 def call_gemini_with_search_sync(prompt):
     """Enhanced Gemini with Google Search tool enabled (synchronous)."""
     return call_gemini_with_fallback(prompt, function_type="search")
+
 
 def call_gemini_with_function_calling(prompt, function_declarations):
     """Enhanced Gemini with function calling support and automatic key rotation."""
     return call_gemini_with_fallback(prompt, function_type="function_calling", function_declarations=function_declarations)
 
+
 def get_gemini_key_statistics():
     """Get detailed statistics about Gemini API key usage."""
     return gemini_key_manager.get_key_statistics()
+
 
 def reset_gemini_key_failures(key_id: Optional[str] = None):
     """Reset failure counts for a specific key or all keys."""
@@ -743,31 +793,34 @@ def reset_gemini_key_failures(key_id: Optional[str] = None):
         else:
             logger.warning(f"Gemini key {key_id} not found")
 
+
 def test_gemini_enhanced():
     """Test the enhanced Gemini system with multiple API keys."""
     test_prompt = "What is the capital of France?"
-    
+
     print("Testing Enhanced Gemini System:")
     print("=" * 50)
-    
+
     # Test basic text generation
     print("\n1. Testing basic text generation:")
     result = call_gemini(test_prompt)
-    print(f"Result: {result[:100]}..." if len(result) > 100 else f"Result: {result}")
-    
+    print(f"Result: {result[:100]}..." if len(
+        result) > 100 else f"Result: {result}")
+
     # Show key statistics
     print("\n2. Current key statistics:")
     stats = get_gemini_key_statistics()
     print(f"Total keys: {stats['total_keys']}")
     print(f"Available keys: {stats['available_keys']}")
     print(f"Rate limited keys: {stats['rate_limited_keys']}")
-    
+
     # Test multiple calls to see key rotation
     print("\n3. Testing multiple calls for key rotation:")
     for i in range(3):
         result = call_gemini(f"Test call #{i+1}: What is 2+2?")
-        print(f"Call {i+1}: {result[:50]}..." if len(result) > 50 else f"Call {i+1}: {result}")
-    
+        print(f"Call {i+1}: {result[:50]}..." if len(result)
+              > 50 else f"Call {i+1}: {result}")
+
     print("\n4. Final key statistics:")
     final_stats = get_gemini_key_statistics()
     for key_id, key_data in final_stats['keys'].items():
@@ -775,6 +828,7 @@ def test_gemini_enhanced():
             print(f"Key {key_id[:12]}...: {key_data['total_requests']} requests, "
                   f"failures: {key_data['consecutive_failures']}, "
                   f"available: {key_data['is_available']}")
+
 
 def call_llm(prompt, preferred_provider=None, model=None):
     """
@@ -795,6 +849,7 @@ def call_llm(prompt, preferred_provider=None, model=None):
     # Fallback to Gemini
     return call_gemini(prompt)
 
+
 def test_all_providers():
     """Test all LLM providers and enhanced Gemini fallbacks with a simple prompt."""
     prompt = "What is the capital of France?"
@@ -810,18 +865,21 @@ def test_all_providers():
     print(call_gemini(prompt))
     # Gemini advanced features (image/audio/search) require files or special prompts
     print("\nTesting Enhanced Gemini with Google Search tool:")
-    print(call_gemini_with_search("When is the next total solar eclipse in the United States?"))
-    
+    print(call_gemini_with_search(
+        "When is the next total solar eclipse in the United States?"))
+
     # Test the enhanced system specifically
     print("\n" + "=" * 60)
     test_gemini_enhanced()
+
 
 PROVIDERS = [
     {
         "name": "a4f",
         "api_key": os.getenv("A4F_API_KEY", "ddc-a4f-7bbefd7518a74b36b1d32cb867b1931f"),
         "base_url": "https://api.a4f.co/v1",
-        "models": ["provider-3/gemini-2.0-flash", "provider-2/llama-4-scout", "provider-3/llama-4-scout"] # Original models
+        # Original models
+        "models": ["provider-3/gemini-2.0-flash", "provider-2/llama-4-scout", "provider-3/llama-4-scout"]
     },
     {
         "name": "zukijourney",
@@ -843,6 +901,7 @@ PROVIDERS = [
     }
 ]
 
+
 def send_chat_message(message_content, preferred_model=None):
     """Sends a chat message using a random provider from the list."""
     provider = random.choice(PROVIDERS)
@@ -856,9 +915,11 @@ def send_chat_message(message_content, preferred_model=None):
     elif provider["models"]:
         model_to_use = provider["models"][0]
     if not model_to_use:
-        logging.warning(f"No suitable model found for provider {provider['name']}. Skipping.")
+        logging.warning(
+            f"No suitable model found for provider {provider['name']}. Skipping.")
         return None
-    logging.info(f"Attempting to send message via {provider['name']} using model {model_to_use}")
+    logging.info(
+        f"Attempting to send message via {provider['name']} using model {model_to_use}")
     try:
         completion = client.chat.completions.create(
             model=model_to_use,
@@ -867,13 +928,17 @@ def send_chat_message(message_content, preferred_model=None):
             ]
         )
         response_content = completion.choices[0].message.content
-        logging.info(f"Successfully received response from {provider['name']}.")
+        logging.info(
+            f"Successfully received response from {provider['name']}.")
         return response_content
     except Exception as e:
-        logging.error(f"Failed to send message via {provider['name']} using model {model_to_use}: {e}")
+        logging.error(
+            f"Failed to send message via {provider['name']} using model {model_to_use}: {e}")
         if provider['name'] == 'zanity' and "404" in str(e).lower():
-            logging.warning(f"Zanity API at {provider['base_url']} might be unavailable (404 error). Check URL.")
+            logging.warning(
+                f"Zanity API at {provider['base_url']} might be unavailable (404 error). Check URL.")
         return None
+
 
 def generate_hypothetical_scenarios(trends=None, interest_areas=None, gap_topics=None, model=None):
     """
@@ -897,18 +962,22 @@ def generate_hypothetical_scenarios(trends=None, interest_areas=None, gap_topics
     response = call_llm(prompt, model=model)
     if response:
         # Split into list if possible
-        scenarios = [line.strip('-* ') for line in response.split('\n') if line.strip()]
+        scenarios = [line.strip('-* ')
+                     for line in response.split('\n') if line.strip()]
         return scenarios
     return []
+
 
 def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_context=None, actions=None, persona: dict = None):
     """
     Enhanced decision-making loop with better error handling and structured output.
     """
     # Prepare context with safety checks
-    situation_prompt = situation.get('prompt', 'No situation provided') if isinstance(situation, dict) else str(situation)
-    situation_context = situation.get('context', {}) if isinstance(situation, dict) else {}
-    
+    situation_prompt = situation.get('prompt', 'No situation provided') if isinstance(
+        situation, dict) else str(situation)
+    situation_context = situation.get(
+        'context', {}) if isinstance(situation, dict) else {}
+
     # Format memory safely - handle RelevantMemory objects
     memory_text = ""
     if memory:
@@ -924,15 +993,16 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
             memory_text = "\n".join(formatted_memories)
         else:
             memory_text = str(memory)
-    
+
     # Format RAG context safely
     rag_text = ""
     if rag_context:
         if isinstance(rag_context, list):
-            rag_text = "\n".join([str(item) for item in rag_context[:5]])  # Limit context
+            rag_text = "\n".join([str(item)
+                                 for item in rag_context[:5]])  # Limit context
         else:
             rag_text = str(rag_context)
-    
+
     # Format situation context safely - handle RelevantMemory objects
     formatted_situation_context = {}
     if situation_context:
@@ -970,7 +1040,7 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
                 formatted_situation_context = situation_context.to_dict()
             else:
                 formatted_situation_context = situation_context
-    
+
     # Additional safety check to ensure all values in formatted_situation_context are JSON serializable
     def make_json_serializable(obj):
         """Recursively convert objects to JSON serializable format."""
@@ -991,19 +1061,24 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
                 return obj
             except (TypeError, ValueError):
                 return str(obj)
-    
+
     # Apply the JSON serialization safety check
-    formatted_situation_context = make_json_serializable(formatted_situation_context)
-    
+    formatted_situation_context = make_json_serializable(
+        formatted_situation_context)
+
     # Incorporate persona into the prompt if provided
     persona_section = ""
     if persona:
         try:
             # persona may be a dict with fields like name, traits, creativity, communication_style
-            pname = persona.get('name', 'Ravana') if isinstance(persona, dict) else str(persona)
-            ptraits = ', '.join(persona.get('traits', [])) if isinstance(persona, dict) else ''
-            pcomm = persona.get('communication_style', {}) if isinstance(persona, dict) else {}
-            pcomm_text = pcomm.get('tone', '') + '\n' + pcomm.get('encouragement', '') if isinstance(pcomm, dict) else ''
+            pname = persona.get('name', 'Ravana') if isinstance(
+                persona, dict) else str(persona)
+            ptraits = ', '.join(persona.get('traits', [])
+                                ) if isinstance(persona, dict) else ''
+            pcomm = persona.get('communication_style', {}
+                                ) if isinstance(persona, dict) else {}
+            pcomm_text = pcomm.get(
+                'tone', '') + '\n' + pcomm.get('encouragement', '') if isinstance(pcomm, dict) else ''
             persona_section = f"""
     **Persona:**
     Name: {pname}
@@ -1111,14 +1186,14 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
 
     **Provide your enhanced decision now:**
     """
-    
+
     # Try to get a decision with retry logic for parsing failures
     max_parse_retries = 3
     for parse_attempt in range(max_parse_retries):
         try:
             raw_response = safe_call_llm(prompt, model=model, retries=3)
             decision_data = extract_decision(raw_response)
-            
+
             # Check if we got a valid decision or if it failed to parse
             if "error" not in decision_data:
                 # Add metadata
@@ -1127,19 +1202,24 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
                 return decision_data
             elif parse_attempt < max_parse_retries - 1:
                 # If parsing failed and we have retries left, try again with a modified prompt
-                logger.warning(f"Decision parsing failed (attempt {parse_attempt + 1}/{max_parse_retries}), retrying...")
+                logger.warning(
+                    f"Decision parsing failed (attempt {parse_attempt + 1}/{max_parse_retries}), retrying...")
                 # Add a note to the prompt to be more careful with JSON formatting
                 prompt += "\n\nIMPORTANT: Please ensure your response is complete and properly formatted as JSON. Do not truncate your response."
                 continue
             else:
                 # Final attempt failed
-                logger.error(f"Decision parsing failed after {max_parse_retries} attempts")
-                raise Exception(decision_data.get("error", "Failed to parse decision"))
-                
+                logger.error(
+                    f"Decision parsing failed after {max_parse_retries} attempts")
+                raise Exception(decision_data.get(
+                    "error", "Failed to parse decision"))
+
         except Exception as e:
-            logger.error(f"Critical error in decision_maker_loop: {e}", exc_info=True)
+            logger.error(
+                f"Critical error in decision_maker_loop: {e}", exc_info=True)
             if parse_attempt < max_parse_retries - 1:
-                logger.warning(f"Decision making failed (attempt {parse_attempt + 1}/{max_parse_retries}), retrying...")
+                logger.warning(
+                    f"Decision making failed (attempt {parse_attempt + 1}/{max_parse_retries}), retrying...")
                 continue
             else:
                 return {
@@ -1151,6 +1231,7 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
                     "confidence": 0.0,
                     "error": str(e)
                 }
+
 
 def agi_experimentation_engine(
     experiment_idea,
@@ -1214,7 +1295,8 @@ def agi_experimentation_engine(
         Given the following refined experiment idea, generate a single Python script that simulates or tests the idea locally. If it is a physics experiment, simulate it as best as possible in Python. If your code requires any external libraries, ensure you use only widely available packages (e.g., numpy, matplotlib, scipy) and import them at the top. Do not use obscure or unavailable packages.\n\nRefined Idea: {refined_idea}\n\nPython code (no explanation, just code):\n"""
         generated_code = call_llm(code_prompt, model=llm_model)
         # Strip markdown code block markers
-        code_clean = re.sub(r"^```(?:python)?", "", generated_code.strip(), flags=re.MULTILINE)
+        code_clean = re.sub(r"^```(?:python)?", "",
+                            generated_code.strip(), flags=re.MULTILINE)
         code_clean = re.sub(r"```$", "", code_clean, flags=re.MULTILINE)
         result['generated_code'] = code_clean
         log_step('generated_code', code_clean)
@@ -1228,10 +1310,13 @@ def agi_experimentation_engine(
 
     # 4. Install required Python dependencies (if any)
     dependency_installation_log = []
+
     def install_missing_dependencies(code):
         # Robustly scan for import statements (import x, from x import y, from x.y import z)
-        import_lines = re.findall(r'^\s*import ([a-zA-Z0-9_\.]+)', code, re.MULTILINE)
-        from_imports = re.findall(r'^\s*from ([a-zA-Z0-9_\.]+) import', code, re.MULTILINE)
+        import_lines = re.findall(
+            r'^\s*import ([a-zA-Z0-9_\.]+)', code, re.MULTILINE)
+        from_imports = re.findall(
+            r'^\s*from ([a-zA-Z0-9_\.]+) import', code, re.MULTILINE)
         modules = set(import_lines + from_imports)
         # Only use top-level package (e.g., 'matplotlib' from 'matplotlib.pyplot')
         top_level_modules = set([m.split('.')[0] for m in modules])
@@ -1248,20 +1333,26 @@ def agi_experimentation_engine(
             for attempt in range(2):
                 try:
                     pip_cmd = [sys.executable, '-m', 'pip', 'install', pkg]
-                    proc = subprocess.run(pip_cmd, capture_output=True, text=True)
+                    proc = subprocess.run(
+                        pip_cmd, capture_output=True, text=True)
                     if proc.returncode == 0:
-                        dependency_installation_log.append(f"Installed: {pkg}\n{proc.stdout}")
+                        dependency_installation_log.append(
+                            f"Installed: {pkg}\n{proc.stdout}")
                         break
                     else:
-                        dependency_installation_log.append(f"Attempt {attempt+1} failed to install {pkg}: {proc.stderr}")
+                        dependency_installation_log.append(
+                            f"Attempt {attempt+1} failed to install {pkg}: {proc.stderr}")
                 except Exception as e:
-                    dependency_installation_log.append(f"Exception during install of {pkg}: {e}")
+                    dependency_installation_log.append(
+                        f"Exception during install of {pkg}: {e}")
             else:
-                dependency_installation_log.append(f"Failed to install {pkg} after 2 attempts. Please run: pip install {pkg} manually.")
+                dependency_installation_log.append(
+                    f"Failed to install {pkg} after 2 attempts. Please run: pip install {pkg} manually.")
         return dependency_installation_log
 
     if simulation_type in ['python', 'physics_simulation']:
-        dependency_installation_log = install_missing_dependencies(result['generated_code'])
+        dependency_installation_log = install_missing_dependencies(
+            result['generated_code'])
         result['dependency_installation'] = dependency_installation_log
         log_step('dependency_installation', dependency_installation_log)
     else:
@@ -1270,7 +1361,11 @@ def agi_experimentation_engine(
     # 5. Execute Code Safely (Sandboxed) if possible
     def safe_execute_python(code, timeout=sandbox_timeout):
         """Executes code in a sandboxed environment and returns output/error."""
-        import tempfile, sys, contextlib, io, os
+        import tempfile
+        import sys
+        import contextlib
+        import io
+        import os
         with tempfile.NamedTemporaryFile('w', suffix='.py', delete=False, encoding='utf-8') as tmp:
             tmp.write(code)
             tmp_path = tmp.name
@@ -1401,10 +1496,12 @@ def is_valid_code_patch(original_code, new_code):
     if original_code is not None and str(original_code).strip() == str(new_code).strip():
         return False
     # If the new code is just a comment or a single line, it's likely not useful
-    lines = [l for l in str(new_code).strip().splitlines() if l.strip() and not l.strip().startswith("#")]
+    lines = [l for l in str(new_code).strip().splitlines(
+    ) if l.strip() and not l.strip().startswith("#")]
     if len(lines) < 2:
         return False
     return True
+
 
 def create_ssl_context():
     """
@@ -1416,20 +1513,23 @@ def create_ssl_context():
         logger.debug("Created SSL context with system certificates")
         return ssl_context
     except Exception as e:
-        logger.warning(f"Failed to create SSL context with system certificates: {e}")
-        
+        logger.warning(
+            f"Failed to create SSL context with system certificates: {e}")
+
         try:
             # Fallback to certifi certificates
             ssl_context = ssl.create_default_context(cafile=certifi.where())
             logger.info("Created SSL context with certifi certificates")
             return ssl_context
         except Exception as fallback_error:
-            logger.error(f"Failed to create SSL context with certifi: {fallback_error}")
-            
+            logger.error(
+                f"Failed to create SSL context with certifi: {fallback_error}")
+
             # Last resort: create unverified context (not recommended for production)
             logger.warning("Creating unverified SSL context as last resort")
             ssl_context = ssl._create_unverified_context()
             return ssl_context
+
 
 def safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_factor: float = 1.0, **kwargs) -> str:
     """
@@ -1437,30 +1537,31 @@ def safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_fact
     """
     last_exc = None
     last_response = None
-    
+
     for attempt in range(1, retries + 1):
         try:
             logger.debug(f"LLM call attempt {attempt}/{retries}")
-            
+
             # Add jitter to backoff time to prevent thundering herd
             if attempt > 1:
                 jitter = random.uniform(0.1, 0.5) * backoff_factor
                 wait = backoff_factor * (2 ** (attempt - 1)) + jitter
-                logger.info(f"Waiting {wait:.2f}s before retry attempt {attempt}")
+                logger.info(
+                    f"Waiting {wait:.2f}s before retry attempt {attempt}")
                 time.sleep(wait)
-            
+
             # BLOCKING call with timeout
             result = call_llm(prompt, **kwargs)
-            
+
             # Validate response
             if not result or not str(result).strip():
                 raise RuntimeError("Empty response from LLM")
-                
+
             # Check for common error patterns - more precise matching to avoid false positives
             result_str = str(result)
             error_patterns = [
-                r"\berror occurred\b", 
-                r"\bexception occurred\b", 
+                r"\berror occurred\b",
+                r"\bexception occurred\b",
                 r"\bfailure occurred\b",
                 r"\btimeout occurred\b",
                 r"\[error[:\]]",
@@ -1474,31 +1575,38 @@ def safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_fact
                 if re.search(pattern, result_str.lower()):
                     error_found = True
                     break
-                        
+
             if error_found:
-                raise RuntimeError(f"LLM returned error response: {result_str[:100]}...")
-            
+                raise RuntimeError(
+                    f"LLM returned error response: {result_str[:100]}...")
+
             # Check for truncated responses that might still be usable
             if result_str.endswith("...") or len(result_str) < 50:
-                logger.warning(f"Possible truncated response detected: {result_str[:100]}...")
+                logger.warning(
+                    f"Possible truncated response detected: {result_str[:100]}...")
                 # For truncated responses, we'll still return them but log a warning
                 # The extract_decision function will try to fix them
-                
+
             logger.debug(f"LLM call successful on attempt {attempt}")
             return result
-            
+
         except Exception as e:
             last_exc = e
-            last_response = str(result) if 'result' in locals() else "No response"
-            logger.warning(f"LLM call failed (attempt {attempt}/{retries}): {e!r}")
-            
+            last_response = str(
+                result) if 'result' in locals() else "No response"
+            logger.warning(
+                f"LLM call failed (attempt {attempt}/{retries}): {e!r}")
+
             # Log response content for debugging (truncated for safety)
             if last_response and last_response.strip():
-                logger.debug(f"Last response content (first 500 chars): {last_response[:500]}")
-    
-    logger.error(f"LLM call permanently failed after {retries} attempts. Last error: {last_exc!r}")
-    logger.error(f"Last response: {last_response[:1000] if last_response else 'None'}")
-    
+                logger.debug(
+                    f"Last response content (first 500 chars): {last_response[:500]}")
+
+    logger.error(
+        f"LLM call permanently failed after {retries} attempts. Last error: {last_exc!r}")
+    logger.error(
+        f"Last response: {last_response[:1000] if last_response else 'None'}")
+
     # Return a safe fallback response
     return "[LLM Error: Unable to generate response. Please try again later.]"
 
@@ -1506,46 +1614,47 @@ def safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_fact
 async def async_safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_factor: float = 1.0, **kwargs) -> str:
     """
     Async version of safe_call_llm that wraps LLM calls with enhanced retry/backoff, timeout, and error handling.
-    
+
     This function uses asyncio.to_thread to run the blocking safe_call_llm function in a separate thread,
     allowing it to be used in async contexts without blocking the event loop.
-    
+
     Args:
         prompt: The prompt to send to the LLM
         timeout: Timeout for each LLM call attempt (passed to safe_call_llm)
         retries: Number of retry attempts (passed to safe_call_llm)
         backoff_factor: Backoff factor for retry delays (passed to safe_call_llm)
         **kwargs: Additional arguments passed to safe_call_llm
-        
+
     Returns:
         The response from the LLM
     """
     last_exc = None
     last_response = None
-    
+
     for attempt in range(1, retries + 1):
         try:
             logger.debug(f"Async LLM call attempt {attempt}/{retries}")
-            
+
             # Add jitter to backoff time to prevent thundering herd
             if attempt > 1:
                 jitter = random.uniform(0.1, 0.5) * backoff_factor
                 wait = backoff_factor * (2 ** (attempt - 1)) + jitter
-                logger.info(f"Waiting {wait:.2f}s before retry attempt {attempt}")
+                logger.info(
+                    f"Waiting {wait:.2f}s before retry attempt {attempt}")
                 await asyncio.sleep(wait)
-            
+
             # ASYNC call using asyncio.to_thread to run the blocking function in a thread
             result = await asyncio.to_thread(safe_call_llm, prompt, timeout, retries=1, backoff_factor=backoff_factor, **kwargs)
-            
+
             # Validate response
             if not result or not str(result).strip():
                 raise RuntimeError("Empty response from LLM")
-                
+
             # Check for common error patterns - more precise matching to avoid false positives
             result_str = str(result)
             error_patterns = [
-                r"\berror occurred\b", 
-                r"\bexception occurred\b", 
+                r"\berror occurred\b",
+                r"\bexception occurred\b",
                 r"\bfailure occurred\b",
                 r"\btimeout occurred\b",
                 r"\[error[:\]]",
@@ -1559,31 +1668,38 @@ async def async_safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, 
                 if re.search(pattern, result_str.lower()):
                     error_found = True
                     break
-                        
+
             if error_found:
-                raise RuntimeError(f"LLM returned error response: {result_str[:100]}...")
-            
+                raise RuntimeError(
+                    f"LLM returned error response: {result_str[:100]}...")
+
             # Check for truncated responses that might still be usable
             if result_str.endswith("...") or len(result_str) < 50:
-                logger.warning(f"Possible truncated response detected: {result_str[:100]}...")
+                logger.warning(
+                    f"Possible truncated response detected: {result_str[:100]}...")
                 # For truncated responses, we'll still return them but log a warning
                 # The extract_decision function will try to fix them
-                
+
             logger.debug(f"Async LLM call successful on attempt {attempt}")
             return result
-            
+
         except Exception as e:
             last_exc = e
-            last_response = str(result) if 'result' in locals() else "No response"
-            logger.warning(f"Async LLM call failed (attempt {attempt}/{retries}): {e!r}")
-            
+            last_response = str(
+                result) if 'result' in locals() else "No response"
+            logger.warning(
+                f"Async LLM call failed (attempt {attempt}/{retries}): {e!r}")
+
             # Log response content for debugging (truncated for safety)
             if last_response and last_response.strip():
-                logger.debug(f"Last response content (first 500 chars): {last_response[:500]}")
-    
-    logger.error(f"Async LLM call permanently failed after {retries} attempts. Last error: {last_exc!r}")
-    logger.error(f"Last response: {last_response[:1000] if last_response else 'None'}")
-    
+                logger.debug(
+                    f"Last response content (first 500 chars): {last_response[:500]}")
+
+    logger.error(
+        f"Async LLM call permanently failed after {retries} attempts. Last error: {last_exc!r}")
+    logger.error(
+        f"Last response: {last_response[:1000] if last_response else 'None'}")
+
     # Return a safe fallback response
     return "[LLM Error: Unable to generate response. Please try again later.]"
 
@@ -1603,9 +1719,14 @@ import requests
         logs = []
         try:
             # Use the same install_missing_dependencies logic as in agi_experimentation_engine
-            import re, sys, importlib.util, subprocess
-            import_lines = re.findall(r'^\s*import ([a-zA-Z0-9_\.]+)', test_code, re.MULTILINE)
-            from_imports = re.findall(r'^\s*from ([a-zA-Z0-9_\.]+) import', test_code, re.MULTILINE)
+            import re
+            import sys
+            import importlib.util
+            import subprocess
+            import_lines = re.findall(
+                r'^\s*import ([a-zA-Z0-9_\.]+)', test_code, re.MULTILINE)
+            from_imports = re.findall(
+                r'^\s*from ([a-zA-Z0-9_\.]+) import', test_code, re.MULTILINE)
             modules = set(import_lines + from_imports)
             top_level_modules = set([m.split('.')[0] for m in modules])
             stdlib_modules = set(sys.builtin_module_names)
@@ -1619,16 +1740,19 @@ import requests
                 for attempt in range(2):
                     try:
                         pip_cmd = [sys.executable, '-m', 'pip', 'install', pkg]
-                        proc = subprocess.run(pip_cmd, capture_output=True, text=True)
+                        proc = subprocess.run(
+                            pip_cmd, capture_output=True, text=True)
                         if proc.returncode == 0:
                             logs.append(f"Installed: {pkg}\n{proc.stdout}")
                             break
                         else:
-                            logs.append(f"Attempt {attempt+1} failed to install {pkg}: {proc.stderr}")
+                            logs.append(
+                                f"Attempt {attempt+1} failed to install {pkg}: {proc.stderr}")
                     except Exception as e:
                         logs.append(f"Exception during install of {pkg}: {e}")
                 else:
-                    logs.append(f"Failed to install {pkg} after 2 attempts. Please run: pip install {pkg} manually.")
+                    logs.append(
+                        f"Failed to install {pkg} after 2 attempts. Please run: pip install {pkg} manually.")
         except Exception as e:
             logs.append(f"Exception in test_package_installation: {e}")
         print("\n".join(logs))

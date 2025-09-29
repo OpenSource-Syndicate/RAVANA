@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 import asyncio
 from datetime import datetime
 
@@ -12,10 +12,12 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class AGIExperimentationEngine:
     """
     The engine for executing experiments defined by the ExperimentationModule.
     """
+
     def __init__(self, agi_system, blog_scheduler=None):
         self.agi_system = agi_system
         self.active_experiment: Dict[str, Any] = None
@@ -35,8 +37,9 @@ class AGIExperimentationEngine:
         """
         Stops the current experiment and triggers reflection.
         """
-        logger.info(f"Stopping experiment: {self.active_experiment.get('hypothesis')}")
-        
+        logger.info(
+            f"Stopping experiment: {self.active_experiment.get('hypothesis')}")
+
         # This is where you would have the actual results of the experiment
         results = {
             "experiment_id": self.active_experiment.get('experiment_id', 'unknown'),
@@ -48,10 +51,10 @@ class AGIExperimentationEngine:
             "start_time": self.active_experiment.get('start_time'),
             "context": self.active_experiment.get('context', {})
         }
-        
+
         # Trigger reflection
         self.agi_system.reflection_module.reflect_on_experiment(results)
-        
+
         # Trigger blog post if experimentation module is available
         if hasattr(self.agi_system, 'experimentation_module'):
             asyncio.create_task(self.agi_system.experimentation_module.complete_experiment(
@@ -72,12 +75,13 @@ class AGIExperimentationEngine:
             self.stop_experiment()
             return
 
-        logger.info(f"Running experiment step {self.experiment_loop_count + 1}...")
+        logger.info(
+            f"Running experiment step {self.experiment_loop_count + 1}...")
 
         # This is where the logic for executing the experiment plan would go.
         # For now, we will just log the plan and increment the loop count.
         logger.info(f"Experiment plan: {self.active_experiment}")
-        
+
         self.experiment_loop_count += 1
 
         # In a real implementation, you would:
@@ -87,4 +91,4 @@ class AGIExperimentationEngine:
         # 4. Check if the experiment is complete
 
         # For this example, we'll just pretend the experiment is running.
-        await asyncio.sleep(1) 
+        await asyncio.sleep(1)

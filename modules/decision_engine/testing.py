@@ -1,15 +1,18 @@
 from core.llm import generate_hypothetical_scenarios, decision_maker_loop
 
+
 def test_generate_hypothetical_scenarios():
     print("=== Testing generate_hypothetical_scenarios ===")
     trends = ["AI regulation", "quantum computing", "climate tech"]
     interest_areas = ["technology", "finance"]
     gap_topics = ["space exploration"]
-    scenarios = generate_hypothetical_scenarios(trends=trends, interest_areas=interest_areas, gap_topics=gap_topics)
+    scenarios = generate_hypothetical_scenarios(
+        trends=trends, interest_areas=interest_areas, gap_topics=gap_topics)
     print("Generated Scenarios:")
     for i, scenario in enumerate(scenarios, 1):
         print(f"{i}. {scenario}")
     print()
+
 
 def test_decision_maker_loop():
     print("=== Testing decision_maker_loop ===")
@@ -25,10 +28,12 @@ def test_decision_maker_loop():
         'creativity': 0.8,
         'communication_style': {'tone': 'Confident, poetic, engineering-minded.', 'encouragement': 'You dare to dream what others fear.'}
     }
-    result = decision_maker_loop(situation, memory=memory, rag_context=rag_context, persona=persona)
+    result = decision_maker_loop(
+        situation, memory=memory, rag_context=rag_context, persona=persona)
     print("Decision Maker Output:")
     print(result)
     print()
+
 
 if __name__ == "__main__":
     test_generate_hypothetical_scenarios()

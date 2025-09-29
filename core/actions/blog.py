@@ -16,17 +16,18 @@ from core.config import Config
 
 logger = logging.getLogger(__name__)
 
+
 class BlogPublishAction(Action):
     """
     Action for publishing blog posts to the RAVANA blog platform.
-    
+
     This action orchestrates the complete blog publishing workflow:
     1. Content generation using LLM with memory context
     2. Content validation and formatting
     3. API communication with the blog platform
     4. Result logging and memory storage
     """
-    
+
     def __init__(self, system: 'AGISystem', data_service: 'DataService'):
         super().__init__(system, data_service)
         self.api_interface = BlogAPIInterface()
@@ -35,11 +36,11 @@ class BlogPublishAction(Action):
             data_service=data_service,
             system=system
         )
-    
+
     @property
     def name(self) -> str:
         return "publish_blog_post"
-    
+
     @property
     def description(self) -> str:
         return (
@@ -47,7 +48,7 @@ class BlogPublishAction(Action):
             "Generates content using AI, formats it in markdown, "
             "and publishes it with appropriate tags."
         )
-    
+
     @property
     def parameters(self) -> List[Dict[str, Any]]:
         return [
@@ -82,14 +83,14 @@ class BlogPublishAction(Action):
                 "required": False,
             },
         ]
-    
+
     async def execute(self, **kwargs: Any) -> Dict[str, Any]:
         """
         Executes the blog publishing workflow.
-        
+
         Args:
             **kwargs: Action parameters including topic, style, context, custom_tags, dry_run
-            
+
         Returns:
             Dict containing execution results, published URL, and metadata
         """
@@ -101,7 +102,7 @@ class BlogPublishAction(Action):
                     "message": "Blog publishing is disabled in configuration",
                     "error": "BLOG_DISABLED"
                 }
-            
+
             # Extract and validate parameters
             topic = kwargs.get("topic", "").strip()
             if not topic:
@@ -110,14 +111,15 @@ class BlogPublishAction(Action):
                     "message": "Topic parameter is required and cannot be empty",
                     "error": "MISSING_TOPIC"
                 }
-            
+
             style = kwargs.get("style", Config.BLOG_DEFAULT_STYLE)
             context = kwargs.get("context")
             custom_tags = kwargs.get("custom_tags", [])
             dry_run = kwargs.get("dry_run", False)
-            
-            logger.info(f"Starting blog publish action: topic='{topic}', style='{style}', dry_run={dry_run}")
-            
+
+            logger.info(
+                f"Starting blog publish action: topic='{topic}', style='{style}', dry_run={dry_run}")
+
             # Generate content
             generation_start = datetime.now()
             title, content, tags = await self.content_generator.generate_post(
@@ -126,8 +128,9 @@ class BlogPublishAction(Action):
                 context=context,
                 custom_tags=custom_tags
             )
-            generation_time = (datetime.now() - generation_start).total_seconds()
-            
+            generation_time = (
+                datetime.now() - generation_start).total_seconds()
+
             # Prepare result metadata
             result = {
                 "status": "success",
@@ -139,7 +142,7 @@ class BlogPublishAction(Action):
                 "topic": topic,
                 "timestamp": datetime.now().isoformat(),
             }
-            
+
             # If dry run, return without publishing
             if dry_run:
                 result.update({
@@ -149,7 +152,7 @@ class BlogPublishAction(Action):
                 })
                 await self._log_blog_action(result, "dry_run")
                 return result
-            
+
             # Validate API configuration
             if not self.api_interface.validate_config():
                 return {
@@ -157,12 +160,12 @@ class BlogPublishAction(Action):
                     "message": "Blog API configuration is invalid",
                     "error": "INVALID_CONFIG"
                 }
-            
+
             # Publish to blog platform
             publish_start = datetime.now()
             api_result = await self.api_interface.publish_post(title, content, tags)
             publish_time = (datetime.now() - publish_start).total_seconds()
-            
+
             # Update result with publication details
             result.update({
                 "message": "Blog post published successfully",
@@ -172,13 +175,14 @@ class BlogPublishAction(Action):
                 "api_response": api_result,
                 "dry_run": False
             })
-            
+
             # Log successful publication
             await self._log_blog_action(result, "published")
-            
-            logger.info(f"Blog post published successfully: '{title}' -> {result.get('published_url')}")
+
+            logger.info(
+                f"Blog post published successfully: '{title}' -> {result.get('published_url')}")
             return result
-            
+
         except BlogContentError as e:
             error_result = {
                 "status": "error",
@@ -190,7 +194,7 @@ class BlogPublishAction(Action):
             await self._log_blog_action(error_result, "content_error")
             logger.error(f"Blog content generation failed: {e}")
             return error_result
-            
+
         except BlogAPIError as e:
             error_result = {
                 "status": "error",
@@ -202,7 +206,7 @@ class BlogPublishAction(Action):
             await self._log_blog_action(error_result, "api_error")
             logger.error(f"Blog API error: {e}")
             return error_result
-            
+
         except Exception as e:
             error_result = {
                 "status": "error",
@@ -214,11 +218,11 @@ class BlogPublishAction(Action):
             await self._log_blog_action(error_result, "unexpected_error")
             logger.exception(f"Unexpected error in blog publish action: {e}")
             return error_result
-    
+
     async def _log_blog_action(self, result: Dict[str, Any], action_type: str) -> None:
         """
         Logs the blog action result to the data service and memory system.
-        
+
         Args:
             result: The action execution result
             action_type: Type of action (published, dry_run, content_error, api_error, unexpected_error)
@@ -232,25 +236,28 @@ class BlogPublishAction(Action):
                     "result": result,
                     "timestamp": datetime.now().isoformat(),
                 }
-                
+
                 # Use existing data service logging mechanism with correct parameters
                 await asyncio.to_thread(
-                    getattr(self.data_service, 'save_action_log', lambda *args: None),
+                    getattr(self.data_service, 'save_action_log',
+                            lambda *args: None),
                     "publish_blog_post",
                     log_entry,  # params
                     result.get("status", "unknown"),  # status
                     result  # result
                 )
-            
+
             # Log to memory service for future context
             if hasattr(self.system, 'memory_service') and self.system.memory_service:
-                memory_content = self._format_memory_content(result, action_type)
+                memory_content = self._format_memory_content(
+                    result, action_type)
                 memory_tags = ["blog", "publishing", action_type]
-                
+
                 # Add topic-specific tags
                 if result.get("tags"):
-                    memory_tags.extend(result["tags"][:3])  # Limit to first 3 tags
-                
+                    # Limit to first 3 tags
+                    memory_tags.extend(result["tags"][:3])
+
                 # Store in memory service
                 try:
                     memories_to_save = [{
@@ -260,16 +267,17 @@ class BlogPublishAction(Action):
                         "emotional_valence": self._calculate_emotional_valence(result, action_type),
                         "created_at": datetime.now().isoformat()
                     }]
-                    
+
                     await self.system.memory_service.save_memories(memories_to_save)
-                    logger.debug(f"Blog action logged to memory: {memory_content[:100]}...")
-                    
+                    logger.debug(
+                        f"Blog action logged to memory: {memory_content[:100]}...")
+
                 except Exception as e:
                     logger.warning(f"Failed to log to memory service: {e}")
-                
+
         except Exception as e:
             logger.warning(f"Failed to log blog action: {e}")
-    
+
     def _format_memory_content(self, result: Dict[str, Any], action_type: str) -> str:
         """
         Formats the blog action result for memory storage.
@@ -294,11 +302,11 @@ class BlogPublishAction(Action):
             )
         else:
             return f"Blog action completed: {action_type} - {result.get('message', 'No message')}"
-    
+
     async def test_connection(self) -> Dict[str, Any]:
         """
         Tests the blog API connection without publishing content.
-        
+
         Returns:
             Dict containing connection test results
         """
@@ -309,7 +317,7 @@ class BlogPublishAction(Action):
                     "message": "Blog integration is disabled",
                     "connected": False
                 }
-            
+
             config_valid = self.api_interface.validate_config()
             if not config_valid:
                 return {
@@ -317,9 +325,9 @@ class BlogPublishAction(Action):
                     "message": "Blog API configuration is invalid",
                     "connected": False
                 }
-            
+
             connection_ok = await self.api_interface.test_connection()
-            
+
             return {
                 "status": "success" if connection_ok else "error",
                 "message": "Connection test successful" if connection_ok else "Connection test failed",
@@ -327,7 +335,7 @@ class BlogPublishAction(Action):
                 "api_url": Config.BLOG_API_URL,
                 "timestamp": datetime.now().isoformat()
             }
-            
+
         except Exception as e:
             logger.exception(f"Blog connection test failed: {e}")
             return {
@@ -336,15 +344,15 @@ class BlogPublishAction(Action):
                 "connected": False,
                 "timestamp": datetime.now().isoformat()
             }
-    
+
     def _calculate_emotional_valence(self, result: Dict[str, Any], action_type: str) -> float:
         """
         Calculates emotional valence for memory storage based on action result.
-        
+
         Args:
             result: The action execution result
             action_type: Type of action performed
-            
+
         Returns:
             Float between -1.0 (negative) and 1.0 (positive)
         """
@@ -358,11 +366,11 @@ class BlogPublishAction(Action):
             return -0.8  # Unexpected errors are very negative
         else:
             return 0.0  # Neutral for unknown types
-    
+
     def get_configuration_info(self) -> Dict[str, Any]:
         """
         Returns current blog configuration information.
-        
+
         Returns:
             Dict containing configuration details
         """

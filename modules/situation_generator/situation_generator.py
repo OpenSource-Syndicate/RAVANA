@@ -8,13 +8,10 @@ to create realistic and challenging scenarios.
 
 import os
 import sys
-import time
 import json
 import random
 import logging
 from typing import Dict, List, Any, Optional
-import threading
-import queue
 import asyncio
 
 # Configure logging
@@ -32,30 +29,31 @@ logger = logging.getLogger("SituationGenerator")
 try:
     # Import curiosity_trigger
     from ..curiosity_trigger.curiosity_trigger import CuriosityTrigger
-    
+
     # Import trend_analysis
     from ..information_processing.trend_analysis.trend_engine import fetch_feeds, setup_db
-    
+
     # Import event_detection
     from ..event_detection.event_detector import process_data_for_events
-    
+
     # Import agent_self_reflection
     from core.llm import call_llm
     from ..agent_self_reflection.self_modification import generate_hypothesis, analyze_experiment_outcome
-    
+
     # Import config
     from core.config import Config
-    
+
     logger.info("All required modules imported successfully")
 except ImportError as e:
     logger.error(f"Error importing modules: {e}", exc_info=True)
     sys.exit(1)
 
+
 class SituationGenerator:
     """
     Generates situations for the AGI system to tackle without user input.
     """
-    
+
     def __init__(self, log_level=logging.INFO, embedding_model=None, sentiment_classifier=None):
         # Set up logger
         self.logger = logging.getLogger("SituationGenerator")
@@ -77,7 +75,7 @@ class SituationGenerator:
             "creative_task",
             "search_result_analysis"
         ]
-        
+
         # LLM State
         self.mood = "neutral"
         self.memories = []
@@ -86,45 +84,50 @@ class SituationGenerator:
         # Initialize event detection models
         self.embedding_model = embedding_model
         self.sentiment_classifier = sentiment_classifier
-        
+
         # Initialize trend analysis database
         setup_db()
-        
+
         # Load RSS feeds
         self.feed_urls = Config.FEED_URLS
-        
+
         self.logger.info("SituationGenerator initialized")
-    
+
     async def generate_trending_topic_situation(self) -> Dict[str, Any]:
         """Generate a situation based on trending topics from RSS feeds."""
         try:
             # Fetch latest feeds
             await asyncio.to_thread(fetch_feeds, self.feed_urls)
-            
+
             # Get recent articles from database
             import sqlite3
-            db_path = os.path.join(os.path.dirname(__file__), "../../trends.db")
+            db_path = os.path.join(
+                os.path.dirname(__file__), "../../trends.db")
             if not os.path.exists(db_path):
-                self.logger.warning(f"Trends database not found at {db_path}. Skipping trending topic.")
+                self.logger.warning(
+                    f"Trends database not found at {db_path}. Skipping trending topic.")
                 return await self.generate_simple_reflection_situation()
 
             conn = sqlite3.connect(db_path)
             c = conn.cursor()
 
             # Check if articles table exists
-            c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='articles'")
+            c.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='articles'")
             if c.fetchone() is None:
                 conn.close()
-                self.logger.warning("'articles' table not found in trends.db. Skipping trending topic.")
+                self.logger.warning(
+                    "'articles' table not found in trends.db. Skipping trending topic.")
                 return await self.generate_simple_reflection_situation()
 
-            c.execute('SELECT title FROM articles ORDER BY timestamp DESC LIMIT 20')
+            c.execute(
+                'SELECT title FROM articles ORDER BY timestamp DESC LIMIT 20')
             articles = [row[0] for row in c.fetchall()]
             conn.close()
-            
+
             if not articles:
                 return await self.generate_hypothetical_scenario()
-            
+
             # Process articles to detect events
             events_data = process_data_for_events(
                 articles,
@@ -132,7 +135,7 @@ class SituationGenerator:
                 sentiment_classifier=self.sentiment_classifier
             )
             events = events_data.get("events", [])
-            
+
             if events:
                 event = random.choice(events)
                 prompt = f"Based on recent news, there's a trending topic about: {event['summary']}. Analyze this trend, its implications, and provide insights."
@@ -156,15 +159,17 @@ class SituationGenerator:
                     }
                 }
         except Exception as e:
-            self.logger.error(f"Error generating trending topic situation: {e}")
+            self.logger.error(
+                f"Error generating trending topic situation: {e}")
             return await self.generate_hypothetical_scenario()
-    
+
     async def generate_curiosity_situation(self, curiosity_topics: Optional[List[str]] = None) -> Dict[str, Any]:
         """Generate a situation based on the curiosity trigger module, making it more relevant to the current context."""
         try:
             # If no specific topics are provided, generate them from the agent's context
             if not curiosity_topics:
-                self.logger.info("No curiosity topics provided, generating from agent's context.")
+                self.logger.info(
+                    "No curiosity topics provided, generating from agent's context.")
                 context_str = f"Mood: {self.mood}, Recent Memories: {self.memories[-5:]}"
                 article, prompt = await asyncio.to_thread(CuriosityTrigger.from_context, context_str, lateralness=0.5)
             else:
@@ -172,7 +177,8 @@ class SituationGenerator:
                 article, prompt = await asyncio.to_thread(lambda: asyncio.run(CuriosityTrigger().trigger(curiosity_topics, lateralness=0.8)))
 
             if not article or "No article available" in article:
-                self.logger.warning("Could not fetch a curiosity article. Falling back to a hypothetical scenario.")
+                self.logger.warning(
+                    "Could not fetch a curiosity article. Falling back to a hypothetical scenario.")
                 return await self.generate_hypothetical_scenario()
 
             return {
@@ -184,9 +190,10 @@ class SituationGenerator:
                 }
             }
         except Exception as e:
-            self.logger.error(f"Error generating curiosity situation: {e}", exc_info=True)
+            self.logger.error(
+                f"Error generating curiosity situation: {e}", exc_info=True)
             return await self.generate_hypothetical_scenario()
-    
+
     async def generate_simple_reflection_situation(self, hypothesis: Optional[str] = None) -> Dict[str, Any]:
         """Generate a simple reflection situation with a concept from the LLM."""
         try:
@@ -202,7 +209,8 @@ class SituationGenerator:
             concept = await asyncio.to_thread(call_llm, concept_prompt) if not hypothesis else hypothesis
 
             if not concept or "failed" in concept:
-                self.logger.warning("LLM call for concept failed. Falling back to a random concept.")
+                self.logger.warning(
+                    "LLM call for concept failed. Falling back to a random concept.")
                 concepts = [
                     "the nature of consciousness", "the definition of intelligence",
                     "the role of memory in learning", "the concept of creativity",
@@ -211,7 +219,7 @@ class SituationGenerator:
                 concept = random.choice(concepts)
 
             prompt = f"Reflect on the following concept: {concept}. What are your thoughts on this topic?"
-            
+
             return {
                 "type": "simple_reflection",
                 "prompt": prompt,
@@ -220,10 +228,11 @@ class SituationGenerator:
                 }
             }
         except Exception as e:
-            self.logger.error(f"Error generating simple reflection situation: {e}", exc_info=True)
+            self.logger.error(
+                f"Error generating simple reflection situation: {e}", exc_info=True)
             # Fallback to a hardcoded concept if everything fails
             concepts = [
-                "the nature of consciousness", "the definition of intelligence", 
+                "the nature of consciousness", "the definition of intelligence",
                 "the role of memory in learning", "the concept of creativity",
                 "the difference between knowledge and wisdom", "the meaning of purpose"
             ]
@@ -234,7 +243,7 @@ class SituationGenerator:
                 "prompt": prompt,
                 "context": {}
             }
-    
+
     async def generate_hypothetical_scenario(self) -> Dict[str, Any]:
         """Generate a hypothetical scenario using the LLM."""
         try:
@@ -252,7 +261,8 @@ class SituationGenerator:
             scenario = await asyncio.to_thread(call_llm, scenario_type_prompt)
 
             if not scenario or "failed" in scenario:
-                self.logger.warning("LLM call for scenario type failed. Falling back to a random scenario type.")
+                self.logger.warning(
+                    "LLM call for scenario type failed. Falling back to a random scenario type.")
                 scenario_types = [
                     "You are an AI assistant helping a user with a technical problem.",
                     "You are an AI researcher working on a breakthrough in machine learning.",
@@ -264,7 +274,7 @@ class SituationGenerator:
                     "You are an AI medical assistant helping diagnose a rare condition."
                 ]
                 scenario = random.choice(scenario_types)
-            
+
             prompt = f"""
             Generate a detailed and challenging situation based on the following scenario:
             {scenario}
@@ -277,13 +287,14 @@ class SituationGenerator:
             
             Format the output as a direct prompt that would be given to an AI system.
             """
-            
+
             situation = await asyncio.to_thread(call_llm, prompt)
-            
+
             if situation is None:
-                self.logger.warning("LLM call failed. Falling back to simple reflection.")
+                self.logger.warning(
+                    "LLM call failed. Falling back to simple reflection.")
                 return await self.generate_simple_reflection_situation()
-                
+
             return {
                 "type": "hypothetical_scenario",
                 "prompt": situation,
@@ -292,9 +303,10 @@ class SituationGenerator:
                 }
             }
         except Exception as e:
-            self.logger.error(f"Error generating hypothetical_scenario: {e}", exc_info=True)
+            self.logger.error(
+                f"Error generating hypothetical_scenario: {e}", exc_info=True)
             return await self.generate_simple_reflection_situation()
-    
+
     async def generate_technical_challenge(self) -> Dict[str, Any]:
         """Generate a technical challenge situation."""
         try:
@@ -309,7 +321,8 @@ class SituationGenerator:
             challenge = await asyncio.to_thread(call_llm, challenge_type_prompt)
 
             if not challenge or "failed" in challenge:
-                self.logger.warning("LLM call for challenge type failed. Falling back to a random challenge type.")
+                self.logger.warning(
+                    "LLM call for challenge type failed. Falling back to a random challenge type.")
                 challenge_types = [
                     "Optimize an inefficient algorithm",
                     "Debug a complex code issue",
@@ -321,7 +334,7 @@ class SituationGenerator:
                     "Create a mobile app"
                 ]
                 challenge = random.choice(challenge_types)
-            
+
             prompt = f"""
             Generate a detailed technical challenge about: {challenge}
             
@@ -333,11 +346,12 @@ class SituationGenerator:
             
             Format the output as a direct prompt that would be given to an AI system.
             """
-            
+
             situation = await asyncio.to_thread(call_llm, prompt)
-            
+
             if situation is None:
-                self.logger.warning("LLM call failed. Falling back to simple reflection.")
+                self.logger.warning(
+                    "LLM call failed. Falling back to simple reflection.")
                 return await self.generate_simple_reflection_situation()
 
             return {
@@ -348,9 +362,10 @@ class SituationGenerator:
                 }
             }
         except Exception as e:
-            self.logger.error(f"Error generating technical_challenge: {e}", exc_info=True)
+            self.logger.error(
+                f"Error generating technical_challenge: {e}", exc_info=True)
             return await self.generate_simple_reflection_situation()
-    
+
     async def generate_ethical_dilemma(self) -> Dict[str, Any]:
         """Generate an ethical dilemma situation."""
         try:
@@ -365,7 +380,8 @@ class SituationGenerator:
             dilemma = await asyncio.to_thread(call_llm, dilemma_type_prompt)
 
             if not dilemma or "failed" in dilemma:
-                self.logger.warning("LLM call for dilemma type failed. Falling back to a random dilemma type.")
+                self.logger.warning(
+                    "LLM call for dilemma type failed. Falling back to a random dilemma type.")
                 dilemma_types = [
                     "AI decision-making with moral implications",
                     "Privacy vs. utility trade-offs",
@@ -377,7 +393,7 @@ class SituationGenerator:
                     "Access to technology and inequality"
                 ]
                 dilemma = random.choice(dilemma_types)
-            
+
             prompt = f"""
             Generate a nuanced ethical dilemma related to: {dilemma}
             
@@ -389,11 +405,12 @@ class SituationGenerator:
             
             Format the output as a direct prompt that would be given to an AI system.
             """
-            
+
             situation = await asyncio.to_thread(call_llm, prompt)
-            
+
             if situation is None:
-                self.logger.warning("LLM call failed. Falling back to simple reflection.")
+                self.logger.warning(
+                    "LLM call failed. Falling back to simple reflection.")
                 return await self.generate_simple_reflection_situation()
 
             return {
@@ -404,9 +421,10 @@ class SituationGenerator:
                 }
             }
         except Exception as e:
-            self.logger.error(f"Error generating ethical_dilemma: {e}", exc_info=True)
+            self.logger.error(
+                f"Error generating ethical_dilemma: {e}", exc_info=True)
             return await self.generate_simple_reflection_situation()
-    
+
     async def generate_creative_task(self) -> Dict[str, Any]:
         """Generate a creative task situation."""
         try:
@@ -424,7 +442,8 @@ class SituationGenerator:
             task = await asyncio.to_thread(call_llm, task_type_prompt)
 
             if not task or "failed" in task:
-                self.logger.warning("LLM call for task type failed. Falling back to a random task type.")
+                self.logger.warning(
+                    "LLM call for task type failed. Falling back to a random task type.")
                 creative_types = [
                     "Write a short story",
                     "Compose a poem",
@@ -436,7 +455,7 @@ class SituationGenerator:
                     "Design a visual art concept"
                 ]
                 task = random.choice(creative_types)
-            
+
             prompt = f"""
             Generate a creative task related to: {task}
             
@@ -448,11 +467,12 @@ class SituationGenerator:
             
             Format the output as a direct prompt that would be given to an AI system.
             """
-            
+
             situation = await asyncio.to_thread(call_llm, prompt)
-            
+
             if situation is None:
-                self.logger.warning("LLM call failed. Falling back to simple reflection.")
+                self.logger.warning(
+                    "LLM call failed. Falling back to simple reflection.")
                 return await self.generate_simple_reflection_situation()
 
             return {
@@ -463,7 +483,8 @@ class SituationGenerator:
                 }
             }
         except Exception as e:
-            self.logger.error(f"Error generating creative_task: {e}", exc_info=True)
+            self.logger.error(
+                f"Error generating creative_task: {e}", exc_info=True)
             return await self.generate_simple_reflection_situation()
 
     # ------------------------- Subconscious Mind -------------------------
@@ -493,7 +514,8 @@ class SituationGenerator:
         try:
             # Gather inputs with reasonable fallbacks
             fragments = episodic_memory or list(self.memories[-50:]) or []
-            emotional = emotional_state or {"dominant_emotion": self.mood, "valence": 0.0}
+            emotional = emotional_state or {
+                "dominant_emotion": self.mood, "valence": 0.0}
             curiosity = curiosity_feed or []
 
             # If shared_state exposes episodic memory or emotions, prefer them
@@ -534,7 +556,8 @@ class SituationGenerator:
                     if not t:
                         continue
                     # heuristics: split on commas, semicolons, and short sentences
-                    parts = [p.strip() for p in re.split(r'[;,\n\\.]+', t) if p.strip()]
+                    parts = [p.strip()
+                             for p in re.split(r'[;,\n\\.]+', t) if p.strip()]
                     for p in parts:
                         if len(p) > 4:
                             frags.append(p)
@@ -546,7 +569,8 @@ class SituationGenerator:
             # Mix fragments with curiosity and emotion descriptors
             pool = list(mem_frags)
             pool.extend([f"curiosity:{c}" for c in curiosity_samples])
-            pool.append(f"emotion:{emotional.get('dominant_emotion')}|valence:{emotional.get('valence',0):.2f}")
+            pool.append(
+                f"emotion:{emotional.get('dominant_emotion')}|valence:{emotional.get('valence', 0):.2f}")
 
             random.shuffle(pool)
 
@@ -556,7 +580,8 @@ class SituationGenerator:
 
             def _make_metaphor(a: str, b: str) -> str:
                 # Lightweight metaphor generator
-                verbs = ["melts into", "echoes", "cradles", "fractures with", "dances around"]
+                verbs = ["melts into", "echoes", "cradles",
+                         "fractures with", "dances around"]
                 v = random.choice(verbs)
                 return f"{a} {v} {b}"
 
@@ -566,7 +591,8 @@ class SituationGenerator:
                 a, b = picks[i], picks[i+1]
                 if a.startswith('curiosity:') or b.startswith('curiosity:'):
                     # treat curiosity fragments as question seeds
-                    s = f"A question whispers: '{b.replace('curiosity:', '')}' while {a}" if b.startswith('curiosity:') else f"A question surfaces: '{a.replace('curiosity:', '')}' as {b}"
+                    s = f"A question whispers: '{b.replace('curiosity:', '')}' while {a}" if b.startswith(
+                        'curiosity:') else f"A question surfaces: '{a.replace('curiosity:', '')}' as {b}"
                 else:
                     s = _make_metaphor(a, b)
                 sentences.append(s)
@@ -606,7 +632,8 @@ class SituationGenerator:
 
             # Always include 1-2 small problem rehearsals derived from curiosity
             for c in curiosity_samples[:2]:
-                rehearsal.append(f"Unconscious rehearsal: explore '{c}' via small thought experiment.")
+                rehearsal.append(
+                    f"Unconscious rehearsal: explore '{c}' via small thought experiment.")
 
             # Emotional nudge scoring / small classifier: use sentiment_classifier if available,
             # otherwise use a richer heuristic combining valence, negative-word density, and goal mismatch.
@@ -621,7 +648,8 @@ class SituationGenerator:
                 try:
                     if self.sentiment_classifier and callable(self.sentiment_classifier):
                         # sentiment_classifier should accept text and return a dict with 'valence' key in [-1,1]
-                        sample_text = ' '.join(fragments[:6]) or ' '.join(mem_frags[:6])
+                        sample_text = ' '.join(
+                            fragments[:6]) or ' '.join(mem_frags[:6])
                         res = self.sentiment_classifier(sample_text)
                         if isinstance(res, dict) and 'valence' in res:
                             val = float(res['valence'])
@@ -629,16 +657,23 @@ class SituationGenerator:
                     pass
 
                 # Feature heuristics
-                negative_words = ['angry', 'anxious', 'sad', 'worry', 'fear', 'panic', 'stalled', 'fail', 'error']
-                uncertainty_words = ['maybe', 'perhaps', 'unsure', 'uncertain', 'possible', 'could']
-                goal_words = ['goal', 'plan', 'want', 'intend', 'need', 'should', 'must']
+                negative_words = ['angry', 'anxious', 'sad', 'worry',
+                                  'fear', 'panic', 'stalled', 'fail', 'error']
+                uncertainty_words = ['maybe', 'perhaps',
+                                     'unsure', 'uncertain', 'possible', 'could']
+                goal_words = ['goal', 'plan', 'want',
+                              'intend', 'need', 'should', 'must']
 
-                neg_count = sum(1 for f in fragments for w in negative_words if w in f.lower())
-                uncertainty_count = sum(1 for f in fragments for w in uncertainty_words if w in f.lower())
-                goals = sum(1 for f in fragments for w in goal_words if w in f.lower())
+                neg_count = sum(
+                    1 for f in fragments for w in negative_words if w in f.lower())
+                uncertainty_count = sum(
+                    1 for f in fragments for w in uncertainty_words if w in f.lower())
+                goals = sum(
+                    1 for f in fragments for w in goal_words if w in f.lower())
 
                 # small classifier: weighted sum
-                score = ( -0.9 * val ) + (0.4 * neg_count) + (0.25 * uncertainty_count) + (0.35 * goals)
+                score = (-0.9 * val) + (0.4 * neg_count) + \
+                    (0.25 * uncertainty_count) + (0.35 * goals)
                 # normalize roughly into 0..1
                 severity = max(0.0, min(1.0, score / 3.0))
 
@@ -672,10 +707,11 @@ class SituationGenerator:
                 }
             }
         except Exception as e:
-            self.logger.error(f"Error generating subconscious situation: {e}", exc_info=True)
+            self.logger.error(
+                f"Error generating subconscious situation: {e}", exc_info=True)
             # Fallback to simple reflection to remain safe
             return await self.generate_simple_reflection_situation()
-    
+
     def update_llm_state(self, mood=None, new_memories=None, new_data=None):
         """Update the LLM's state."""
         if mood:
@@ -703,7 +739,8 @@ class SituationGenerator:
             situation = await asyncio.to_thread(call_llm, prompt)
 
             if situation is None:
-                self.logger.warning("LLM call failed. Falling back to simple reflection.")
+                self.logger.warning(
+                    "LLM call failed. Falling back to simple reflection.")
                 return await self.generate_simple_reflection_situation()
 
             return {
@@ -758,7 +795,8 @@ class SituationGenerator:
 
         # Check for search results first
         if hasattr(shared_state, 'search_results') and shared_state.search_results:
-            self.logger.info("Found search results, generating a situation to analyze them.")
+            self.logger.info(
+                "Found search results, generating a situation to analyze them.")
             search_results = shared_state.search_results
             # Clear the search results from the shared state after using them
             shared_state.search_results = []
@@ -767,10 +805,12 @@ class SituationGenerator:
         # Handle behavior modifiers that force a specific situation
         if behavior_modifiers:
             if behavior_modifiers.get("new_hypothesis"):
-                self.logger.info(f"New hypothesis detected. Generating a situation to test it.")
+                self.logger.info(
+                    f"New hypothesis detected. Generating a situation to test it.")
                 return await self.generate_hypothesis_test_situation(behavior_modifiers["new_hypothesis"])
             if "take_break" in behavior_modifiers and random.random() < 0.7:
-                self.logger.info("Behavior modifier suggests a break. Generating a simple reflection.")
+                self.logger.info(
+                    "Behavior modifier suggests a break. Generating a simple reflection.")
                 return await self.generate_simple_reflection_situation()
 
         # Probabilistic selection of situation type, biased towards more engaging tasks
@@ -786,7 +826,8 @@ class SituationGenerator:
 
         # If there is an active experiment, don't generate a new situation
         if behavior_modifiers and behavior_modifiers.get('active_experiment'):
-            self.logger.info("Active experiment in progress. Situation generation is paused.")
+            self.logger.info(
+                "Active experiment in progress. Situation generation is paused.")
             return {
                 "type": "wait",
                 "prompt": "Experiment in progress. Awaiting outcome.",
@@ -796,10 +837,14 @@ class SituationGenerator:
         # Subconscious mode: explicit or occasional background generation
         try:
             if behavior_modifiers and behavior_modifiers.get('subconscious_mode'):
-                self.logger.info("Behavior modifier requests subconscious generation. Generating subconscious situation.")
-                episodic = getattr(shared_state, 'episodic_memories', None) if shared_state is not None else None
-                emotional = getattr(shared_state, 'emotional_state', None) if shared_state is not None else None
-                curiosity_feed = getattr(shared_state, 'curiosity_feed', None) if shared_state is not None else None
+                self.logger.info(
+                    "Behavior modifier requests subconscious generation. Generating subconscious situation.")
+                episodic = getattr(
+                    shared_state, 'episodic_memories', None) if shared_state is not None else None
+                emotional = getattr(
+                    shared_state, 'emotional_state', None) if shared_state is not None else None
+                curiosity_feed = getattr(
+                    shared_state, 'curiosity_feed', None) if shared_state is not None else None
                 intensity = behavior_modifiers.get('intensity', 0.7)
                 return await self.generate_subconscious_situation(shared_state=shared_state,
                                                                   episodic_memory=episodic,
@@ -808,12 +853,15 @@ class SituationGenerator:
                                                                   intensity=float(intensity))
             # Small chance to run subconscious generator even without explicit modifier
             if random.random() < 0.05 and (behavior_modifiers is None or not behavior_modifiers.get('force_disable_subconscious')):
-                self.logger.info("Occasional subconscious generation triggered.")
+                self.logger.info(
+                    "Occasional subconscious generation triggered.")
                 return await self.generate_subconscious_situation(shared_state=shared_state)
         except Exception as e:
-            self.logger.error(f"Error while attempting subconscious generation: {e}", exc_info=True)
-        
-        situation_type = random.choices(list(weights.keys()), weights=list(weights.values()), k=1)[0]
+            self.logger.error(
+                f"Error while attempting subconscious generation: {e}", exc_info=True)
+
+        situation_type = random.choices(
+            list(weights.keys()), weights=list(weights.values()), k=1)[0]
         self.logger.info(f"Generating a '{situation_type}' situation.")
 
         if situation_type == "trending_topic":
@@ -834,10 +882,11 @@ class SituationGenerator:
             # Fallback to a simple reflection
             return await self.generate_simple_reflection_situation()
 
+
 async def main():
     """Main function for testing the SituationGenerator."""
     generator = SituationGenerator()
-    
+
     class DummySharedState:
         def __init__(self):
             self.search_results = []
@@ -848,16 +897,17 @@ async def main():
     print("--- Generating a random situation ---")
     situation = await generator.generate_situation(shared_state)
     print(json.dumps(situation, indent=2))
-    
+
     # Test with curiosity topics
     print("\n--- Generating a situation with specific curiosity topics ---")
     topics = ["quantum computing", "renaissance art"]
     situation = await generator.generate_situation(shared_state, curiosity_topics=topics)
     print(json.dumps(situation, indent=2))
-    
+
     # Test with a behavior modifier (hypothesis)
     print("\n--- Generating a situation to test a hypothesis ---")
-    modifiers = {"new_hypothesis": "That my planning algorithm is not efficient for long-term goals."}
+    modifiers = {
+        "new_hypothesis": "That my planning algorithm is not efficient for long-term goals."}
     situation = await generator.generate_situation(shared_state, behavior_modifiers=modifiers)
     print(json.dumps(situation, indent=2))
 
@@ -867,7 +917,8 @@ async def main():
     situation = await generator.generate_situation(shared_state)
     print(json.dumps(situation, indent=2))
     # Verify that search results are cleared
-    print(f"Search results in shared state after generation: {shared_state.search_results}")
+    print(
+        f"Search results in shared state after generation: {shared_state.search_results}")
 
 if __name__ == "__main__":
     asyncio.run(main())

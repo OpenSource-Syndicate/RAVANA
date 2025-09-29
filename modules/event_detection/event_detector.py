@@ -4,9 +4,10 @@ from sklearn.cluster import AgglomerativeClustering
 import numpy as np
 from transformers import pipeline
 import logging
-import time
 
 # Placeholder for a more sophisticated data structure
+
+
 class Document:
     def __init__(self, text: str, metadata: Dict[str, Any] = None):
         self.text = text
@@ -23,13 +24,14 @@ class Document:
             d['embedding'] = d['embedding'].tolist()
         return d
 
+
 class Event:
     def __init__(self, event_id: int, keywords: List[str], summary: str):
         self.event_id = int(event_id)  # Ensure event_id is Python int
         self.keywords = keywords
         self.summary = summary
         self.doc_count = 0
-        
+
     def to_dict(self):
         """Return a JSON-serializable dictionary representation."""
         return {
@@ -38,6 +40,7 @@ class Event:
             "summary": self.summary,
             "doc_count": int(self.doc_count)  # Ensure doc_count is Python int
         }
+
 
 # --- Model Loading ---
 # It's better to load models once and reuse them.
@@ -49,73 +52,80 @@ logger = logging.getLogger(__name__)
 
 # --- Core Functions ---
 
+
 def get_embeddings(texts: List[str], embedding_model) -> np.ndarray:
     """Generate embeddings for a list of texts."""
     if not embedding_model:
         raise ValueError("Embedding model not loaded.")
     return embedding_model.encode(texts, show_progress_bar=False)
 
+
 def cluster_documents(embeddings: np.ndarray, distance_threshold=0.5) -> np.ndarray:
     """Cluster documents based on their embeddings."""
     # Using Agglomerative Clustering. It's good for finding clusters without knowing the number beforehand.
-    clustering_model = AgglomerativeClustering(n_clusters=None, metric='cosine', linkage='average', distance_threshold=distance_threshold)
+    clustering_model = AgglomerativeClustering(
+        n_clusters=None, metric='cosine', linkage='average', distance_threshold=distance_threshold)
     clustering_model.fit(embeddings)
     return clustering_model.labels_
+
 
 def filter_content(documents: List[Document], sentiment_classifier):
     """Filter documents based on sentiment or other criteria."""
     if not sentiment_classifier:
         raise ValueError("Sentiment classifier not loaded.")
-    
+
     texts_to_analyze = [doc.text for doc in documents]
     sentiments = sentiment_classifier(texts_to_analyze)
-    
+
     for doc, sentiment in zip(documents, sentiments):
         doc.sentiment = sentiment
         # Example filtering: discard negative content. This can be customized.
         if sentiment['label'] == 'NEGATIVE' and sentiment['score'] > 0.8:
             doc.is_relevant = False
 
+
 def generate_event_alerts(clustered_docs: Dict[int, List[Document]], min_cluster_size=5) -> List[Event]:
     """Generate alerts for significant event clusters."""
     alerts = []
     for cluster_id, docs in clustered_docs.items():
         if cluster_id == -1 or len(docs) < min_cluster_size:
-            continue # Skip noise or small clusters
+            continue  # Skip noise or small clusters
 
         # Simple summary: just take the text of the first doc for now.
         # A better approach would be to use a summarization model.
-        summary = docs[0].text 
-        
+        summary = docs[0].text
+
         # Simple keywords: for now, just an empty list.
         # A better approach would be to use TF-IDF or a keyword extraction model.
-        keywords = [] 
-        
+        keywords = []
+
         event = Event(event_id=cluster_id, summary=summary, keywords=keywords)
         event.doc_count = len(docs)
         alerts.append(event)
-        
+
     return alerts
+
 
 def process_data_for_events(texts: List[str], embedding_model=None, sentiment_classifier=None) -> Dict[str, Any]:
     """
     Main function to process a batch of texts to detect events.
-    
+
     Args:
         texts: A list of strings (documents) to analyze.
         embedding_model: A pre-loaded sentence-transformer model.
         sentiment_classifier: A pre-loaded huggingface pipeline.
-        
+
     Returns:
         A dictionary containing detected events and processed documents.
     """
     global embedding_model_global, sentiment_classifier_global
-    
+
     embedding_model_to_use = embedding_model or embedding_model_global
     sentiment_classifier_to_use = sentiment_classifier or sentiment_classifier_global
-    
+
     if not embedding_model_to_use or not sentiment_classifier_to_use:
-        logger.warning("Models not available. Loading them now. For production, pass pre-loaded models.")
+        logger.warning(
+            "Models not available. Loading them now. For production, pass pre-loaded models.")
         # Lazy load if not provided
         if not embedding_model_to_use:
             embedding_model_to_use = SentenceTransformer('all-MiniLM-L6-v2')
@@ -126,14 +136,14 @@ def process_data_for_events(texts: List[str], embedding_model=None, sentiment_cl
 
     # 1. Create Document objects
     documents = [Document(text) for text in texts]
-    
+
     # 2. Sentiment & Keyword Filtering (initial pass)
     filter_content(documents, sentiment_classifier_to_use)
-    
+
     relevant_documents = [doc for doc in documents if doc.is_relevant]
     if not relevant_documents:
         return {"events": [], "documents": documents, "message": "No relevant documents after filtering."}
-        
+
     relevant_texts = [doc.text for doc in relevant_documents]
 
     # 3. Event Tracking & Filtering Topic Detection
@@ -141,10 +151,10 @@ def process_data_for_events(texts: List[str], embedding_model=None, sentiment_cl
     embeddings = get_embeddings(relevant_texts, embedding_model_to_use)
     for doc, emb in zip(relevant_documents, embeddings):
         doc.embedding = emb
-        
+
     # Cluster documents
     cluster_labels = cluster_documents(embeddings)
-    
+
     clustered_docs = {}
     for doc, label in zip(relevant_documents, cluster_labels):
         doc.cluster_id = int(label)
@@ -154,14 +164,15 @@ def process_data_for_events(texts: List[str], embedding_model=None, sentiment_cl
 
     # 4. Alert Generation
     events = generate_event_alerts(clustered_docs)
-    
+
     # Here you would typically save the events to a database or send a notification.
     # For now, we just return them.
-    
+
     return {
         "events": [event.__dict__ for event in events],
         "documents": [doc.to_dict() for doc in documents]
     }
+
 
 if __name__ == '__main__':
     # Example Usage
@@ -177,13 +188,15 @@ if __name__ == '__main__':
         "I really hate this, it's terrible.",
         "Researchers find a link between caffeine and alertness."
     ]
-    
+
     results = process_data_for_events(sample_data)
-    
+
     print("--- Detected Events ---")
     for event in results['events']:
-        print(f"Event ID: {event['event_id']}, Docs: {event['doc_count']}, Summary: {event['summary']}")
-        
+        print(
+            f"Event ID: {event['event_id']}, Docs: {event['doc_count']}, Summary: {event['summary']}")
+
     print("\n--- Processed Documents ---")
     for doc in results['documents']:
-        print(f"Text: {doc['text'][:30]}... | Relevant: {doc['is_relevant']} | Cluster: {doc['cluster_id']} | Sentiment: {doc['sentiment']}")
+        print(
+            f"Text: {doc['text'][:30]}... | Relevant: {doc['is_relevant']} | Cluster: {doc['cluster_id']} | Sentiment: {doc['sentiment']}")

@@ -4,10 +4,11 @@ Defines data structures for memory records, search requests, and responses.
 """
 
 from pydantic import BaseModel, Field, validator
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 import uuid
+
 
 class ContentType(str, Enum):
     """Enumeration of supported content types."""
@@ -16,6 +17,7 @@ class ContentType(str, Enum):
     IMAGE = "image"
     VIDEO = "video"
 
+
 class MemoryType(str, Enum):
     """Enumeration of memory types."""
     EPISODIC = "episodic"
@@ -23,12 +25,14 @@ class MemoryType(str, Enum):
     CONSOLIDATED = "consolidated"
     WORKING = "working"
 
+
 class SearchMode(str, Enum):
     """Enumeration of search modes."""
     VECTOR = "vector"
     TEXT = "text"
     HYBRID = "hybrid"
     CROSS_MODAL = "cross_modal"
+
 
 class AudioMetadata(BaseModel):
     """Metadata specific to audio content."""
@@ -40,6 +44,7 @@ class AudioMetadata(BaseModel):
     sample_rate: Optional[int] = None
     channels: Optional[int] = None
 
+
 class ImageMetadata(BaseModel):
     """Metadata specific to image content."""
     width: Optional[int] = None
@@ -50,6 +55,7 @@ class ImageMetadata(BaseModel):
     color_palette: Dict[str, Any] = Field(default_factory=dict)
     image_features: Dict[str, Any] = Field(default_factory=dict)
 
+
 class VideoMetadata(BaseModel):
     """Metadata specific to video content."""
     duration_seconds: Optional[float] = None
@@ -59,6 +65,7 @@ class VideoMetadata(BaseModel):
     video_features: Dict[str, Any] = Field(default_factory=dict)
     thumbnail_path: Optional[str] = None
 
+
 class MemoryRecord(BaseModel):
     """Main memory record model."""
     id: Optional[uuid.UUID] = None
@@ -66,13 +73,13 @@ class MemoryRecord(BaseModel):
     content_text: Optional[str] = None
     content_metadata: Dict[str, Any] = Field(default_factory=dict)
     file_path: Optional[str] = None
-    
+
     # Embeddings
     text_embedding: Optional[List[float]] = None
-    image_embedding: Optional[List[float]] = None  
+    image_embedding: Optional[List[float]] = None
     audio_embedding: Optional[List[float]] = None
     unified_embedding: Optional[List[float]] = None
-    
+
     # Metadata
     created_at: Optional[datetime] = None
     last_accessed: Optional[datetime] = None
@@ -81,7 +88,7 @@ class MemoryRecord(BaseModel):
     emotional_valence: Optional[float] = None
     confidence_score: float = Field(default=1.0, ge=0.0, le=1.0)
     tags: List[str] = Field(default_factory=list)
-    
+
     # Type-specific metadata
     audio_metadata: Optional[AudioMetadata] = None
     image_metadata: Optional[ImageMetadata] = None
@@ -107,6 +114,7 @@ class MemoryRecord(BaseModel):
             uuid.UUID: str
         }
 
+
 class SearchRequest(BaseModel):
     """Request model for memory search operations."""
     query: str = Field(..., min_length=1, max_length=1000)
@@ -117,22 +125,25 @@ class SearchRequest(BaseModel):
     similarity_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
     include_metadata: bool = True
     tags: Optional[List[str]] = None
-    
+
     # Cross-modal search specific
     query_content_type: Optional[ContentType] = None
     target_content_types: Optional[List[ContentType]] = None
-    
+
     # Date filtering
     created_after: Optional[datetime] = None
     created_before: Optional[datetime] = None
 
+
 class CrossModalSearchRequest(BaseModel):
     """Request model for cross-modal search operations."""
-    query_content: str = Field(..., description="File path or content for query")
+    query_content: str = Field(...,
+                               description="File path or content for query")
     query_type: ContentType
     target_types: List[ContentType]
     limit: int = Field(default=10, ge=1, le=50)
     similarity_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+
 
 class SearchResult(BaseModel):
     """Individual search result."""
@@ -140,6 +151,7 @@ class SearchResult(BaseModel):
     similarity_score: float = Field(ge=0.0, le=1.0)
     rank: int = Field(ge=1)
     search_metadata: Dict[str, Any] = Field(default_factory=dict)
+
 
 class SearchResponse(BaseModel):
     """Response model for search operations."""
@@ -149,6 +161,7 @@ class SearchResponse(BaseModel):
     search_mode: SearchMode
     query_metadata: Dict[str, Any] = Field(default_factory=dict)
 
+
 class ConversationRequest(BaseModel):
     """Request for memory extraction from conversations."""
     user_input: str = Field(..., min_length=1)
@@ -157,12 +170,14 @@ class ConversationRequest(BaseModel):
     extract_emotions: bool = True
     memory_type: MemoryType = MemoryType.EPISODIC
 
+
 class MemoriesList(BaseModel):
     """List of extracted memories."""
     memories: List[str]
     memory_type: MemoryType = MemoryType.EPISODIC
     confidence_scores: Optional[List[float]] = None
     emotional_valences: Optional[List[float]] = None
+
 
 class ConsolidateRequest(BaseModel):
     """Request for memory consolidation."""
@@ -171,6 +186,7 @@ class ConsolidateRequest(BaseModel):
     consolidation_strategy: str = Field(default="llm_based")
     preserve_original: bool = True
 
+
 class ConsolidationResult(BaseModel):
     """Result of memory consolidation operation."""
     consolidated_memories: List[MemoryRecord]
@@ -178,12 +194,14 @@ class ConsolidationResult(BaseModel):
     consolidation_summary: str
     created_at: datetime
 
+
 class StatusResponse(BaseModel):
     """Generic status response."""
     status: str
     message: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
 
 class HealthCheckResponse(BaseModel):
     """Health check response with system status."""
@@ -195,6 +213,7 @@ class HealthCheckResponse(BaseModel):
     uptime_seconds: int
     details: Dict[str, Any] = Field(default_factory=dict)
 
+
 class FileUploadRequest(BaseModel):
     """Request for file upload and processing."""
     file_type: ContentType
@@ -205,6 +224,7 @@ class FileUploadRequest(BaseModel):
     generate_embeddings: bool = True
     tags: List[str] = Field(default_factory=list)
 
+
 class ProcessingResult(BaseModel):
     """Result of file processing operation."""
     memory_record: MemoryRecord
@@ -214,12 +234,15 @@ class ProcessingResult(BaseModel):
     warnings: List[str] = Field(default_factory=list)
 
 # Batch operation models
+
+
 class BatchProcessRequest(BaseModel):
     """Request for batch processing of multiple files."""
     file_paths: List[str]
     content_types: Optional[List[ContentType]] = None
     parallel_processing: bool = True
     max_workers: int = Field(default=4, ge=1, le=16)
+
 
 class BatchProcessResult(BaseModel):
     """Result of batch processing operation."""
@@ -230,6 +253,8 @@ class BatchProcessResult(BaseModel):
     total_time_ms: int
 
 # Statistics and analytics models
+
+
 class MemoryStatistics(BaseModel):
     """Memory system statistics."""
     total_memories: int
@@ -240,6 +265,7 @@ class MemoryStatistics(BaseModel):
     most_accessed_memories: List[MemoryRecord]
     recent_additions: List[MemoryRecord]
     consolidation_stats: Dict[str, Any]
+
 
 class PerformanceMetrics(BaseModel):
     """Performance metrics for the memory system."""

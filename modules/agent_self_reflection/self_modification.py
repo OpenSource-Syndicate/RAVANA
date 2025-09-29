@@ -2,7 +2,6 @@ import os
 import json
 import tempfile
 import shutil
-import difflib
 import re
 import traceback
 from datetime import datetime
@@ -16,6 +15,8 @@ AUDIT_LOG = os.path.join(MODULE_ROOT, 'self_modification_audit.json')
 TOOL_REGISTRY = {}
 
 # --- Tool Registration Decorator ---
+
+
 def register_tool(name, description, parameters):
     def decorator(func):
         TOOL_REGISTRY[name] = {
@@ -27,6 +28,8 @@ def register_tool(name, description, parameters):
     return decorator
 
 # --- Tool: Read File ---
+
+
 @register_tool(
     name="read_file",
     description="Read the contents of a file",
@@ -45,6 +48,8 @@ def read_file(filename):
         return f.read()
 
 # --- Tool: Edit File ---
+
+
 @register_tool(
     name="edit_file",
     description="Replace content in a file between specified lines",
@@ -71,20 +76,22 @@ def edit_file(filename, start, end, new_content):
     path = os.path.join(MODULE_ROOT, filename)
     with open(path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
-    
+
     if start < 1 or end > len(lines):
         return f"Invalid line range: {start}-{end}. File has {len(lines)} lines."
-    
+
     before = lines[:start-1]
     after = lines[end:]
     new_lines = new_content.splitlines(keepends=True)
     new_content = ''.join(before + new_lines + after)
-    
+
     with open(path, 'w', encoding='utf-8') as f:
         f.write(new_content)
     return f"Successfully modified {filename} lines {start}-{end}"
 
 # --- Tool: Run Tests ---
+
+
 @register_tool(
     name="run_tests",
     description="Execute the test suite in a sandbox environment",
@@ -101,7 +108,7 @@ def run_tests(test_command="python test_self_reflection.py"):
     try:
         # Copy entire module to temp directory
         shutil.copytree(MODULE_ROOT, temp_dir, dirs_exist_ok=True)
-        
+
         # Execute tests
         import subprocess
         process = subprocess.run(
@@ -121,6 +128,8 @@ def run_tests(test_command="python test_self_reflection.py"):
         shutil.rmtree(temp_dir)
 
 # --- Utility: Log audit trail ---
+
+
 def log_audit(entry):
     try:
         if os.path.exists(AUDIT_LOG):
@@ -135,18 +144,22 @@ def log_audit(entry):
         print(f"Failed to write audit log: {str(e)}")
 
 # --- Find actionable failures ---
+
+
 def find_actionable_reflections():
     reflections = load_reflections()
     actionable = []
     for entry in reflections:
         reflection = entry.get('reflection', '').lower()
         # More comprehensive failure indicators
-        if any(term in reflection for term in 
-              ['fail', 'error', 'bug', 'defect', 'issue', 'crash', 'break', 'problem']):
+        if any(term in reflection for term in
+               ['fail', 'error', 'bug', 'defect', 'issue', 'crash', 'break', 'problem']):
             actionable.append(entry)
     return actionable
 
 # --- Enhanced bug extraction with tool calling ---
+
+
 def extract_bug_info(reflection_entry):
     tools_spec = [{
         "name": "log_bug_report",
@@ -175,7 +188,7 @@ def extract_bug_info(reflection_entry):
             "required": ["filename", "function", "summary"]
         }
     }]
-    
+
     prompt = f"""
 Analyze the following reflection log and extract bug information. 
 If no bug is found, respond with {{"status": "no_bug"}}.
@@ -186,7 +199,7 @@ Reflection:
 Use the log_bug_report tool if a bug is identified.
 """
     response = call_llm(prompt, tools=tools_spec, tool_choice="auto")
-    
+
     try:
         if response and 'tool_calls' in response:
             for call in response['tool_calls']:
@@ -200,14 +213,16 @@ Use the log_bug_report tool if a bug is identified.
         return None
 
 # --- Extract code block with context ---
+
+
 def extract_code_block(filename, symbol, context_lines=3):
     path = os.path.join(MODULE_ROOT, filename)
     if not os.path.exists(path):
         return None, None, None
-    
+
     with open(path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
-    
+
     # Find function/class definition
     pattern = re.compile(rf'^\s*(def|class)\s+{symbol}\b')
     start_index = None
@@ -215,14 +230,14 @@ def extract_code_block(filename, symbol, context_lines=3):
         if pattern.match(line):
             start_index = i
             break
-    
+
     if start_index is None:
         return None, None, None
-    
+
     # Determine indentation level
     indent = len(lines[start_index]) - len(lines[start_index].lstrip())
     end_index = start_index
-    
+
     # Find end of block
     for i in range(start_index + 1, len(lines)):
         if lines[i].strip() == '':
@@ -231,15 +246,17 @@ def extract_code_block(filename, symbol, context_lines=3):
         if current_indent <= indent and not lines[i].lstrip().startswith('#'):
             break
         end_index = i
-    
+
     # Add context
     start_index = max(0, start_index - context_lines)
     end_index = min(len(lines) - 1, end_index + context_lines)
-    
+
     code_block = ''.join(lines[start_index:end_index+1])
     return code_block, start_index+1, end_index+1
 
 # --- Generate patch with tool calling ---
+
+
 def generate_patch(filename, symbol, code_block, start, end, bug_summary):
     tools_spec = [{
         "name": "propose_code_patch",
@@ -271,7 +288,7 @@ def generate_patch(filename, symbol, code_block, start, end, bug_summary):
             "required": ["filename", "start_line", "end_line", "new_code"]
         }
     }]
-    
+
     prompt = f"""
 You are an expert Python developer. Fix the bug described below:
 
@@ -292,8 +309,9 @@ Provide a minimal fix that addresses ONLY the reported issue. Maintain existing:
 
 Output ONLY the tool call with the fixed code block.
 """
-    response = call_llm(prompt, tools=tools_spec, tool_choice={"type": "function", "function": {"name": "propose_code_patch"}})
-    
+    response = call_llm(prompt, tools=tools_spec, tool_choice={
+                        "type": "function", "function": {"name": "propose_code_patch"}})
+
     try:
         if response and 'tool_calls' in response:
             for call in response['tool_calls']:
@@ -302,12 +320,13 @@ Output ONLY the tool call with the fixed code block.
                     if all(k in args for k in ('filename', 'start_line', 'end_line', 'new_code')):
                         # Validate line numbers match request
                         if args['start_line'] != start or args['end_line'] != end:
-                            print(f"Warning: Line mismatch in patch: requested {start}-{end}, got {args['start_line']}-{args['end_line']}")
-                        
+                            print(
+                                f"Warning: Line mismatch in patch: requested {start}-{end}, got {args['start_line']}-{args['end_line']}")
+
                         # Validate code safety
                         if is_lazy_llm_response(args['new_code']):
                             return None
-                            
+
                         return {
                             'filename': args['filename'],
                             'start': args['start_line'],
@@ -321,22 +340,24 @@ Output ONLY the tool call with the fixed code block.
         return None
 
 # --- Test patch with rollback capability ---
+
+
 def test_patch(filename, start, end, new_code):
     # Create backup
     original_path = os.path.join(MODULE_ROOT, filename)
     backup_path = original_path + ".bak"
     shutil.copy2(original_path, backup_path)
-    
+
     try:
         # Apply patch temporarily
         with open(original_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         new_lines = new_code.splitlines(keepends=True)
         patched_content = ''.join(lines[:start-1] + new_lines + lines[end:])
-        
+
         with open(original_path, 'w', encoding='utf-8') as f:
             f.write(patched_content)
-        
+
         # Run tests
         test_result = run_tests()
         return test_result
@@ -351,35 +372,38 @@ def test_patch(filename, start, end, new_code):
         shutil.move(backup_path, original_path)
 
 # --- Enhanced self-modification workflow ---
+
+
 def run_self_modification():
     actionable = find_actionable_reflections()
     if not actionable:
         print("No actionable reflections found")
         return
-    
+
     print(f"Found {len(actionable)} actionable reflections")
-    
+
     for entry in actionable:
         print("\n" + "="*80)
         print(f"Processing reflection: {entry.get('id', 'unknown')}")
-        
+
         bug_info = extract_bug_info(entry)
         if not bug_info:
             print("No bug information extracted")
             continue
-        
-        print(f"Bug found in {bug_info['filename']}:{bug_info['function']} - {bug_info['summary']}")
-        
+
+        print(
+            f"Bug found in {bug_info['filename']}:{bug_info['function']} - {bug_info['summary']}")
+
         code_block, start, end = extract_code_block(
-            bug_info['filename'], 
+            bug_info['filename'],
             bug_info['function'],
             context_lines=5
         )
-        
+
         if not code_block:
             print("Code block not found")
             continue
-        
+
         patch = generate_patch(
             bug_info['filename'],
             bug_info['function'],
@@ -388,20 +412,20 @@ def run_self_modification():
             end,
             bug_info['summary']
         )
-        
+
         if not patch:
             print("Patch generation failed")
             continue
-        
+
         print(f"Generated patch for lines {patch['start']}-{patch['end']}")
         if patch.get('explanation'):
             print(f"Fix explanation: {patch['explanation']}")
-        
+
         # Validate patch safety
         if is_lazy_llm_response(patch['new_code']):
             print("Rejected lazy LLM response")
             continue
-            
+
         # Test patch
         test_result = test_patch(
             patch['filename'],
@@ -409,7 +433,7 @@ def run_self_modification():
             patch['end'],
             patch['new_code']
         )
-        
+
         # Create audit entry
         audit_entry = {
             'timestamp': datetime.now().isoformat(),
@@ -419,7 +443,7 @@ def run_self_modification():
             'test_result': test_result,
             'applied': False
         }
-        
+
         # Apply patch if tests pass
         if test_result.get('success'):
             print("Tests passed - applying patch")
@@ -439,9 +463,11 @@ def run_self_modification():
             })
         else:
             print("Tests failed - patch rejected")
-            print(f"Test output:\n{test_result.get('stdout', '')}\n{test_result.get('stderr', '')}")
-        
+            print(
+                f"Test output:\n{test_result.get('stdout', '')}\n{test_result.get('stderr', '')}")
+
         log_audit(audit_entry)
+
 
 def generate_hypothesis(shared_state: dict) -> str | None:
     """
@@ -450,7 +476,7 @@ def generate_hypothesis(shared_state: dict) -> str | None:
     # Extract relevant history from shared state
     recent_moods = shared_state.get('mood_history', [])
     recent_actions = shared_state.get('action_history', [])
-    recent_reflections = load_reflections()[-5:] # Get last 5 reflections
+    recent_reflections = load_reflections()[-5:]  # Get last 5 reflections
 
     if len(recent_actions) < 5:
         print("Not enough action history to generate a hypothesis.")
@@ -472,16 +498,17 @@ def generate_hypothesis(shared_state: dict) -> str | None:
     
     Return only the string containing the hypothesis.
     """
-    
+
     print("Generating a new hypothesis from agent's recent history...")
     hypothesis = call_llm(context)
 
     if hypothesis and not is_lazy_llm_response(hypothesis):
         print(f"Generated Hypothesis: {hypothesis}")
         return hypothesis
-    
+
     print("Failed to generate a valid hypothesis.")
     return None
+
 
 def analyze_experiment_outcome(hypothesis: str, situation_prompt: str, outcome: str) -> dict:
     """
@@ -489,7 +516,7 @@ def analyze_experiment_outcome(hypothesis: str, situation_prompt: str, outcome: 
     Generates a new reflection based on the findings and saves it.
     """
     print(f"Analyzing outcome for hypothesis: {hypothesis}")
-    
+
     prompt = f"""
     You are a research analyst examining the results of an AI's self-experiment.
 
@@ -514,12 +541,13 @@ def analyze_experiment_outcome(hypothesis: str, situation_prompt: str, outcome: 
     """
 
     analysis_json = call_llm(prompt)
-    
+
     try:
         analysis = json.loads(analysis_json)
         if all(k in analysis for k in ["conclusion", "reasoning", "new_principle"]):
-            print(f"Experiment Conclusion: {analysis['conclusion']} - {analysis['new_principle']}")
-            
+            print(
+                f"Experiment Conclusion: {analysis['conclusion']} - {analysis['new_principle']}")
+
             # Create and save a new reflection summarizing the experiment
             reflection_text = f"""
             **Experiment Log**
@@ -528,7 +556,7 @@ def analyze_experiment_outcome(hypothesis: str, situation_prompt: str, outcome: 
             - **Reasoning**: {analysis['reasoning']}
             - **Learned Principle**: {analysis['new_principle']}
             """
-            
+
             save_reflection({
                 'timestamp': datetime.now().isoformat(),
                 'task_summary': f"Conducted experiment to test hypothesis: '{hypothesis[:50]}...'",
@@ -550,12 +578,15 @@ def analyze_experiment_outcome(hypothesis: str, situation_prompt: str, outcome: 
                     print(f"Ambitious experiment failed. Creating a long-term goal.")
                     goal_context = f"Pursue the ambitious goal derived from the failed hypothesis: {hypothesis}. This will involve foundational research and developing novel approaches over a long period."
                     try:
-                        new_goal_id = plan_from_context(goal_context, timeframe="lifelong")
-                        print(f"Created new long-term goal with ID: {new_goal_id}")
-                        
+                        new_goal_id = plan_from_context(
+                            goal_context, timeframe="lifelong")
+                        print(
+                            f"Created new long-term goal with ID: {new_goal_id}")
+
                         # Update the reflection to note the new goal
-                        analysis['new_long_term_goal'] = f"Failure has led to a new long-term research goal (ID: {new_goal_id}) to pursue this ambitious concept."
-                        
+                        analysis[
+                            'new_long_term_goal'] = f"Failure has led to a new long-term research goal (ID: {new_goal_id}) to pursue this ambitious concept."
+
                         # Overwrite the previous reflection with this new context
                         reflection_text += f"\n- **Next Step**: This hypothesis was too ambitious for a direct test. It has been converted into a long-term research goal (ID: {new_goal_id})."
                         save_reflection({
@@ -576,6 +607,7 @@ def analyze_experiment_outcome(hypothesis: str, situation_prompt: str, outcome: 
         print(f"Failed to decode analysis from LLM: {analysis_json}")
         return {"error": "Failed to decode analysis from LLM."}
 
+
 if __name__ == "__main__":
     run_self_modification()
 
@@ -588,17 +620,18 @@ if __name__ == "__main__":
             {"summary": "Debugged a file", "outcome": "tests failed"},
             {"summary": "Analyzed trends", "outcome": "found no new events"},
             {"summary": "Reflected on consciousness", "outcome": "no conclusion"},
-            {"summary": "Planned a complex task", "outcome": "plan was inefficient"}
+            {"summary": "Planned a complex task",
+                "outcome": "plan was inefficient"}
         ]
     }
     # 1. Generate a hypothesis
     hypo = generate_hypothesis(mock_shared_state)
-    
+
     if hypo:
         # 2. In the AGI loop, this hypothesis would trigger a specific situation.
         #    For this test, we'll just define a mock situation and outcome.
         mock_situation = "A technical challenge to optimize a sorting algorithm under time pressure."
         mock_outcome = "The agent failed to optimize the algorithm, and its performance was worse than the baseline, confirming its plan was inefficient."
-        
+
         # 3. Analyze the outcome
-        analyze_experiment_outcome(hypo, mock_situation, mock_outcome) 
+        analyze_experiment_outcome(hypo, mock_situation, mock_outcome)

@@ -1,5 +1,6 @@
 import queue
 
+
 class SearchResultManager:
     def __init__(self):
         self.result_queue = queue.Queue()
@@ -13,4 +14,5 @@ class SearchResultManager:
         except queue.Empty:
             return None
 
-search_result_manager = SearchResultManager() 
+
+search_result_manager = SearchResultManager()

@@ -18,13 +18,13 @@ __all__ = [
     # Base classes
     'Action',
     'ActionRegistry',
-    
+
     # Exceptions
     'ActionError',
-    'InvalidActionError', 
+    'InvalidActionError',
     'InvalidActionParams',
     'ActionException',
-    
+
     # Core actions
     'LogMessageAction',
     'WritePythonCodeAction',

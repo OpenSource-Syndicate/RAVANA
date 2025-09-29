@@ -10,6 +10,9 @@ This module provides comprehensive integration tests including:
 - Real API compatibility testing
 """
 
+from core.actions.blog_content_generator import BlogContentGenerator
+from core.actions.blog_api import BlogAPIInterface, BlogAPIError
+from core.actions.blog import BlogPublishAction
 import asyncio
 import json
 import sys
@@ -23,33 +26,30 @@ import time
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.actions.blog import BlogPublishAction
-from core.actions.blog_api import BlogAPIInterface, BlogAPIError
-from core.actions.blog_content_generator import BlogContentGenerator
 
 class MockBlogAPIServer:
     """Mock blog API server for testing."""
-    
+
     def __init__(self, port=8899):
         self.port = port
         self.app = web.Application()
         self.setup_routes()
         self.request_count = 0
         self.last_request = None
-        
+
     def setup_routes(self):
         """Setup API routes."""
         self.app.router.add_post('/api/publish', self.handle_publish)
         self.app.router.add_get('/health', self.handle_health)
-        
+
     async def handle_health(self, request):
         """Health check endpoint."""
         return web.json_response({"status": "healthy"})
-        
+
     async def handle_publish(self, request):
         """Handle blog publish requests."""
         self.request_count += 1
-        
+
         # Parse request
         try:
             data = await request.json()
@@ -59,7 +59,7 @@ class MockBlogAPIServer:
                 {"success": False, "message": "Invalid JSON"},
                 status=400
             )
-        
+
         # Check authorization
         auth_header = request.headers.get('Authorization', '')
         if not auth_header.startswith('Bearer '):
@@ -67,14 +67,14 @@ class MockBlogAPIServer:
                 {"success": False, "message": "Missing or invalid authorization"},
                 status=401
             )
-        
+
         token = auth_header[7:]  # Remove "Bearer "
         if token != "test_token_123":
             return web.json_response(
                 {"success": False, "message": "Invalid token"},
                 status=401
             )
-        
+
         # Validate required fields
         required_fields = ['title', 'content', 'tags']
         for field in required_fields:
@@ -83,26 +83,26 @@ class MockBlogAPIServer:
                     {"success": False, "message": f"Missing field: {field}"},
                     status=400
                 )
-        
+
         # Simulate different responses based on title
         title = data.get('title', '')
-        
+
         if title == "RATE_LIMIT_TEST":
             return web.json_response(
                 {"success": False, "message": "Rate limited"},
                 status=429,
                 headers={'Retry-After': '30'}
             )
-        
+
         if title == "SERVER_ERROR_TEST":
             return web.json_response(
                 {"success": False, "message": "Internal server error"},
                 status=500
             )
-        
+
         if title == "TIMEOUT_TEST":
             await asyncio.sleep(5)  # Simulate timeout
-            
+
         # Successful response
         return web.json_response({
             "success": True,
@@ -110,7 +110,7 @@ class MockBlogAPIServer:
             "post_id": f"post_{self.request_count}",
             "published_url": f"http://test-blog.com/posts/post_{self.request_count}"
         })
-    
+
     async def start(self):
         """Start the mock server."""
         self.runner = web.AppRunner(self.app)
@@ -118,37 +118,38 @@ class MockBlogAPIServer:
         self.site = web.TCPSite(self.runner, 'localhost', self.port)
         await self.site.start()
         print(f"Mock blog API server started on http://localhost:{self.port}")
-        
+
     async def stop(self):
         """Stop the mock server."""
         if hasattr(self, 'runner'):
             await self.runner.cleanup()
 
+
 class BlogIntegrationTester:
     """Comprehensive blog integration tester."""
-    
+
     def __init__(self):
         self.mock_server = MockBlogAPIServer()
         self.test_results = []
-        
+
     async def setup(self):
         """Setup test environment."""
         await self.mock_server.start()
-        
+
         # Wait a moment for server to start
         await asyncio.sleep(0.1)
-        
+
     async def teardown(self):
         """Cleanup test environment."""
         await self.mock_server.stop()
-        
+
     async def run_all_tests(self):
         """Run all integration tests."""
         print("🧪 Running Blog Integration Tests")
         print("=" * 50)
-        
+
         await self.setup()
-        
+
         try:
             # Test categories
             await self.test_basic_functionality()
@@ -157,50 +158,50 @@ class BlogIntegrationTester:
             await self.test_validation_scenarios()
             await self.test_performance()
             await self.test_real_api_compatibility()
-            
+
         finally:
             await self.teardown()
-            
+
         self.print_summary()
-        
+
     async def test_basic_functionality(self):
         """Test basic blog publishing functionality."""
         print("\\n📝 Testing Basic Functionality")
         print("-" * 30)
-        
+
         # Test 1: Successful blog post publication
         try:
             api = BlogAPIInterface()
             # Override with test server
             api.api_url = f"http://localhost:{self.mock_server.port}/api/publish"
             api.auth_token = "test_token_123"
-            
+
             result = await api.publish_post(
                 "Test Blog Post",
                 "# Test Content\\n\\nThis is test content for the blog integration.",
                 ["test", "integration"]
             )
-            
+
             assert result["success"] == True
             assert "post_id" in result
             assert "published_url" in result
-            
+
             self.test_results.append(("Basic Publication", "PASSED", ""))
             print("✓ Basic publication test passed")
-            
+
         except Exception as e:
             self.test_results.append(("Basic Publication", "FAILED", str(e)))
             print(f"✗ Basic publication test failed: {e}")
-        
+
         # Test 2: End-to-end action workflow
         try:
             mock_system = Mock()
             mock_data_service = Mock()
-            
+
             action = BlogPublishAction(mock_system, mock_data_service)
             action.api_interface.api_url = f"http://localhost:{self.mock_server.port}/api/publish"
             action.api_interface.auth_token = "test_token_123"
-            
+
             # Mock LLM response
             with patch('core.actions.blog_content_generator.async_safe_call_llm') as mock_llm:
                 mock_llm.return_value = '''
@@ -209,125 +210,139 @@ class BlogIntegrationTester:
                     "content": "# Integration Test\\n\\nThis is a comprehensive integration test for the RAVANA blog system. The content includes multiple sections and demonstrates the full workflow from content generation to publication.\\n\\n## Features Tested\\n\\n- Content generation\\n- API integration\\n- Error handling\\n- Validation"
                 }
                 '''
-                
+
                 result = await action.execute(
                     topic="Blog Integration Testing",
                     style="technical",
                     dry_run=False
                 )
-                
+
                 assert result["status"] == "success"
                 assert "published_url" in result
                 assert result["dry_run"] == False
-                
+
                 self.test_results.append(("End-to-End Workflow", "PASSED", ""))
                 print("✓ End-to-end workflow test passed")
-                
+
         except Exception as e:
             self.test_results.append(("End-to-End Workflow", "FAILED", str(e)))
             print(f"✗ End-to-end workflow test failed: {e}")
-    
+
     async def test_error_scenarios(self):
         """Test various error scenarios."""
         print("\\n⚠️  Testing Error Scenarios")
         print("-" * 30)
-        
+
         api = BlogAPIInterface()
         api.api_url = f"http://localhost:{self.mock_server.port}/api/publish"
-        
+
         # Test 1: Authentication failure
         try:
             api.auth_token = "invalid_token"
-            
+
             try:
                 await api.publish_post("Test", "Content", ["test"])
-                self.test_results.append(("Auth Failure", "FAILED", "Should have raised exception"))
+                self.test_results.append(
+                    ("Auth Failure", "FAILED", "Should have raised exception"))
                 print("✗ Auth failure test failed: Should have raised exception")
             except BlogAPIError as e:
                 if e.error_type == "AUTHENTICATION_FAILED":
                     self.test_results.append(("Auth Failure", "PASSED", ""))
                     print("✓ Auth failure test passed")
                 else:
-                    self.test_results.append(("Auth Failure", "FAILED", f"Wrong error type: {e.error_type}"))
-                    print(f"✗ Auth failure test failed: Wrong error type: {e.error_type}")
-                    
+                    self.test_results.append(
+                        ("Auth Failure", "FAILED", f"Wrong error type: {e.error_type}"))
+                    print(
+                        f"✗ Auth failure test failed: Wrong error type: {e.error_type}")
+
         except Exception as e:
             self.test_results.append(("Auth Failure", "FAILED", str(e)))
             print(f"✗ Auth failure test failed: {e}")
-        
+
         # Test 2: Rate limiting
         try:
             api.auth_token = "test_token_123"
-            
+
             try:
                 await api.publish_post("RATE_LIMIT_TEST", "Content", ["test"])
-                self.test_results.append(("Rate Limiting", "FAILED", "Should have raised exception"))
+                self.test_results.append(
+                    ("Rate Limiting", "FAILED", "Should have raised exception"))
                 print("✗ Rate limiting test failed: Should have raised exception")
             except BlogAPIError as e:
                 if e.error_type == "RATE_LIMITED" and e.retry_after == 30:
                     self.test_results.append(("Rate Limiting", "PASSED", ""))
                     print("✓ Rate limiting test passed")
                 else:
-                    self.test_results.append(("Rate Limiting", "FAILED", f"Wrong error handling: {e.error_type}"))
-                    print(f"✗ Rate limiting test failed: Wrong error handling: {e.error_type}")
-                    
+                    self.test_results.append(
+                        ("Rate Limiting", "FAILED", f"Wrong error handling: {e.error_type}"))
+                    print(
+                        f"✗ Rate limiting test failed: Wrong error handling: {e.error_type}")
+
         except Exception as e:
             self.test_results.append(("Rate Limiting", "FAILED", str(e)))
             print(f"✗ Rate limiting test failed: {e}")
-        
+
         # Test 3: Server error
         try:
             try:
                 await api.publish_post("SERVER_ERROR_TEST", "Content", ["test"])
-                self.test_results.append(("Server Error", "FAILED", "Should have raised exception"))
+                self.test_results.append(
+                    ("Server Error", "FAILED", "Should have raised exception"))
                 print("✗ Server error test failed: Should have raised exception")
             except BlogAPIError as e:
                 if e.error_type == "SERVER_ERROR":
                     self.test_results.append(("Server Error", "PASSED", ""))
                     print("✓ Server error test passed")
                 else:
-                    self.test_results.append(("Server Error", "FAILED", f"Wrong error type: {e.error_type}"))
-                    print(f"✗ Server error test failed: Wrong error type: {e.error_type}")
-                    
+                    self.test_results.append(
+                        ("Server Error", "FAILED", f"Wrong error type: {e.error_type}"))
+                    print(
+                        f"✗ Server error test failed: Wrong error type: {e.error_type}")
+
         except Exception as e:
             self.test_results.append(("Server Error", "FAILED", str(e)))
             print(f"✗ Server error test failed: {e}")
-        
+
         # Test 4: Circuit breaker
         try:
             # Force circuit breaker to open by recording failures
             for _ in range(5):
                 api.circuit_breaker.record_failure()
-            
+
             try:
                 await api.publish_post("Test", "Content", ["test"])
-                self.test_results.append(("Circuit Breaker", "FAILED", "Should have raised exception"))
+                self.test_results.append(
+                    ("Circuit Breaker", "FAILED", "Should have raised exception"))
                 print("✗ Circuit breaker test failed: Should have raised exception")
             except BlogAPIError as e:
                 if e.error_type == "CIRCUIT_BREAKER_OPEN":
                     self.test_results.append(("Circuit Breaker", "PASSED", ""))
                     print("✓ Circuit breaker test passed")
                 else:
-                    self.test_results.append(("Circuit Breaker", "FAILED", f"Wrong error type: {e.error_type}"))
-                    print(f"✗ Circuit breaker test failed: Wrong error type: {e.error_type}")
-                    
+                    self.test_results.append(
+                        ("Circuit Breaker", "FAILED", f"Wrong error type: {e.error_type}"))
+                    print(
+                        f"✗ Circuit breaker test failed: Wrong error type: {e.error_type}")
+
         except Exception as e:
             self.test_results.append(("Circuit Breaker", "FAILED", str(e)))
             print(f"✗ Circuit breaker test failed: {e}")
-    
+
     async def test_content_generation(self):
         """Test content generation scenarios."""
         print("\\n📝 Testing Content Generation")
         print("-" * 30)
-        
+
         # Test 1: Content generation with memory context
         try:
             # Mock memory service
             mock_memory_service = Mock()
-            mock_memory_service.get_relevant_memories = AsyncMock(return_value=Mock(relevant_memories=[]))
-            
-            generator = BlogContentGenerator(memory_service=mock_memory_service)
-            
+            mock_memory_service.get_relevant_memories = AsyncMock(
+                return_value=Mock(relevant_memories=[]))
+
+            generator = BlogContentGenerator(
+                memory_service=mock_memory_service)
+
             with patch('core.actions.blog_content_generator.async_safe_call_llm') as mock_llm:
                 mock_llm.side_effect = [
                     '''
@@ -338,58 +353,58 @@ class BlogIntegrationTester:
                     ''',
                     '["ai", "machine-learning", "technology", "algorithms"]'
                 ]
-                
+
                 title, content, tags = await generator.generate_post(
                     topic="AI and Machine Learning",
                     style="technical",
                     context="Introduction to fundamental concepts"
                 )
-                
+
                 assert len(title) > 5
                 assert len(content) > 100
                 assert len(tags) > 0
                 assert "ai" in [tag.lower() for tag in tags]
-                
+
                 self.test_results.append(("Content Generation", "PASSED", ""))
                 print("✓ Content generation test passed")
-                
+
         except Exception as e:
             self.test_results.append(("Content Generation", "FAILED", str(e)))
             print(f"✗ Content generation test failed: {e}")
-        
+
         # Test 2: Multiple writing styles
         try:
             generator = BlogContentGenerator()
-            
+
             styles_tested = []
             for style in ["technical", "casual", "creative"]:
                 guidance = generator._get_style_guidance(style)
                 assert len(guidance) > 10
                 styles_tested.append(style)
-            
+
             assert len(styles_tested) == 3
-            
+
             self.test_results.append(("Style Variations", "PASSED", ""))
             print("✓ Style variations test passed")
-            
+
         except Exception as e:
             self.test_results.append(("Style Variations", "FAILED", str(e)))
             print(f"✗ Style variations test failed: {e}")
-    
+
     async def test_validation_scenarios(self):
         """Test content validation scenarios."""
         print("\\n✅ Testing Validation Scenarios")
         print("-" * 30)
-        
+
         # Test 1: Content validation success
         try:
             from core.actions.blog_content_validator import BlogContentValidator
-            
+
             validator = BlogContentValidator()
-            
+
             title = "Understanding Quantum Computing"
             content = """# Understanding Quantum Computing
-            
+
 Quantum computing represents a paradigm shift in computational technology. This article explores the fundamental principles and potential applications.
 
 ## Quantum Principles
@@ -405,7 +420,7 @@ Potential applications include cryptography, optimization problems, and drug dis
 Current challenges include quantum decoherence, error rates, and the need for extremely low temperatures to maintain quantum states.
             """
             tags = ["quantum", "computing", "technology", "physics"]
-            
+
             validated_title, validated_content, validated_tags, report = \\
                 validator.validate_and_sanitize(title, content, tags)
             

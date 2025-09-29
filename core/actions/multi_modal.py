@@ -1,6 +1,7 @@
 from core.actions.action import Action
 from typing import Any, Dict, List
 
+
 class ProcessImageAction(Action):
     @property
     def name(self) -> str:
@@ -13,12 +14,15 @@ class ProcessImageAction(Action):
     @property
     def parameters(self) -> List[Dict[str, Any]]:
         return [
-            {"name": "image_path", "type": "str", "description": "Path to the image file.", "required": True},
-            {"name": "analysis_prompt", "type": "str", "description": "Analysis prompt (optional).", "required": False}
+            {"name": "image_path", "type": "str",
+                "description": "Path to the image file.", "required": True},
+            {"name": "analysis_prompt", "type": "str",
+                "description": "Analysis prompt (optional).", "required": False}
         ]
 
     async def execute(self, image_path: str, analysis_prompt: str = None) -> Any:
         return await self.system.action_manager.process_image_action(image_path, analysis_prompt)
+
 
 class ProcessAudioAction(Action):
     @property
@@ -32,12 +36,15 @@ class ProcessAudioAction(Action):
     @property
     def parameters(self) -> List[Dict[str, Any]]:
         return [
-            {"name": "audio_path", "type": "str", "description": "Path to the audio file.", "required": True},
-            {"name": "analysis_prompt", "type": "str", "description": "Analysis prompt (optional).", "required": False}
+            {"name": "audio_path", "type": "str",
+                "description": "Path to the audio file.", "required": True},
+            {"name": "analysis_prompt", "type": "str",
+                "description": "Analysis prompt (optional).", "required": False}
         ]
 
     async def execute(self, audio_path: str, analysis_prompt: str = None) -> Any:
         return await self.system.action_manager.process_audio_action(audio_path, analysis_prompt)
+
 
 class AnalyzeDirectoryAction(Action):
     @property
@@ -51,12 +58,15 @@ class AnalyzeDirectoryAction(Action):
     @property
     def parameters(self) -> List[Dict[str, Any]]:
         return [
-            {"name": "directory_path", "type": "str", "description": "Path to the directory.", "required": True},
-            {"name": "recursive", "type": "bool", "description": "Whether to search recursively (optional).", "required": False}
+            {"name": "directory_path", "type": "str",
+                "description": "Path to the directory.", "required": True},
+            {"name": "recursive", "type": "bool",
+                "description": "Whether to search recursively (optional).", "required": False}
         ]
 
     async def execute(self, directory_path: str, recursive: bool = False) -> Any:
         return await self.system.action_manager.analyze_directory_action(directory_path, recursive)
+
 
 class CrossModalAnalysisAction(Action):
     @property
@@ -70,8 +80,10 @@ class CrossModalAnalysisAction(Action):
     @property
     def parameters(self) -> List[Dict[str, Any]]:
         return [
-            {"name": "content_paths", "type": "list", "description": "List of file paths.", "required": True},
-            {"name": "analysis_prompt", "type": "str", "description": "Analysis prompt (optional).", "required": False}
+            {"name": "content_paths", "type": "list",
+                "description": "List of file paths.", "required": True},
+            {"name": "analysis_prompt", "type": "str",
+                "description": "Analysis prompt (optional).", "required": False}
         ]
 
     async def execute(self, content_paths: list, analysis_prompt: str = None) -> Any:

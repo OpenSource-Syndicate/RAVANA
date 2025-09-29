@@ -4,11 +4,13 @@ import uuid
 from typing import List, Dict, Any, Optional
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # In-memory storage for goals, shared across all instances of GoalPlanner
 _goals: Dict[str, Dict[str, Any]] = {}
+
 
 def plan_from_context(context: str, timeframe: str = "short-term", priority: int = 5) -> str:
     """
@@ -16,8 +18,9 @@ def plan_from_context(context: str, timeframe: str = "short-term", priority: int
     This function does not call an LLM, making it fast and reliable for initial planning.
     """
     logger.info("--> [Planner] INPUT: Creating a new plan from context.")
-    logger.debug(f"Context: '{context}', Timeframe: {timeframe}, Priority: {priority}")
-    
+    logger.debug(
+        f"Context: '{context}', Timeframe: {timeframe}, Priority: {priority}")
+
     goal_id = str(uuid.uuid4())
     goal = {
         "id": goal_id,
@@ -32,9 +35,10 @@ def plan_from_context(context: str, timeframe: str = "short-term", priority: int
         "updated_at": time.time()
     }
     _goals[goal_id] = goal
-    
+
     logger.info(f"<-- [Planner] OUTPUT: Created new goal with ID: {goal_id}")
     return goal_id
+
 
 class GoalPlanner:
     def __init__(self):
@@ -51,34 +55,43 @@ class GoalPlanner:
         logger.info(f"--> [Planner] INPUT: Retrieving goal with ID: {goal_id}")
         goal = self._goals.get(goal_id)
         if goal:
-            logger.info(f"<-- [Planner] OUTPUT: Found goal titled: '{goal.get('title')}'")
+            logger.info(
+                f"<-- [Planner] OUTPUT: Found goal titled: '{goal.get('title')}'")
         else:
-            logger.warning(f"<-- [Planner] OUTPUT: Goal with ID {goal_id} not found.")
+            logger.warning(
+                f"<-- [Planner] OUTPUT: Goal with ID {goal_id} not found.")
         return goal
 
     def get_all_goals(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Retrieves all goals, optionally filtered by status.
         """
-        logger.info(f"--> [Planner] INPUT: Retrieving all goals with status filter: {status}")
+        logger.info(
+            f"--> [Planner] INPUT: Retrieving all goals with status filter: {status}")
         if status:
-            filtered_goals = [g for g in self._goals.values() if g.get('status') == status]
-            logger.info(f"<-- [Planner] OUTPUT: Found {len(filtered_goals)} goals with status '{status}'.")
+            filtered_goals = [
+                g for g in self._goals.values() if g.get('status') == status]
+            logger.info(
+                f"<-- [Planner] OUTPUT: Found {len(filtered_goals)} goals with status '{status}'.")
             return filtered_goals
-        logger.info(f"<-- [Planner] OUTPUT: Found {len(self._goals)} total goals.")
+        logger.info(
+            f"<-- [Planner] OUTPUT: Found {len(self._goals)} total goals.")
         return list(self._goals.values())
 
     def update_goal_status(self, goal_id: str, status: str) -> bool:
         """
         Updates the status of a goal (e.g., "pending", "in_progress", "completed").
         """
-        logger.info(f"--> [Planner] INPUT: Updating goal {goal_id} to status: '{status}'")
+        logger.info(
+            f"--> [Planner] INPUT: Updating goal {goal_id} to status: '{status}'")
         if goal_id in self._goals:
             self._goals[goal_id]['status'] = status
             self._goals[goal_id]['updated_at'] = time.time()
-            logger.info(f"<-- [Planner] OUTPUT: Goal {goal_id} status updated successfully.")
+            logger.info(
+                f"<-- [Planner] OUTPUT: Goal {goal_id} status updated successfully.")
             return True
-        logger.warning(f"<-- [Planner] OUTPUT: Failed to update status for goal {goal_id} - not found.")
+        logger.warning(
+            f"<-- [Planner] OUTPUT: Failed to update status for goal {goal_id} - not found.")
         return False
 
     def add_goal(self, title: str, description: str = "", timeframe: str = "month") -> int:
@@ -176,21 +189,26 @@ class GoalPlanner:
         """
         Retrieves all goals, optionally filtered by status.
         """
-        logger.info(f"--> [Planner] INPUT: Retrieving all goals with status: {status}")
+        logger.info(
+            f"--> [Planner] INPUT: Retrieving all goals with status: {status}")
         if status:
-            filtered_goals = [g for g in self._goals.values() if g['status'] == status]
-            logger.info(f"<-- [Planner] OUTPUT: Found {len(filtered_goals)} goals with status {status}.")
+            filtered_goals = [
+                g for g in self._goals.values() if g['status'] == status]
+            logger.info(
+                f"<-- [Planner] OUTPUT: Found {len(filtered_goals)} goals with status {status}.")
             return filtered_goals
-        logger.info(f"<-- [Planner] OUTPUT: Found {len(self._goals)} total goals.")
+        logger.info(
+            f"<-- [Planner] OUTPUT: Found {len(self._goals)} total goals.")
         return list(self._goals.values())
 
     def add_sub_goal(self, parent_goal_id: str, sub_goal_description: str) -> Optional[str]:
         """
         Adds a sub-goal to a parent goal.
         """
-        logger.info(f"--> [Planner] INPUT: Adding sub-goal to parent {parent_goal_id}.")
+        logger.info(
+            f"--> [Planner] INPUT: Adding sub-goal to parent {parent_goal_id}.")
         logger.debug(f"Sub-goal description: {sub_goal_description}")
-        
+
         if parent_goal_id in self._goals:
             sub_goal_id = str(uuid.uuid4())
             sub_goal = {
@@ -203,15 +221,18 @@ class GoalPlanner:
                 "context": self._goals[parent_goal_id]['context']
             }
             self._goals[parent_goal_id]['sub_goals'].append(sub_goal)
-            logger.info(f"<-- [Planner] OUTPUT: Added sub-goal {sub_goal_id} to parent {parent_goal_id}.")
+            logger.info(
+                f"<-- [Planner] OUTPUT: Added sub-goal {sub_goal_id} to parent {parent_goal_id}.")
             return sub_goal_id
-            
-        logger.warning(f"<-- [Planner] OUTPUT: Failed to add sub-goal to parent {parent_goal_id} - not found.")
+
+        logger.warning(
+            f"<-- [Planner] OUTPUT: Failed to add sub-goal to parent {parent_goal_id} - not found.")
         return None
 
 # Example usage:
 # new_goal_id = plan_from_context("Implement an image classifier for cats vs dogs")
 # print(GoalPlanner().get_goal(new_goal_id))
+
 
 # Example usage/demo
 if __name__ == "__main__":

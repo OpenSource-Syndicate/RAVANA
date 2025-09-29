@@ -11,6 +11,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class PromptTemplate:
     """Data structure for prompt templates with versioning support."""
@@ -20,13 +21,13 @@ class PromptTemplate:
     version: str = "1.0"
     created_at: datetime = None
     updated_at: datetime = None
-    
+
     def __post_init__(self):
         if self.created_at is None:
             self.created_at = datetime.now()
         if self.updated_at is None:
             self.updated_at = datetime.now()
-    
+
     def render(self, context: Dict[str, Any] = None) -> str:
         """Render the template with provided context."""
         if not context:
@@ -34,61 +35,66 @@ class PromptTemplate:
         try:
             return self.template.format(**context)
         except KeyError as e:
-            logger.warning(f"Missing context key for prompt template {self.name}: {e}")
+            logger.warning(
+                f"Missing context key for prompt template {self.name}: {e}")
             return self.template
         except Exception as e:
             logger.error(f"Error rendering prompt template {self.name}: {e}")
             return self.template
-    
+
     def validate_variables(self) -> bool:
         """Validate that all template variables are properly formatted."""
         import re
         # Find all {variable} patterns in the template
         variables = re.findall(r'\{([^}]+)\}', self.template)
         # Check for invalid patterns like {{variable} or {variable}}
-        invalid_patterns = re.findall(r'\{[^}]*\{[^}]*\}|\{[^}]*\}[^}]*\}', self.template)
+        invalid_patterns = re.findall(
+            r'\{[^}]*\{[^}]*\}|\{[^}]*\}[^}]*\}', self.template)
         return len(invalid_patterns) == 0
+
 
 class PromptRepository:
     """Repository for storing and retrieving prompt templates."""
-    
+
     def __init__(self, storage_path: str = None):
         self.storage_path = storage_path or "prompts/"
         self.templates: Dict[str, PromptTemplate] = {}
         self._ensure_storage_path()
         self._load_templates()
-    
+
     def _ensure_storage_path(self):
         """Ensure the storage path exists."""
         Path(self.storage_path).mkdir(parents=True, exist_ok=True)
-    
+
     def store_template(self, template: PromptTemplate) -> None:
         """Store a prompt template."""
         self.templates[template.name] = template
         self._save_template(template)
-    
+
     def _save_template(self, template: PromptTemplate) -> None:
         """Save a template to persistent storage."""
         try:
             template_path = Path(self.storage_path) / f"{template.name}.json"
             template_data = asdict(template)
             # Convert datetime objects to strings
-            template_data['created_at'] = template_data['created_at'].isoformat() if template_data['created_at'] else None
-            template_data['updated_at'] = template_data['updated_at'].isoformat() if template_data['updated_at'] else None
-            
+            template_data['created_at'] = template_data['created_at'].isoformat(
+            ) if template_data['created_at'] else None
+            template_data['updated_at'] = template_data['updated_at'].isoformat(
+            ) if template_data['updated_at'] else None
+
             with open(template_path, 'w') as f:
                 json.dump(template_data, f, indent=2)
         except Exception as e:
             logger.error(f"Error saving template {template.name}: {e}")
-    
+
     def retrieve_template(self, name: str, version: str = None) -> Optional[PromptTemplate]:
         """Retrieve a prompt template by name."""
         return self.templates.get(name)
-    
+
     def list_templates(self) -> List[str]:
         """List all available template names."""
         return list(self.templates.keys())
-    
+
     def delete_template(self, name: str) -> bool:
         """Delete a template by name."""
         if name in self.templates:
@@ -101,35 +107,39 @@ class PromptRepository:
             except Exception as e:
                 logger.error(f"Error deleting template file {name}: {e}")
         return False
-    
+
     def _load_templates(self) -> None:
         """Load templates from persistent storage."""
         try:
             storage_path = Path(self.storage_path)
             if not storage_path.exists():
                 return
-                
+
             for template_file in storage_path.glob("*.json"):
                 try:
                     with open(template_file, 'r') as f:
                         template_data = json.load(f)
-                    
+
                     # Convert datetime strings back to datetime objects
                     if template_data.get('created_at'):
-                        template_data['created_at'] = datetime.fromisoformat(template_data['created_at'])
+                        template_data['created_at'] = datetime.fromisoformat(
+                            template_data['created_at'])
                     if template_data.get('updated_at'):
-                        template_data['updated_at'] = datetime.fromisoformat(template_data['updated_at'])
-                    
+                        template_data['updated_at'] = datetime.fromisoformat(
+                            template_data['updated_at'])
+
                     template = PromptTemplate(**template_data)
                     self.templates[template.name] = template
                 except Exception as e:
-                    logger.error(f"Error loading template from {template_file}: {e}")
+                    logger.error(
+                        f"Error loading template from {template_file}: {e}")
         except Exception as e:
             logger.error(f"Error loading templates: {e}")
 
+
 class PromptEnhancer:
     """Enhancer for adding dynamic elements to prompts."""
-    
+
     def add_reasoning_instructions(self, prompt: str) -> str:
         """Add structured reasoning instructions to a prompt."""
         reasoning_framework = """
@@ -142,7 +152,7 @@ Approach this task using the following framework:
 5. Execute and verify results
 """
         return f"{prompt}\n{reasoning_framework}"
-    
+
     def add_structured_output_format(self, prompt: str, format_spec: str) -> str:
         """Add structured output format requirements."""
         output_requirements = f"""
@@ -153,21 +163,21 @@ Format your response according to the following specifications:
 - List key assumptions made during your analysis
 """
         return f"{prompt}\n{output_requirements}"
-    
+
     def add_safety_constraints(self, prompt: str, constraints: List[str]) -> str:
         """Add safety constraints to a prompt."""
         if not constraints:
             return prompt
-            
+
         safety_section = """
 [SAFETY CONSTRAINTS]
 Adhere to the following safety and ethical guidelines:
 """
         for constraint in constraints:
             safety_section += f"- {constraint}\n"
-            
+
         return f"{prompt}\n{safety_section}"
-    
+
     def add_confidence_scoring(self, prompt: str) -> str:
         """Add confidence scoring instructions."""
         confidence_instructions = """
@@ -178,7 +188,7 @@ Include a confidence score (0.0-1.0) with your response:
 - 0.7-1.0: High confidence - strong evidence or clear reasoning
 """
         return f"{prompt}\n{confidence_instructions}"
-    
+
     def add_risk_assessment(self, prompt: str) -> str:
         """Add risk assessment requirements."""
         risk_assessment = """
@@ -190,12 +200,12 @@ Identify and evaluate potential risks in your approach:
 For each identified risk, propose mitigation strategies.
 """
         return f"{prompt}\n{risk_assessment}"
-    
+
     def adapt_to_mood(self, prompt: str, mood: Dict[str, Any]) -> str:
         """Adapt prompt based on emotional state."""
         if not mood:
             return prompt
-            
+
         mood_name = mood.get('primary_emotion', '').lower()
         adaptations = {
             'curious': "Embrace exploration and creative thinking in your response.",
@@ -207,23 +217,24 @@ For each identified risk, propose mitigation strategies.
             'collaborative': "Consider multiple perspectives and seek synergies.",
             'determined': "Persist through challenges and maintain goal orientation."
         }
-        
+
         adaptation = adaptations.get(mood_name, "")
         if adaptation:
             mood_adaptation = f"\n[MOOD ADAPTATION]\n{adaptation}\n"
             return f"{prompt}{mood_adaptation}"
-        
+
         return prompt
+
 
 class PromptManager:
     """Centralized prompt management system for the RAVANA AGI."""
-    
+
     def __init__(self, agi_system=None):
         self.agi_system = agi_system
         self.repository = PromptRepository()
         self.enhancer = PromptEnhancer()
         self._register_default_templates()
-    
+
     def _register_default_templates(self):
         """Register default prompt templates."""
         # Self-reflection prompt
@@ -237,7 +248,7 @@ class PromptManager:
             }
         )
         self.repository.store_template(reflection_template)
-        
+
         # Decision-making prompt
         decision_template = PromptTemplate(
             name="decision_making",
@@ -249,7 +260,7 @@ class PromptManager:
             }
         )
         self.repository.store_template(decision_template)
-        
+
         # Experimentation prompt
         experiment_template = PromptTemplate(
             name="experimentation",
@@ -261,7 +272,7 @@ class PromptManager:
             }
         )
         self.repository.store_template(experiment_template)
-        
+
         # Coding prompt
         coding_template = PromptTemplate(
             name="code_generation",
@@ -273,7 +284,7 @@ class PromptManager:
             }
         )
         self.repository.store_template(coding_template)
-    
+
     def _get_enhanced_reflection_prompt(self) -> str:
         """Get the enhanced self-reflection prompt template."""
         return """
@@ -316,7 +327,7 @@ Provide a detailed, structured response with:
 - Avoid overconfidence in uncertain areas
 - Consider ethical implications of self-modifications
 """
-    
+
     def _get_enhanced_decision_prompt(self) -> str:
         """Get the enhanced decision-making prompt template."""
         return """
@@ -360,7 +371,7 @@ Provide a JSON-formatted response with these fields:
 - Consider impact on system stability and reliability
 - Validate against established safety protocols
 """
-    
+
     def _get_enhanced_experimentation_prompt(self) -> str:
         """Get the enhanced experimentation prompt template."""
         return """
@@ -406,7 +417,7 @@ Provide a complete experimental design with:
 - Ensure environmental and ethical compliance
 - Plan for safe termination of problematic experiments
 """
-    
+
     def _get_enhanced_coding_prompt(self) -> str:
         """Get the enhanced coding prompt template."""
         return """
@@ -453,78 +464,83 @@ Provide complete, executable code with:
 - Validate all inputs and outputs
 - Follow secure coding practices
 """
-    
+
     def get_prompt(self, template_name: str, context: Dict[str, Any] = None) -> str:
         """Retrieve and render a prompt template with context."""
         template = self.repository.retrieve_template(template_name)
         if not template:
             logger.warning(f"Prompt template '{template_name}' not found")
             return ""
-        
+
         rendered_prompt = template.render(context or {})
         return self._post_process_prompt(rendered_prompt, context)
-    
+
     def register_prompt_template(self, name: str, template: str, metadata: Dict[str, Any] = None) -> None:
         """Register a new prompt template."""
         prompt_template = PromptTemplate(name, template, metadata or {})
         self.repository.store_template(prompt_template)
-    
+
     def _post_process_prompt(self, prompt: str, context: Dict[str, Any] = None) -> str:
         """Apply dynamic enhancements to the prompt."""
         if not context:
             return prompt
-        
+
         # Apply mood-based adaptation
         mood = context.get("mood") or context.get("current_mood")
         if mood:
             # Handle both dict format and direct string format
             if isinstance(mood, dict):
                 mood = mood.get("primary_emotion", "")
-            prompt = self.enhancer.adapt_to_mood(prompt, {"primary_emotion": mood})
-        
+            prompt = self.enhancer.adapt_to_mood(
+                prompt, {"primary_emotion": mood})
+
         # Add safety constraints if provided
         if "safety_constraints" in context:
-            prompt = self.enhancer.add_safety_constraints(prompt, context["safety_constraints"])
-        
+            prompt = self.enhancer.add_safety_constraints(
+                prompt, context["safety_constraints"])
+
         # Add confidence scoring instructions
         prompt = self.enhancer.add_confidence_scoring(prompt)
-        
+
         # Add risk assessment requirements
         prompt = self.enhancer.add_risk_assessment(prompt)
-        
+
         return prompt
-    
+
     def validate_prompt(self, prompt: str) -> bool:
         """Validate a prompt for quality and safety."""
         # Check for minimum length
         if len(prompt) < 10:
             logger.warning("Prompt is unusually short")
             return False
-        
+
         # Check for required sections
-        required_sections = ["[ROLE DEFINITION]", "[CONTEXT]", "[TASK INSTRUCTIONS]"]
-        missing_sections = [section for section in required_sections if section not in prompt]
+        required_sections = ["[ROLE DEFINITION]",
+                             "[CONTEXT]", "[TASK INSTRUCTIONS]"]
+        missing_sections = [
+            section for section in required_sections if section not in prompt]
         if missing_sections:
-            logger.warning(f"Prompt missing required sections: {missing_sections}")
+            logger.warning(
+                f"Prompt missing required sections: {missing_sections}")
             return False
-        
+
         return True
-    
+
     def enhance_prompt_with_context(self, prompt: str, context: Dict[str, Any]) -> str:
         """Enhance a prompt with contextual information."""
         return self.enhancer.add_safety_constraints(prompt, context.get("safety_constraints", []))
-    
+
     def adapt_prompt_to_mood(self, prompt: str, mood: Dict[str, Any]) -> str:
         """Adapt a prompt based on emotional state."""
         return self.enhancer.adapt_to_mood(prompt, mood)
-    
+
     def version_prompt(self, template_name: str, version: str) -> str:
         """Get a specific version of a prompt template."""
         template = self.repository.retrieve_template(template_name)
         if template and template.version == version:
             return template.template
         return ""
-    
+
     def get_prompt_history(self, template_name: str) -> List[Dict[str, Any]]:
         """Get version history for a prompt template."""
         # This would require implementing version tracking in the repository

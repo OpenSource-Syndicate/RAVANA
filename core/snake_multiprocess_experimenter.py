@@ -12,10 +12,8 @@ import shutil
 import os
 import sys
 import time
-import uuid
 import json
 import ast
-import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
@@ -53,14 +51,14 @@ class SafetyConstraints:
     forbidden_operations: List[str] = None
     filesystem_access: bool = False
     network_access: bool = False
-    
+
     def __post_init__(self):
         if self.allowed_imports is None:
             self.allowed_imports = [
                 'os', 'sys', 'time', 'datetime', 'json', 'math', 'random',
                 'collections', 'itertools', 'functools', 'typing'
             ]
-        
+
         if self.forbidden_operations is None:
             self.forbidden_operations = [
                 'eval', 'exec', 'compile', '__import__', 'globals', 'locals',
@@ -70,23 +68,24 @@ class SafetyConstraints:
 
 class ExperimentSandbox:
     """Isolated sandbox for running experiments"""
-    
+
     def __init__(self, experiment_id: str, constraints: SafetyConstraints):
         self.experiment_id = experiment_id
         self.constraints = constraints
         self.sandbox_dir: Optional[Path] = None
         self.original_files: Dict[str, bytes] = {}
-        
+
     def __enter__(self):
         """Set up sandbox environment"""
         # Create temporary directory
-        self.sandbox_dir = Path(tempfile.mkdtemp(prefix=f"snake_exp_{self.experiment_id}_"))
-        
+        self.sandbox_dir = Path(tempfile.mkdtemp(
+            prefix=f"snake_exp_{self.experiment_id}_"))
+
         # Copy necessary files to sandbox
         self._setup_sandbox()
-        
+
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Clean up sandbox"""
         if self.sandbox_dir and self.sandbox_dir.exists():
@@ -94,17 +93,17 @@ class ExperimentSandbox:
                 shutil.rmtree(self.sandbox_dir)
             except Exception:
                 pass  # Best effort cleanup
-    
+
     def _setup_sandbox(self):
         """Set up the sandbox environment"""
         # Create basic directory structure
         (self.sandbox_dir / "code").mkdir()
         (self.sandbox_dir / "output").mkdir()
         (self.sandbox_dir / "temp").mkdir()
-        
+
         # Create restricted Python environment script
         self._create_restricted_environment()
-    
+
     def _create_restricted_environment(self):
         """Create a restricted Python execution environment"""
         restricted_code = '''
@@ -208,11 +207,11 @@ if __name__ == "__main__":
             max_memory=self.constraints.max_memory_usage,
             timeout=self.constraints.max_execution_time
         )
-        
+
         restricted_env_file = self.sandbox_dir / "restricted_env.py"
         with open(restricted_env_file, 'w') as f:
             f.write(restricted_code)
-    
+
     def backup_file(self, file_path: str):
         """Backup a file before modification"""
         try:
@@ -220,7 +219,7 @@ if __name__ == "__main__":
                 self.original_files[file_path] = f.read()
         except Exception:
             pass  # File might not exist
-    
+
     def restore_file(self, file_path: str):
         """Restore a file from backup"""
         if file_path in self.original_files:
@@ -231,7 +230,7 @@ if __name__ == "__main__":
             except Exception:
                 pass
         return False
-    
+
     def execute_code(self, code: str, file_name: str = "experiment.py") -> Dict[str, Any]:
         """Execute code in the sandbox"""
         try:
@@ -239,12 +238,12 @@ if __name__ == "__main__":
             code_file = self.sandbox_dir / "code" / file_name
             with open(code_file, 'w', encoding='utf-8') as f:
                 f.write(code)
-            
+
             # Execute in restricted environment
             restricted_env = self.sandbox_dir / "restricted_env.py"
-            
+
             start_time = time.time()
-            
+
             # Run the experiment
             process = subprocess.Popen(
                 [sys.executable, str(restricted_env), str(code_file)],
@@ -254,15 +253,17 @@ if __name__ == "__main__":
                 cwd=str(self.sandbox_dir),
                 env=self._get_restricted_env()
             )
-            
+
             # Wait for completion with timeout
             try:
-                stdout, stderr = process.communicate(timeout=self.constraints.max_execution_time + 5)
+                stdout, stderr = process.communicate(
+                    timeout=self.constraints.max_execution_time + 5)
                 execution_time = time.time() - start_time
-                
+
                 # Parse result from stdout
-                result = self._parse_experiment_output(stdout, stderr, process.returncode, execution_time)
-                
+                result = self._parse_experiment_output(
+                    stdout, stderr, process.returncode, execution_time)
+
             except subprocess.TimeoutExpired:
                 process.kill()
                 execution_time = time.time() - start_time
@@ -273,9 +274,9 @@ if __name__ == "__main__":
                     'exit_code': -1,
                     'execution_time': execution_time
                 }
-            
+
             return result
-            
+
         except Exception as e:
             return {
                 'success': False,
@@ -284,7 +285,7 @@ if __name__ == "__main__":
                 'exit_code': -2,
                 'execution_time': 0.0
             }
-    
+
     def _get_restricted_env(self) -> Dict[str, str]:
         """Get restricted environment variables"""
         # Start with minimal environment
@@ -296,13 +297,13 @@ if __name__ == "__main__":
             'TEMP': str(self.sandbox_dir / "temp"),
             'TMP': str(self.sandbox_dir / "temp")
         }
-        
+
         # Add Python executable path
         python_dir = os.path.dirname(sys.executable)
         env['PATH'] = f"{python_dir}{os.pathsep}{env['PATH']}"
-        
+
         return env
-    
+
     def _parse_experiment_output(self, stdout: str, stderr: str, exit_code: int, execution_time: float) -> Dict[str, Any]:
         """Parse experiment output to extract results"""
         try:
@@ -310,7 +311,7 @@ if __name__ == "__main__":
             lines = stdout.split('\n')
             in_result = False
             result_lines = []
-            
+
             for line in lines:
                 if line.strip() == "EXPERIMENT_RESULT_START":
                     in_result = True
@@ -319,17 +320,17 @@ if __name__ == "__main__":
                     break
                 elif in_result:
                     result_lines.append(line)
-            
+
             if result_lines:
                 # Parse JSON result
                 result_json = '\n'.join(result_lines)
                 parsed_result = json.loads(result_json)
                 parsed_result['execution_time'] = execution_time
                 return parsed_result
-            
+
         except Exception:
             pass
-        
+
         # Fallback to basic result
         return {
             'success': exit_code == 0,
@@ -342,49 +343,53 @@ if __name__ == "__main__":
 
 class CodeExperimentValidator:
     """Validates code experiments for safety"""
-    
+
     def __init__(self, constraints: SafetyConstraints):
         self.constraints = constraints
-    
+
     def validate_code(self, code: str) -> Tuple[bool, List[str]]:
         """Validate code for safety issues"""
         issues = []
-        
+
         try:
             # Parse AST to check for forbidden operations
             tree = ast.parse(code)
-            
+
             # Check for forbidden function calls
             for node in ast.walk(tree):
                 if isinstance(node, ast.Call):
                     if isinstance(node.func, ast.Name):
                         if node.func.id in self.constraints.forbidden_operations:
-                            issues.append(f"Forbidden operation: {node.func.id}")
+                            issues.append(
+                                f"Forbidden operation: {node.func.id}")
                     elif isinstance(node.func, ast.Attribute):
                         func_name = f"{ast.unparse(node.func.value)}.{node.func.attr}"
                         if any(forbidden in func_name for forbidden in self.constraints.forbidden_operations):
-                            issues.append(f"Potentially forbidden operation: {func_name}")
-                
+                            issues.append(
+                                f"Potentially forbidden operation: {func_name}")
+
                 # Check imports
                 elif isinstance(node, ast.Import):
                     for alias in node.names:
                         if alias.name not in self.constraints.allowed_imports:
                             issues.append(f"Unauthorized import: {alias.name}")
-                
+
                 elif isinstance(node, ast.ImportFrom):
                     if node.module and node.module not in self.constraints.allowed_imports:
-                        issues.append(f"Unauthorized import from: {node.module}")
-            
+                        issues.append(
+                            f"Unauthorized import from: {node.module}")
+
             # Additional static analysis
             if 'subprocess' in code and not self.constraints.filesystem_access:
-                issues.append("Subprocess usage detected without filesystem access")
-            
+                issues.append(
+                    "Subprocess usage detected without filesystem access")
+
             if any(net_keyword in code for net_keyword in ['urllib', 'requests', 'socket', 'http']):
                 if not self.constraints.network_access:
                     issues.append("Network access detected but not allowed")
-            
+
             return len(issues) == 0, issues
-            
+
         except SyntaxError as e:
             return False, [f"Syntax error: {str(e)}"]
         except Exception as e:
@@ -393,15 +398,15 @@ class CodeExperimentValidator:
 
 class MultiprocessExperimenter:
     """Multiprocess experimenter for running code experiments safely"""
-    
+
     def __init__(self, config: SnakeAgentConfiguration, log_manager: SnakeLogManager):
         self.config = config
         self.log_manager = log_manager
-        
+
         # Experiment management
         self.active_experiments: Dict[str, multiprocessing.Process] = {}
         self.experiment_results: Dict[str, ExperimentResult] = {}
-        
+
         # Safety configuration
         self.safety_constraints = SafetyConstraints(
             max_execution_time=config.task_timeout,
@@ -409,21 +414,21 @@ class MultiprocessExperimenter:
             filesystem_access=False,
             network_access=False
         )
-        
+
         self.validator = CodeExperimentValidator(self.safety_constraints)
-        
+
         # Process pool for experiments
         self.process_pool: Optional[multiprocessing.Pool] = None
         self.max_concurrent_experiments = config.max_processes
-        
+
         # Metrics
         self.experiments_run = 0
         self.experiments_successful = 0
         self.total_execution_time = 0.0
-        
+
         # Callbacks
         self.experiment_complete_callback: Optional[callable] = None
-    
+
     async def initialize(self) -> bool:
         """Initialize the experimenter"""
         try:
@@ -435,14 +440,14 @@ class MultiprocessExperimenter:
                 },
                 worker_id="multiprocess_experimenter"
             )
-            
+
             # Initialize process pool
             self.process_pool = multiprocessing.Pool(
                 processes=self.max_concurrent_experiments
             )
-            
+
             return True
-            
+
         except Exception as e:
             await self.log_manager.log_system_event(
                 "multiprocess_experimenter_init_failed",
@@ -451,11 +456,11 @@ class MultiprocessExperimenter:
                 worker_id="multiprocess_experimenter"
             )
             return False
-    
+
     async def run_experiment(self, experiment_task: ExperimentTask) -> ExperimentResult:
         """Run a code experiment asynchronously"""
         experiment_id = experiment_task.task_id
-        
+
         try:
             await self.log_manager.log_system_event(
                 "experiment_start",
@@ -466,12 +471,13 @@ class MultiprocessExperimenter:
                 },
                 worker_id="multiprocess_experimenter"
             )
-            
+
             # Validate experiment code
             if 'proposed_changes' in experiment_task.proposed_changes:
                 code_to_test = experiment_task.proposed_changes['proposed_changes']
-                is_safe, safety_issues = self.validator.validate_code(code_to_test)
-                
+                is_safe, safety_issues = self.validator.validate_code(
+                    code_to_test)
+
                 if not is_safe:
                     return ExperimentResult(
                         experiment_id=experiment_id,
@@ -482,32 +488,33 @@ class MultiprocessExperimenter:
                         execution_time=0.0,
                         memory_usage=0.0,
                         safety_score=0.0,
-                        impact_assessment={"risk": "high", "reason": "safety_validation_failed"},
+                        impact_assessment={"risk": "high",
+                                           "reason": "safety_validation_failed"},
                         changes_made=[],
                         rollback_info=None,
                         timestamp=datetime.now()
                     )
-            
+
             # Run experiment in subprocess
             start_time = time.time()
-            
+
             # Submit to process pool
             result = await asyncio.get_event_loop().run_in_executor(
                 None,
                 self._run_experiment_sync,
                 experiment_task
             )
-            
+
             execution_time = time.time() - start_time
             self.total_execution_time += execution_time
             self.experiments_run += 1
-            
+
             if result.success:
                 self.experiments_successful += 1
-            
+
             # Store result
             self.experiment_results[experiment_id] = result
-            
+
             # Log experiment result
             await self.log_manager.log_experiment(
                 ExperimentRecord(
@@ -530,7 +537,7 @@ class MultiprocessExperimenter:
                     worker_id="multiprocess_experimenter"
                 )
             )
-            
+
             # Call completion callback
             if self.experiment_complete_callback:
                 try:
@@ -542,9 +549,9 @@ class MultiprocessExperimenter:
                         level="error",
                         worker_id="multiprocess_experimenter"
                     )
-            
+
             return result
-            
+
         except Exception as e:
             await self.log_manager.log_system_event(
                 "experiment_execution_error",
@@ -552,7 +559,7 @@ class MultiprocessExperimenter:
                 level="error",
                 worker_id="multiprocess_experimenter"
             )
-            
+
             return ExperimentResult(
                 experiment_id=experiment_id,
                 success=False,
@@ -562,36 +569,41 @@ class MultiprocessExperimenter:
                 execution_time=0.0,
                 memory_usage=0.0,
                 safety_score=0.0,
-                impact_assessment={"risk": "unknown", "reason": "execution_error"},
+                impact_assessment={"risk": "unknown",
+                                   "reason": "execution_error"},
                 changes_made=[],
                 rollback_info=None,
                 timestamp=datetime.now()
             )
-    
+
     def _run_experiment_sync(self, experiment_task: ExperimentTask) -> ExperimentResult:
         """Run experiment synchronously in subprocess"""
         experiment_id = experiment_task.task_id
-        
+
         # Create sandbox and run experiment
         with ExperimentSandbox(experiment_id, self.safety_constraints) as sandbox:
             try:
                 # Prepare experiment code
                 if experiment_task.experiment_type == "code_modification":
-                    code = self._prepare_modification_experiment(experiment_task)
+                    code = self._prepare_modification_experiment(
+                        experiment_task)
                 elif experiment_task.experiment_type == "performance_test":
-                    code = self._prepare_performance_experiment(experiment_task)
+                    code = self._prepare_performance_experiment(
+                        experiment_task)
                 else:
                     code = self._prepare_generic_experiment(experiment_task)
-                
+
                 # Execute in sandbox
                 execution_result = sandbox.execute_code(code)
-                
+
                 # Calculate safety score
-                safety_score = self._calculate_safety_score(execution_result, experiment_task)
-                
+                safety_score = self._calculate_safety_score(
+                    execution_result, experiment_task)
+
                 # Assess impact
-                impact_assessment = self._assess_impact(execution_result, experiment_task)
-                
+                impact_assessment = self._assess_impact(
+                    execution_result, experiment_task)
+
                 return ExperimentResult(
                     experiment_id=experiment_id,
                     success=execution_result['success'],
@@ -606,7 +618,7 @@ class MultiprocessExperimenter:
                     rollback_info=None,
                     timestamp=datetime.now()
                 )
-                
+
             except Exception as e:
                 return ExperimentResult(
                     experiment_id=experiment_id,
@@ -617,12 +629,13 @@ class MultiprocessExperimenter:
                     execution_time=0.0,
                     memory_usage=0.0,
                     safety_score=0.0,
-                    impact_assessment={"risk": "high", "reason": "sandbox_error"},
+                    impact_assessment={"risk": "high",
+                                       "reason": "sandbox_error"},
                     changes_made=[],
                     rollback_info=None,
                     timestamp=datetime.now()
                 )
-    
+
     def _prepare_modification_experiment(self, experiment_task: ExperimentTask) -> str:
         """Prepare code modification experiment"""
         # Basic template for testing code changes
@@ -646,7 +659,7 @@ except Exception as e:
     raise
 '''
         return template
-    
+
     def _prepare_performance_experiment(self, experiment_task: ExperimentTask) -> str:
         """Prepare performance testing experiment"""
         template = f'''
@@ -674,7 +687,7 @@ except Exception as e:
     raise
 '''
         return template
-    
+
     def _prepare_generic_experiment(self, experiment_task: ExperimentTask) -> str:
         """Prepare generic experiment"""
         template = f'''
@@ -692,27 +705,27 @@ time.sleep(0.1)  # Brief execution
 print("Generic experiment completed successfully")
 '''
         return template
-    
+
     def _calculate_safety_score(self, execution_result: Dict[str, Any], experiment_task: ExperimentTask) -> float:
         """Calculate safety score for experiment"""
         score = 1.0
-        
+
         # Penalize failures
         if not execution_result.get('success', False):
             score -= 0.3
-        
+
         # Penalize long execution times
         exec_time = execution_result.get('execution_time', 0.0)
         if exec_time > self.safety_constraints.max_execution_time * 0.8:
             score -= 0.2
-        
+
         # Check for error patterns
         stderr = execution_result.get('stderr', '')
         if 'error' in stderr.lower() or 'exception' in stderr.lower():
             score -= 0.1
-        
+
         return max(0.0, score)
-    
+
     def _assess_impact(self, execution_result: Dict[str, Any], experiment_task: ExperimentTask) -> Dict[str, Any]:
         """Assess impact of experiment"""
         impact = {
@@ -721,26 +734,26 @@ print("Generic experiment completed successfully")
             "benefits": [],
             "risks": []
         }
-        
+
         if execution_result.get('success', False):
             impact["benefits"].append("Experiment executed successfully")
             impact["confidence"] += 0.3
         else:
             impact["risks"].append("Experiment failed to execute")
             impact["risk"] = "medium"
-        
+
         # Assess based on experiment type
         if experiment_task.experiment_type == "performance_test":
             impact["benefits"].append("Performance characteristics measured")
         elif experiment_task.experiment_type == "security_test":
             impact["risk"] = "high"  # Security tests are inherently risky
-        
+
         return impact
-    
+
     def set_experiment_complete_callback(self, callback: callable):
         """Set callback for experiment completion"""
         self.experiment_complete_callback = callback
-    
+
     def get_status(self) -> Dict[str, Any]:
         """Get experimenter status"""
         return {
@@ -755,7 +768,7 @@ print("Generic experiment completed successfully")
             ),
             "safety_constraints": asdict(self.safety_constraints)
         }
-    
+
     async def shutdown(self, timeout: float = 30.0) -> bool:
         """Shutdown the experimenter"""
         try:
@@ -764,14 +777,14 @@ print("Generic experiment completed successfully")
                 {"experiments_run": self.experiments_run},
                 worker_id="multiprocess_experimenter"
             )
-            
+
             # Shutdown process pool
             if self.process_pool:
                 self.process_pool.close()
                 self.process_pool.join(timeout=timeout)
-            
+
             return True
-            
+
         except Exception as e:
             await self.log_manager.log_system_event(
                 "multiprocess_experimenter_shutdown_error",

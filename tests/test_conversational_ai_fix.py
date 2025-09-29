@@ -17,26 +17,30 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 async def test_conversational_ai():
     """Test the conversational AI startup."""
     try:
         logger.info("Testing Conversational AI startup...")
-        
+
         # Import the conversational AI
         from modules.conversational_ai.main import ConversationalAI
-        
+
         # Create an instance
         ai = ConversationalAI()
         logger.info("Conversational AI instance created")
-        
+
         # Check configuration
         logger.info("Configuration:")
-        logger.info(f"  Discord enabled: {ai.config.get('platforms', {}).get('discord', {}).get('enabled', False)}")
-        logger.info(f"  Telegram enabled: {ai.config.get('platforms', {}).get('telegram', {}).get('enabled', False)}")
-        
+        logger.info(
+            f"  Discord enabled: {ai.config.get('platforms', {}).get('discord', {}).get('enabled', False)}")
+        logger.info(
+            f"  Telegram enabled: {ai.config.get('platforms', {}).get('telegram', {}).get('enabled', False)}")
+
         # Start in standalone mode but with a timeout
-        logger.info("Starting Conversational AI in standalone mode with timeout...")
-        
+        logger.info(
+            "Starting Conversational AI in standalone mode with timeout...")
+
         # Create a task for the conversational AI
         async def run_ai():
             try:
@@ -44,28 +48,29 @@ async def test_conversational_ai():
             except Exception as e:
                 logger.error(f"Error in conversational AI: {e}")
                 logger.exception("Full traceback:")
-        
+
         ai_task = asyncio.create_task(run_ai())
-        
+
         # Wait for a short time to see if it starts
         try:
             await asyncio.wait_for(ai_task, timeout=10.0)
         except asyncio.TimeoutError:
-            logger.info("Conversational AI is running (as expected for standalone mode)")
+            logger.info(
+                "Conversational AI is running (as expected for standalone mode)")
             # Cancel the task since we're just testing startup
             ai_task.cancel()
             try:
                 await ai_task
             except asyncio.CancelledError:
                 pass
-        
+
         # Stop the AI
         await ai.stop()
         logger.info("Conversational AI stopped successfully")
-        
+
         logger.info("Test completed successfully!")
         return True
-        
+
     except Exception as e:
         logger.error(f"Error in test: {e}")
         logger.exception("Full traceback:")

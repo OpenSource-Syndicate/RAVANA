@@ -5,12 +5,10 @@ Advanced reasoning system that generates, evaluates, and optimizes building stra
 using multiple reasoning paradigms and cross-domain pattern recognition.
 """
 
-import asyncio
 import logging
 import time
 import random
-import math
-from typing import Dict, List, Any, Optional, Tuple, Union
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -79,28 +77,28 @@ class BuildStrategy:
     description: str
     strategy_type: StrategyType
     reasoning_chain: ReasoningChain
-    
+
     # Feasibility Assessment
     feasibility_level: FeasibilityLevel
     resource_requirements: Dict[str, Any]
     expected_difficulty: float
     success_probability: float
-    
+
     # Implementation Details
     approach_steps: List[str]
     tools_required: List[str]
     skills_required: List[str]
-    
+
     # Risk Assessment
     risk_factors: List[str]
     mitigation_strategies: List[str]
     failure_modes: List[str]
-    
+
     # Learning Integration
     similar_successes: List[str] = field(default_factory=list)
     related_failures: List[str] = field(default_factory=list)
     domain_expertise_required: List[str] = field(default_factory=list)
-    
+
     # Execution Parameters
     execution_order: int = 0
     parallel_compatible: bool = True
@@ -127,7 +125,7 @@ class FeasibilityAssessment:
     resource_feasibility: float
     time_feasibility: float
     knowledge_feasibility: float
-    
+
     critical_assumptions: List[str]
     blocking_factors: List[str]
     success_enablers: List[str]
@@ -138,21 +136,21 @@ class StrategyReasoningManager:
     """
     Advanced reasoning system for strategy generation and optimization
     """
-    
+
     def __init__(self, agi_system, enhanced_personality=None):
         self.agi_system = agi_system
         self.enhanced_personality = enhanced_personality
-        
+
         # Strategy repositories
         self.strategy_templates = self._initialize_strategy_templates()
         self.reasoning_patterns = self._initialize_reasoning_patterns()
         self.domain_knowledge = self._initialize_domain_knowledge()
-        
+
         # Learning from experience
         self.successful_strategies = []
         self.failed_strategies = []
         self.strategy_performance_history = {}
-        
+
         # Configuration
         self.default_reasoning_types = [
             ReasoningType.CAUSAL,
@@ -160,9 +158,9 @@ class StrategyReasoningManager:
             ReasoningType.SYSTEMS_THINKING,
             ReasoningType.ABDUCTIVE
         ]
-        
+
         logger.info("Strategy Reasoning Manager initialized")
-    
+
     async def generate_strategies(
         self,
         description: str,
@@ -174,9 +172,9 @@ class StrategyReasoningManager:
         Generate multiple build strategies using different reasoning approaches
         """
         logger.info(f"Generating strategies for: '{description[:50]}...'")
-        
+
         strategies = []
-        
+
         # Generate strategies using different reasoning types
         for i, reasoning_type in enumerate(self.default_reasoning_types[:max_strategies]):
             try:
@@ -186,32 +184,35 @@ class StrategyReasoningManager:
                 if strategy:
                     strategies.append(strategy)
             except Exception as e:
-                logger.warning(f"Failed to generate strategy with {reasoning_type}: {e}")
-        
+                logger.warning(
+                    f"Failed to generate strategy with {reasoning_type}: {e}")
+
         # Generate additional strategies if we haven't reached the limit
         while len(strategies) < max_strategies:
             try:
                 # Use hybrid or experimental approaches
-                strategy_type = random.choice([StrategyType.HYBRID, StrategyType.EXPERIMENTAL])
+                strategy_type = random.choice(
+                    [StrategyType.HYBRID, StrategyType.EXPERIMENTAL])
                 reasoning_type = random.choice(list(ReasoningType))
-                
+
                 strategy = await self._generate_creative_strategy(
-                    description, context, assessment, strategy_type, reasoning_type, len(strategies)
+                    description, context, assessment, strategy_type, reasoning_type, len(
+                        strategies)
                 )
-                
+
                 if strategy and not self._is_duplicate_strategy(strategy, strategies):
                     strategies.append(strategy)
-                    
+
             except Exception as e:
                 logger.warning(f"Failed to generate creative strategy: {e}")
                 break
-        
+
         # Optimize strategy sequence
         optimized_strategies = await self._optimize_strategy_sequence(strategies)
-        
+
         logger.info(f"Generated {len(optimized_strategies)} strategies")
         return optimized_strategies
-    
+
     async def generate_reasoning_chain(
         self,
         problem: str,
@@ -223,31 +224,32 @@ class StrategyReasoningManager:
         """
         if not reasoning_types:
             reasoning_types = self.default_reasoning_types
-        
+
         steps = []
-        
+
         # Generate reasoning steps for each type
         for reasoning_type in reasoning_types:
             step = await self._create_reasoning_step(problem, context, reasoning_type)
             if step:
                 steps.append(step)
-        
+
         # Calculate overall confidence
         if steps:
-            overall_confidence = sum(step.confidence for step in steps) / len(steps)
+            overall_confidence = sum(
+                step.confidence for step in steps) / len(steps)
         else:
             overall_confidence = 0.0
-        
+
         # Generate meta-reasoning
         meta_reasoning = self._generate_meta_reasoning(steps, problem)
-        
+
         return ReasoningChain(
             goal=problem,
             steps=steps,
             overall_confidence=overall_confidence,
             meta_reasoning=meta_reasoning
         )
-    
+
     async def evaluate_strategy_feasibility(
         self,
         strategy: BuildStrategy,
@@ -257,24 +259,26 @@ class StrategyReasoningManager:
         Detailed feasibility analysis including risk assessment
         """
         logger.info(f"Evaluating feasibility for strategy: {strategy.name}")
-        
+
         # Assess different feasibility dimensions
         technical_feasibility = self._assess_technical_feasibility(strategy)
-        resource_feasibility = self._assess_resource_feasibility(strategy, constraints)
+        resource_feasibility = self._assess_resource_feasibility(
+            strategy, constraints)
         time_feasibility = self._assess_time_feasibility(strategy, constraints)
         knowledge_feasibility = self._assess_knowledge_feasibility(strategy)
-        
+
         # Determine overall feasibility level
-        avg_feasibility = (technical_feasibility + resource_feasibility + 
-                          time_feasibility + knowledge_feasibility) / 4.0
-        
+        avg_feasibility = (technical_feasibility + resource_feasibility +
+                           time_feasibility + knowledge_feasibility) / 4.0
+
         overall_level = self._map_to_feasibility_level(avg_feasibility)
-        
+
         # Identify critical factors
         critical_assumptions = self._identify_critical_assumptions(strategy)
-        blocking_factors = self._identify_blocking_factors(strategy, avg_feasibility)
+        blocking_factors = self._identify_blocking_factors(
+            strategy, avg_feasibility)
         success_enablers = self._identify_success_enablers(strategy)
-        
+
         return FeasibilityAssessment(
             overall_feasibility=overall_level,
             technical_feasibility=technical_feasibility,
@@ -291,7 +295,7 @@ class StrategyReasoningManager:
                 "knowledge": knowledge_feasibility
             }
         )
-    
+
     async def optimize_strategy_sequence(
         self,
         strategies: List[BuildStrategy],
@@ -302,30 +306,31 @@ class StrategyReasoningManager:
         """
         if not strategies:
             return strategies
-        
+
         if not criteria:
             criteria = OptimizationCriteria()
-        
+
         logger.info(f"Optimizing sequence for {len(strategies)} strategies")
-        
+
         # Score strategies based on criteria
         scored_strategies = []
         for strategy in strategies:
             score = self._calculate_strategy_score(strategy, criteria)
             scored_strategies.append((strategy, score))
-        
+
         # Sort by score (higher is better)
         scored_strategies.sort(key=lambda x: x[1], reverse=True)
-        
+
         # Apply dependency constraints
-        optimized_order = self._resolve_dependencies([s[0] for s in scored_strategies])
-        
+        optimized_order = self._resolve_dependencies(
+            [s[0] for s in scored_strategies])
+
         # Update execution order
         for i, strategy in enumerate(optimized_order):
             strategy.execution_order = i
-        
+
         return optimized_order
-    
+
     async def adapt_strategy_from_feedback(
         self,
         strategy: BuildStrategy,
@@ -335,7 +340,7 @@ class StrategyReasoningManager:
         Dynamically adapt strategies based on execution feedback
         """
         logger.info(f"Adapting strategy '{strategy.name}' based on feedback")
-        
+
         # Create adapted strategy (copy original)
         adapted_strategy = BuildStrategy(
             id=f"{strategy.id}_adapted_{int(time.time())}",
@@ -354,16 +359,17 @@ class StrategyReasoningManager:
             mitigation_strategies=strategy.mitigation_strategies.copy(),
             failure_modes=strategy.failure_modes.copy()
         )
-        
+
         # Apply adaptations based on feedback
         success = feedback.get('success', False)
         error_type = feedback.get('error_type', '')
         intermediate_results = feedback.get('intermediate_results', [])
-        
+
         if not success:
             # Adapt based on failure type
             if 'resource' in error_type.lower():
-                self._adapt_for_resource_constraints(adapted_strategy, feedback)
+                self._adapt_for_resource_constraints(
+                    adapted_strategy, feedback)
             elif 'complexity' in error_type.lower():
                 self._adapt_for_complexity_issues(adapted_strategy, feedback)
             elif 'knowledge' in error_type.lower():
@@ -373,14 +379,14 @@ class StrategyReasoningManager:
         else:
             # Adapt successful strategy for better performance
             self._optimize_successful_strategy(adapted_strategy, feedback)
-        
+
         # Recalculate success probability
         adapted_strategy.success_probability = self._recalculate_success_probability(
             adapted_strategy, feedback
         )
-        
+
         return adapted_strategy
-    
+
     async def generate_alternatives(
         self,
         original_strategy: Dict[str, Any],
@@ -392,15 +398,16 @@ class StrategyReasoningManager:
         Generate alternative strategies based on failure analysis
         """
         logger.info("Generating alternative strategies from failure analysis")
-        
+
         alternatives = []
-        
+
         # Generate alternatives based on failure reason
         failure_type = self._classify_failure_type(failure_reason)
-        
+
         # Use different reasoning approaches for alternatives
-        alternative_reasoning_types = self._select_alternative_reasoning_types(failure_type)
-        
+        alternative_reasoning_types = self._select_alternative_reasoning_types(
+            failure_type)
+
         for i, reasoning_type in enumerate(alternative_reasoning_types):
             try:
                 alternative = await self._generate_failure_informed_strategy(
@@ -410,13 +417,14 @@ class StrategyReasoningManager:
                     creative_insights,
                     research_context
                 )
-                
+
                 if alternative:
                     alternatives.append(alternative)
-                    
+
             except Exception as e:
-                logger.warning(f"Failed to generate alternative with {reasoning_type}: {e}")
-        
+                logger.warning(
+                    f"Failed to generate alternative with {reasoning_type}: {e}")
+
         # Generate cross-domain alternatives using creative insights
         for insight in creative_insights[:2]:  # Use top 2 insights
             try:
@@ -425,15 +433,16 @@ class StrategyReasoningManager:
                     insight,
                     failure_reason
                 )
-                
+
                 if cross_domain_alternative:
                     alternatives.append(cross_domain_alternative)
-                    
+
             except Exception as e:
-                logger.warning(f"Failed to generate cross-domain alternative: {e}")
-        
+                logger.warning(
+                    f"Failed to generate cross-domain alternative: {e}")
+
         return alternatives
-    
+
     async def refine_with_research(
         self,
         strategies: List[Dict[str, Any]],
@@ -443,21 +452,23 @@ class StrategyReasoningManager:
         Refine strategies based on research results
         """
         logger.info("Refining strategies with research insights")
-        
+
         refined_strategies = []
-        
+
         for strategy in strategies:
             try:
                 refined_strategy = await self._refine_strategy_with_research(strategy, research)
                 refined_strategies.append(refined_strategy)
             except Exception as e:
-                logger.warning(f"Failed to refine strategy '{strategy.get('name', 'unknown')}': {e}")
-                refined_strategies.append(strategy)  # Keep original if refinement fails
-        
+                logger.warning(
+                    f"Failed to refine strategy '{strategy.get('name', 'unknown')}': {e}")
+                # Keep original if refinement fails
+                refined_strategies.append(strategy)
+
         return refined_strategies
-    
+
     # Private helper methods
-    
+
     async def _generate_single_strategy(
         self,
         description: str,
@@ -467,39 +478,45 @@ class StrategyReasoningManager:
         index: int
     ) -> Optional[BuildStrategy]:
         """Generate a single strategy using specified reasoning type"""
-        
+
         # Generate reasoning chain
         reasoning_chain = await self._create_reasoning_chain_for_strategy(
             description, context, reasoning_type
         )
-        
+
         # Select strategy type based on reasoning and context
-        strategy_type = self._select_strategy_type(reasoning_type, context, description)
-        
+        strategy_type = self._select_strategy_type(
+            reasoning_type, context, description)
+
         # Generate strategy name and description
-        strategy_name = self._generate_strategy_name(strategy_type, reasoning_type, index)
+        strategy_name = self._generate_strategy_name(
+            strategy_type, reasoning_type, index)
         strategy_description = self._generate_strategy_description(
             strategy_type, reasoning_type, description
         )
-        
+
         # Generate approach steps
-        approach_steps = self._generate_approach_steps(strategy_type, reasoning_chain, description)
-        
+        approach_steps = self._generate_approach_steps(
+            strategy_type, reasoning_chain, description)
+
         # Assess requirements and risks
-        resource_requirements = self._estimate_resource_requirements(strategy_type, approach_steps)
-        risk_factors = self._identify_risk_factors(strategy_type, approach_steps)
-        mitigation_strategies = self._generate_mitigation_strategies(risk_factors)
-        
+        resource_requirements = self._estimate_resource_requirements(
+            strategy_type, approach_steps)
+        risk_factors = self._identify_risk_factors(
+            strategy_type, approach_steps)
+        mitigation_strategies = self._generate_mitigation_strategies(
+            risk_factors)
+
         # Calculate success probability
         success_probability = self._calculate_initial_success_probability(
             strategy_type, reasoning_chain.overall_confidence, assessment
         )
-        
+
         # Determine feasibility level
         feasibility_level = self._determine_feasibility_level(
             strategy_type, resource_requirements, success_probability
         )
-        
+
         return BuildStrategy(
             id=f"strategy_{reasoning_type.value}_{index}_{int(time.time())}",
             name=strategy_name,
@@ -511,14 +528,18 @@ class StrategyReasoningManager:
             expected_difficulty=1.0 - success_probability,
             success_probability=success_probability,
             approach_steps=approach_steps,
-            tools_required=self._identify_required_tools(strategy_type, approach_steps),
-            skills_required=self._identify_required_skills(strategy_type, approach_steps),
+            tools_required=self._identify_required_tools(
+                strategy_type, approach_steps),
+            skills_required=self._identify_required_skills(
+                strategy_type, approach_steps),
             risk_factors=risk_factors,
             mitigation_strategies=mitigation_strategies,
-            failure_modes=self._identify_failure_modes(strategy_type, risk_factors),
-            parallel_compatible=self._assess_parallel_compatibility(strategy_type, approach_steps)
+            failure_modes=self._identify_failure_modes(
+                strategy_type, risk_factors),
+            parallel_compatible=self._assess_parallel_compatibility(
+                strategy_type, approach_steps)
         )
-    
+
     async def _create_reasoning_step(
         self,
         problem: str,
@@ -526,44 +547,47 @@ class StrategyReasoningManager:
         reasoning_type: ReasoningType
     ) -> Optional[ReasoningStep]:
         """Create a single reasoning step of specified type"""
-        
+
         reasoning_patterns = self.reasoning_patterns.get(reasoning_type, {})
-        
+
         if reasoning_type == ReasoningType.CAUSAL:
             premise = f"To solve '{problem}', we need to understand the causal relationships involved"
             inference = "Identifying root causes will help us design targeted interventions"
             conclusion = "Focus on manipulating key causal factors for maximum effect"
-            
+
         elif reasoning_type == ReasoningType.ANALOGICAL:
             premise = f"'{problem}' may be similar to solved problems in other domains"
             inference = "Successful patterns from analogous situations can be adapted"
             conclusion = "Apply proven solutions from similar contexts with appropriate modifications"
-            
+
         elif reasoning_type == ReasoningType.SYSTEMS_THINKING:
             premise = f"'{problem}' exists within a complex system of interactions"
             inference = "Understanding system dynamics reveals leverage points"
             conclusion = "Target system-level changes rather than isolated components"
-            
+
         elif reasoning_type == ReasoningType.ABDUCTIVE:
             premise = f"Given the constraints of '{problem}', what explains the best approach?"
             inference = "The most likely explanation suggests the most promising path"
             conclusion = "Pursue the explanation that best fits all available evidence"
-            
+
         else:
             # Generic reasoning step
             premise = f"Applying {reasoning_type.value} reasoning to '{problem}'"
             inference = f"This reasoning type suggests specific solution approaches"
             conclusion = f"Use {reasoning_type.value} principles to guide strategy development"
-        
+
         # Calculate confidence based on reasoning type and context
-        confidence = self._calculate_reasoning_confidence(reasoning_type, context)
-        
+        confidence = self._calculate_reasoning_confidence(
+            reasoning_type, context)
+
         # Generate supporting evidence
-        evidence = self._generate_supporting_evidence(reasoning_type, problem, context)
-        
+        evidence = self._generate_supporting_evidence(
+            reasoning_type, problem, context)
+
         # Identify assumptions
-        assumptions = self._identify_reasoning_assumptions(reasoning_type, problem)
-        
+        assumptions = self._identify_reasoning_assumptions(
+            reasoning_type, problem)
+
         return ReasoningStep(
             reasoning_type=reasoning_type,
             premise=premise,
@@ -573,7 +597,7 @@ class StrategyReasoningManager:
             supporting_evidence=evidence,
             assumptions=assumptions
         )
-    
+
     def _initialize_strategy_templates(self) -> Dict[StrategyType, Dict[str, Any]]:
         """Initialize templates for different strategy types"""
         return {
@@ -644,7 +668,7 @@ class StrategyReasoningManager:
                 ]
             }
         }
-    
+
     def _initialize_reasoning_patterns(self) -> Dict[ReasoningType, Dict[str, Any]]:
         """Initialize patterns for different reasoning types"""
         return {
@@ -669,7 +693,7 @@ class StrategyReasoningManager:
                 "confidence_factors": ["explanation_quality", "evidence_support", "alternative_elimination"]
             }
         }
-    
+
     def _initialize_domain_knowledge(self) -> Dict[str, List[str]]:
         """Initialize domain-specific knowledge base"""
         return {
@@ -681,16 +705,16 @@ class StrategyReasoningManager:
             "chemistry": ["organic_chemistry", "physical_chemistry", "materials_chemistry"],
             "psychology": ["cognitive_science", "behavioral_psychology", "social_psychology"]
         }
-    
+
     # Additional helper methods would continue here...
     # Due to length constraints, I'll include key methods for strategy generation and evaluation
-    
+
     def _select_strategy_type(self, reasoning_type: ReasoningType, context: Dict[str, Any], description: str) -> StrategyType:
         """Select appropriate strategy type based on reasoning and context"""
-        
+
         # Analyze problem description for domain indicators
         description_lower = description.lower()
-        
+
         if any(word in description_lower for word in ['physics', 'mechanical', 'force', 'energy']):
             return StrategyType.PHYSICS_BASED
         elif any(word in description_lower for word in ['algorithm', 'compute', 'software', 'data']):
@@ -703,43 +727,44 @@ class StrategyReasoningManager:
             return StrategyType.HEURISTIC
         else:
             return StrategyType.EXPERIMENTAL
-    
+
     def _calculate_strategy_score(self, strategy: BuildStrategy, criteria: OptimizationCriteria) -> float:
         """Calculate overall strategy score based on optimization criteria"""
-        
+
         score = 0.0
-        
+
         # Base score from success probability
         score += strategy.success_probability * 0.4
-        
+
         # Adjust for criteria preferences
         if criteria.prioritize_speed:
             # Lower complexity strategies score higher
             speed_factor = 1.0 - (strategy.expected_difficulty * 0.5)
             score += speed_factor * 0.3
-        
+
         if criteria.prioritize_reliability:
             # Higher feasibility scores better
             reliability_factor = 1.0 if strategy.feasibility_level == FeasibilityLevel.STRAIGHTFORWARD else 0.5
             score += reliability_factor * 0.3
-        
+
         if criteria.prioritize_novelty:
             # Experimental and hybrid strategies score higher
-            novelty_factor = 1.0 if strategy.strategy_type in [StrategyType.EXPERIMENTAL, StrategyType.HYBRID] else 0.7
+            novelty_factor = 1.0 if strategy.strategy_type in [
+                StrategyType.EXPERIMENTAL, StrategyType.HYBRID] else 0.7
             score += novelty_factor * 0.2
-        
+
         if criteria.prioritize_learning:
             # Strategies with high reasoning confidence score higher
             learning_factor = strategy.reasoning_chain.overall_confidence
             score += learning_factor * 0.2
-        
+
         return score
-    
+
     async def _optimize_strategy_sequence(self, strategies: List[BuildStrategy]) -> List[BuildStrategy]:
         """Internal method to optimize strategy sequence"""
         if len(strategies) <= 1:
             return strategies
-        
+
         # Simple optimization: sort by success probability, then by feasibility
         def strategy_key(strategy):
             feasibility_scores = {
@@ -749,11 +774,11 @@ class StrategyReasoningManager:
                 FeasibilityLevel.EXTREMELY_DIFFICULT: 2,
                 FeasibilityLevel.IMPOSSIBLE: 1
             }
-            
+
             return (
                 strategy.success_probability,
                 feasibility_scores.get(strategy.feasibility_level, 0),
                 -strategy.expected_difficulty
             )
-        
+
         return sorted(strategies, key=strategy_key, reverse=True)

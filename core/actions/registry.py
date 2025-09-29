@@ -1,7 +1,7 @@
 import importlib
 import inspect
 import pkgutil
-from typing import Dict, List, Type
+from typing import Dict, List
 import logging
 
 from core.actions.action import Action
@@ -14,13 +14,15 @@ from core.actions.collaborative_task import CollaborativeTaskAction
 
 logger = logging.getLogger(__name__)
 
+
 class ActionRegistry:
     def __init__(self,
                  system: 'AGISystem',
                  data_service: 'DataService'
                  ) -> None:
         self.actions: Dict[str, Action] = {}
-        self._register_action(ProposeAndTestInventionAction(system, data_service))
+        self._register_action(
+            ProposeAndTestInventionAction(system, data_service))
         self._register_action(LogMessageAction(system, data_service))
         self._register_action(WritePythonCodeAction(system, data_service))
         self._register_action(ExecutePythonFileAction(system, data_service))
@@ -29,7 +31,8 @@ class ActionRegistry:
 
     def _register_action(self, action: Action) -> None:
         if action.name in self.actions:
-            logger.warning(f"Action '{action.name}' is already registered. Overwriting.")
+            logger.warning(
+                f"Action '{action.name}' is already registered. Overwriting.")
         self.actions[action.name] = action
 
     def register_action(self, action: Action) -> None:
@@ -47,10 +50,12 @@ class ActionRegistry:
                         try:
                             instance = obj()
                             if instance.name in self.actions:
-                                logger.warning(f"Action '{instance.name}' is already registered. Overwriting.")
+                                logger.warning(
+                                    f"Action '{instance.name}' is already registered. Overwriting.")
                             self.actions[instance.name] = instance
                         except Exception as e:
-                            logger.error(f"Failed to instantiate action {obj.__name__}: {e}", exc_info=True)
+                            logger.error(
+                                f"Failed to instantiate action {obj.__name__}: {e}", exc_info=True)
 
     def get_action(self, name: str) -> Action:
         action = self.actions.get(name)
