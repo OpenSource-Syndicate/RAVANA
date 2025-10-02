@@ -34,15 +34,16 @@ class BlogContentGenerator:
     """
 
     def __init__(self, memory_service=None, data_service=None, system=None):
+        config = Config()
         self.memory_service = memory_service
         self.data_service = data_service
         self.system = system
-        self.max_content_length = Config.BLOG_MAX_CONTENT_LENGTH
-        self.min_content_length = Config.BLOG_MIN_CONTENT_LENGTH
-        self.default_style = Config.BLOG_DEFAULT_STYLE
-        self.memory_context_days = Config.BLOG_MEMORY_CONTEXT_DAYS
-        self.include_mood_context = Config.BLOG_INCLUDE_MOOD_CONTEXT
-        self.available_styles = Config.BLOG_CONTENT_STYLES
+        self.max_content_length = config.BLOG_MAX_CONTENT_LENGTH
+        self.min_content_length = config.BLOG_MIN_CONTENT_LENGTH
+        self.default_style = config.BLOG_DEFAULT_STYLE
+        self.memory_context_days = config.BLOG_MEMORY_CONTEXT_DAYS
+        self.include_mood_context = config.BLOG_INCLUDE_MOOD_CONTEXT
+        self.available_styles = config.BLOG_CONTENT_STYLES
         self.validator = BlogContentValidator()
 
     async def generate_post(

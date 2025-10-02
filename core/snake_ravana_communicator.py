@@ -13,6 +13,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from enum import Enum
+from abc import ABC, abstractmethod
 
 from core.config import Config
 
@@ -85,7 +86,7 @@ class CommunicationMessage:
         )
 
 
-class CommunicationChannel:
+class CommunicationChannel(ABC):
     """Base class for communication channels"""
 
     def __init__(self, channel_name: str):
@@ -94,17 +95,20 @@ class CommunicationChannel:
         self.sent_messages: Dict[str, CommunicationMessage] = {}
         self.received_messages: Dict[str, CommunicationMessage] = {}
 
+    @abstractmethod
     async def send_message(self, message: CommunicationMessage) -> bool:
         """Send a message through this channel"""
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     async def receive_message(self) -> Optional[CommunicationMessage]:
         """Receive a message from this channel"""
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     async def get_response(self, message_id: str, timeout: int = 30) -> Optional[CommunicationMessage]:
         """Wait for a response to a specific message"""
-        raise NotImplementedError
+        pass
 
 
 class MemoryServiceChannel(CommunicationChannel):
@@ -226,6 +230,19 @@ class SharedStateChannel(CommunicationChannel):
             logger.error(f"Error receiving message via shared state: {e}")
             return None
 
+    async def get_response(self, message_id: str, timeout: int = 30) -> Optional[CommunicationMessage]:
+        """Wait for response to a specific message via shared state"""
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            response = await self.receive_message()
+            if response and response.content.get("response_to") == message_id:
+                return response
+
+            await asyncio.sleep(1)
+
+        return None
+
 
 class LoggingChannel(CommunicationChannel):
     """Communication channel through structured logging"""
@@ -263,9 +280,20 @@ class LoggingChannel(CommunicationChannel):
         """Logging channel is send-only"""
         return None
 
+    async def get_response(self, message_id: str, timeout: int = 30) -> Optional[CommunicationMessage]:
+        """Logging channel is send-only, so no response capability"""
+        # Logging channel is one-way only, so it can't receive responses
+        logger.debug(f"Logging channel cannot receive response for message {message_id}")
+        return None
+
 
 class SnakeRavanaCommunicator:
-    """Main communicator for Snake Agent to RAVANA system"""
+    """Main communicator for Snake Agent to RAVANA system
+    
+    This class manages communication between the Snake Agent and the main RAVANA system,
+    providing structured protocols for proposals, approvals, status updates, and other
+    inter-agent communications.
+    """
 
     def __init__(self, reasoning_llm, agi_system):
         self.reasoning_llm = reasoning_llm
@@ -283,7 +311,26 @@ class SnakeRavanaCommunicator:
         self.pending_responses: Dict[str, CommunicationMessage] = {}
 
     async def send_communication(self, comm_item: Dict[str, Any]) -> bool:
-        """Send a communication item to RAVANA"""
+        """Send a communication item to RAVANA
+        
+        Args:
+            comm_item: Dictionary containing communication details with keys:
+                - type: CommunicationType value (proposal, status_update, etc.)
+                - priority: Priority level (low, medium, high, critical)
+                - content: The actual message content
+                - other optional metadata
+        
+        Returns:
+            bool: True if communication was successfully sent, False otherwise
+        """
+        if not isinstance(comm_item, dict):
+            logger.error(f"Invalid communication item type: {type(comm_item)}, expected dict")
+            return False
+
+        if not comm_item:
+            logger.error("Empty communication item provided")
+            return False
+
         try:
             # Create structured message
             message = await self._create_message_from_item(comm_item)
@@ -302,17 +349,46 @@ class SnakeRavanaCommunicator:
                 f"Communication sent: {message.id} - {message.subject}")
             return success
 
+        except ValueError as e:
+            logger.error(f"Value error in communication: {e}")
+            return False
+        except KeyError as e:
+            logger.error(f"Missing required key in communication item: {e}")
+            return False
         except Exception as e:
-            logger.error(f"Error sending communication: {e}")
+            logger.error(f"Unexpected error sending communication: {e}")
+            logger.exception("Full traceback:")  # Log the full stack trace
             return False
 
     async def _create_message_from_item(self, comm_item: Dict[str, Any]) -> CommunicationMessage:
-        """Create structured message from communication item"""
+        """Create structured message from communication item
+        
+        Args:
+            comm_item: Dictionary containing communication details
+            
+        Returns:
+            CommunicationMessage: Structured communication message
+            
+        Raises:
+            ValueError: If the communication item contains invalid types or priorities
+        """
         self.message_counter += 1
 
-        message_type = CommunicationType(
-            comm_item.get("type", "status_update"))
-        priority = Priority(comm_item.get("priority", "medium"))
+        # Validate and extract message type
+        type_str = comm_item.get("type", "status_update")
+        try:
+            message_type = CommunicationType(type_str)
+        except ValueError:
+            logger.warning(f"Invalid communication type '{type_str}', defaulting to STATUS_UPDATE")
+            message_type = CommunicationType.STATUS_UPDATE
+
+        # Validate and extract priority
+        priority_str = comm_item.get("priority", "medium")
+        try:
+            priority = Priority(priority_str)
+        except ValueError:
+            logger.warning(f"Invalid priority '{priority_str}', defaulting to MEDIUM")
+            priority = Priority.MEDIUM
 
         message = CommunicationMessage(
             id=f"snake_{int(time.time())}_{self.message_counter}",
@@ -366,7 +442,14 @@ class SnakeRavanaCommunicator:
         return timeouts.get(priority, 3600)
 
     async def _plan_communication_strategy(self, message: CommunicationMessage) -> Dict[str, Any]:
-        """Plan communication strategy using reasoning LLM"""
+        """Plan communication strategy using reasoning LLM
+        
+        Args:
+            message: The message for which to plan a communication strategy
+            
+        Returns:
+            Dict[str, Any]: Strategy dictionary with channels, retry count, and escalation flag
+        """
         try:
             strategy_input = {
                 "message": message.to_dict(),
@@ -375,7 +458,17 @@ class SnakeRavanaCommunicator:
                 "priority_threshold": Config.SNAKE_COMM_PRIORITY_THRESHOLD
             }
 
+            # Check if reasoning LLM has the required method
+            if not hasattr(self.reasoning_llm, 'plan_communication'):
+                logger.warning("reasoning_llm does not have plan_communication method, using fallback")
+                raise AttributeError("reasoning_llm.plan_communication method not available")
+
             strategy = await self.reasoning_llm.plan_communication(strategy_input)
+
+            # Validate the returned strategy
+            if not isinstance(strategy, dict):
+                logger.warning(f"Invalid strategy returned from reasoning_llm: {strategy}, using fallback")
+                raise TypeError("strategy must be a dictionary")
 
             return {
                 "channels": strategy.get("channels", [self.primary_channel]),
@@ -383,9 +476,17 @@ class SnakeRavanaCommunicator:
                 "escalation": strategy.get("escalation", False)
             }
 
-        except Exception as e:
-            logger.error(f"Error planning communication strategy: {e}")
+        except (AttributeError, TypeError) as e:
+            logger.error(f"Strategy planning failed due to LLM configuration: {e}")
             # Fallback strategy
+            return {
+                "channels": [self.primary_channel, "logging"],
+                "retry_count": 1,
+                "escalation": message.priority in [Priority.HIGH, Priority.CRITICAL]
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error planning communication strategy: {e}")
+            # General fallback strategy
             return {
                 "channels": [self.primary_channel, "logging"],
                 "retry_count": 1,
@@ -394,33 +495,61 @@ class SnakeRavanaCommunicator:
 
     async def _send_via_channels(self, message: CommunicationMessage,
                                  strategy: Dict[str, Any]) -> bool:
-        """Send message via specified channels"""
+        """Send message via specified channels
+        
+        Args:
+            message: The message to send
+            strategy: Strategy dictionary with channels, retry count, etc.
+            
+        Returns:
+            bool: True if at least one channel successfully sent the message
+        """
         channels_to_use = strategy.get("channels", [self.primary_channel])
         retry_count = strategy.get("retry_count", 1)
+
+        if not channels_to_use:
+            logger.warning("No channels specified in strategy, using primary channel")
+            channels_to_use = [self.primary_channel]
 
         success_count = 0
 
         for channel_name in channels_to_use:
-            if channel_name in self.channels:
-                channel = self.channels[channel_name]
+            if channel_name not in self.channels:
+                logger.error(f"Channel {channel_name} not available, skipping")
+                continue
 
-                for attempt in range(retry_count):
-                    try:
-                        if await channel.send_message(message):
-                            success_count += 1
-                            break
-                        else:
-                            logger.warning(
-                                f"Failed to send via {channel_name}, attempt {attempt + 1}")
+            channel = self.channels[channel_name]
+
+            for attempt in range(retry_count):
+                try:
+                    send_result = await channel.send_message(message)
+                    if send_result:
+                        success_count += 1
+                        logger.info(f"Successfully sent message via {channel_name} on attempt {attempt + 1}")
+                        break
+                    else:
+                        logger.warning(
+                            f"Failed to send via {channel_name}, attempt {attempt + 1}")
+                        if attempt < retry_count - 1:  # Don't sleep after the last attempt
                             await asyncio.sleep(1)
-                    except Exception as e:
-                        logger.error(f"Error sending via {channel_name}: {e}")
+                except asyncio.TimeoutError:
+                    logger.error(f"Timeout sending via {channel_name}, attempt {attempt + 1}")
+                except Exception as e:
+                    logger.error(f"Unexpected error sending via {channel_name}: {e}")
+                    logger.exception("Full traceback:")  # Log the full stack trace
 
         # Consider successful if at least one channel worked
         return success_count > 0
 
     async def check_for_responses(self) -> List[CommunicationMessage]:
-        """Check for responses from RAVANA"""
+        """Check for responses from RAVANA
+        
+        This method polls all available communication channels to check for
+        responses to previously sent messages.
+        
+        Returns:
+            List[CommunicationMessage]: List of received response messages
+        """
         responses = []
 
         try:
@@ -486,7 +615,16 @@ class SnakeRavanaCommunicator:
         await self.channels["logging"].send_message(timeout_message)
 
     def get_communication_status(self) -> Dict[str, Any]:
-        """Get current communication status"""
+        """Get current communication status
+        
+        Returns:
+            Dict[str, Any]: Dictionary containing communication status with keys:
+                - pending_responses: Number of messages waiting for responses
+                - pending_message_ids: List of IDs of messages waiting for responses
+                - available_channels: List of available communication channels
+                - primary_channel: Current primary communication channel
+                - message_count: Total number of messages sent
+        """
         return {
             "pending_responses": len(self.pending_responses),
             "pending_message_ids": list(self.pending_responses.keys()),

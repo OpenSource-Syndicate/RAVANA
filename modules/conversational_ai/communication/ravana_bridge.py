@@ -577,3 +577,53 @@ class RAVANACommunicator:
         except Exception as e:
             if not self._shutdown.is_set():
                 logger.error(f"Error handling thought exchange message: {e}")
+
+    def send_learning_experience_to_ravana(self, learning_experience: Dict[str, Any]):
+        """
+        Send a learning experience from user interaction to RAVANA for processing.
+        
+        Args:
+            learning_experience: Learning experience data to send
+        """
+        try:
+            message = CommunicationMessage(
+                id=str(uuid.uuid4()),
+                type=CommunicationType.LEARNING_EXPERIENCE,
+                payload=learning_experience,
+                priority=Priority.MEDIUM,
+                timestamp=datetime.now().isoformat(),
+                source="conversational_ai",
+                destination="ravana_core"
+            )
+            
+            # Send message through message queue channel
+            self.message_queue_channel.send_message(message)
+            logger.info(f"Sent learning experience to RAVANA: {learning_experience.get('experience_id', 'unknown')}")
+            
+        except Exception as e:
+            logger.error(f"Error sending learning experience to RAVANA: {e}")
+
+    def send_improvement_opportunities_to_ravana(self, improvement_data: Dict[str, Any]):
+        """
+        Send improvement opportunities extracted from interactions to RAVANA.
+        
+        Args:
+            improvement_data: Improvement opportunity data to send
+        """
+        try:
+            message = CommunicationMessage(
+                id=str(uuid.uuid4()),
+                type=CommunicationType.IMPROVEMENT_OPPORTUNITY,
+                payload=improvement_data,
+                priority=Priority.HIGH if any(op.get('priority') == 'high' for op in improvement_data.get('opportunities', [])) else Priority.MEDIUM,
+                timestamp=datetime.now().isoformat(),
+                source="conversational_ai",
+                destination="ravana_core"
+            )
+            
+            # Send message through message queue channel
+            self.message_queue_channel.send_message(message)
+            logger.info(f"Sent improvement opportunities to RAVANA: {len(improvement_data.get('opportunities', []))} opportunities")
+            
+        except Exception as e:
+            logger.error(f"Error sending improvement opportunities to RAVANA: {e}")

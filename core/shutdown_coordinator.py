@@ -11,7 +11,7 @@ import json
 import pickle
 import tempfile
 from typing import Dict, List, Any, Optional, Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from enum import Enum
 
@@ -173,15 +173,16 @@ class ShutdownCoordinator:
         self.shutdown_start_time = datetime.utcnow()
 
         logger.info(f"🛑 Initiating graceful shutdown - Reason: {reason}")
+        config = Config()
         logger.info(
-            f"📋 Shutdown timeout: {Config.SHUTDOWN_TIMEOUT}s, Force timeout: {Config.FORCE_SHUTDOWN_AFTER}s")
+            f"📋 Shutdown timeout: {config.SHUTDOWN_TIMEOUT}s, Force timeout: {config.FORCE_SHUTDOWN_AFTER}s")
 
         self.shutdown_state.update({
             "reason": reason,
             "start_time": self.shutdown_start_time.isoformat(),
             "timeout_config": {
-                "graceful_timeout": Config.SHUTDOWN_TIMEOUT,
-                "force_timeout": Config.FORCE_SHUTDOWN_AFTER
+                "graceful_timeout": config.SHUTDOWN_TIMEOUT,
+                "force_timeout": config.FORCE_SHUTDOWN_AFTER
             }
         })
 
@@ -189,13 +190,13 @@ class ShutdownCoordinator:
             # Start shutdown with timeout
             await asyncio.wait_for(
                 self._execute_shutdown_phases(),
-                timeout=Config.FORCE_SHUTDOWN_AFTER
+                timeout=config.FORCE_SHUTDOWN_AFTER
             )
             logger.info("✅ Graceful shutdown completed successfully")
 
         except asyncio.TimeoutError:
             logger.error(
-                f"⚠️  Graceful shutdown exceeded {Config.FORCE_SHUTDOWN_AFTER}s timeout, forcing shutdown")
+                f"⚠️  Graceful shutdown exceeded {config.FORCE_SHUTDOWN_AFTER}s timeout, forcing shutdown")
             await self._force_shutdown()
 
         except Exception as e:
@@ -323,6 +324,7 @@ class ShutdownCoordinator:
 
     async def _phase_stop_background_tasks(self):
         """Phase 3: Stop all background tasks."""
+        config = Config()
         if not self.agi_system or not self.agi_system.background_tasks:
             logger.info("No background tasks to stop")
             return
@@ -343,7 +345,7 @@ class ShutdownCoordinator:
                 # Wait for tasks to handle cancellation gracefully
                 await asyncio.wait_for(
                     asyncio.gather(*tasks_to_cancel, return_exceptions=True),
-                    timeout=Config.SHUTDOWN_TIMEOUT // 2
+                    timeout=config.SHUTDOWN_TIMEOUT // 2
                 )
                 # Filter out cancelled tasks for logging
                 completed_tasks = [
@@ -391,7 +393,7 @@ class ShutdownCoordinator:
 
         for handler in self.async_cleanup_handlers:
             try:
-                await asyncio.wait_for(handler(), timeout=Config.RESOURCE_CLEANUP_TIMEOUT)
+                await asyncio.wait_for(handler(), timeout=config.RESOURCE_CLEANUP_TIMEOUT)
                 logger.debug(
                     f"Executed async cleanup handler: {handler.__name__}")
             except asyncio.TimeoutError:
@@ -410,7 +412,8 @@ class ShutdownCoordinator:
                 logger.error(f"Error closing database session: {e}")
 
         # Clean up temporary files if enabled
-        if Config.TEMP_FILE_CLEANUP_ENABLED:
+        config = Config()
+        if config.TEMP_FILE_CLEANUP_ENABLED:
             await self._cleanup_temp_files()
 
     async def _phase_service_shutdown(self):
@@ -468,7 +471,8 @@ class ShutdownCoordinator:
 
     async def _phase_state_persistence(self):
         """Phase 6: Persist system state for recovery."""
-        if not Config.STATE_PERSISTENCE_ENABLED:
+        config = Config()
+        if not config.STATE_PERSISTENCE_ENABLED:
             logger.info("State persistence disabled")
             return
 
@@ -484,18 +488,20 @@ class ShutdownCoordinator:
                     logger.warning(
                         "State validation failed, saving anyway for recovery")
 
-            state_file = Path(Config.SHUTDOWN_STATE_FILE)
+            config = Config()
+            state_file = Path(config.SHUTDOWN_STATE_FILE)
             with open(state_file, 'w', encoding='utf-8') as f:
                 json.dump(state_data, f, indent=2, default=str)
 
             logger.info(f"System state saved to {state_file}")
 
             # Create backup if enabled
-            if getattr(Config, 'SHUTDOWN_BACKUP_ENABLED', True):
+            if getattr(config, 'SHUTDOWN_BACKUP_ENABLED', True):
                 await self._create_state_backup(state_data)
 
             # Also save action cache if enabled
-            if Config.ACTION_CACHE_PERSIST and hasattr(self.agi_system, 'action_manager'):
+            config = Config()
+            if config.ACTION_CACHE_PERSIST and hasattr(self.agi_system, 'action_manager'):
                 await self._save_action_cache()
 
         except Exception as e:
@@ -506,9 +512,10 @@ class ShutdownCoordinator:
         logger.info("Performing final validation...")
 
         # Validate state file integrity if enabled
-        if getattr(Config, 'SHUTDOWN_VALIDATION_ENABLED', True):
+        if getattr(Config, 'SHUTDOWN_VALIDATION_ENABLED', True):  # Using Config for this since it's in a conditional check
             try:
-                state_file = Path(Config.SHUTDOWN_STATE_FILE)
+                config = Config()
+                state_file = Path(config.SHUTDOWN_STATE_FILE)
                 if state_file.exists():
                     with open(state_file, 'r', encoding='utf-8') as f:
                         json.load(f)  # Try to parse JSON
@@ -517,7 +524,8 @@ class ShutdownCoordinator:
                 logger.warning(f"State file integrity validation failed: {e}")
 
         # Ensure ChromaDB persistence if enabled
-        if Config.CHROMADB_PERSIST_ON_SHUTDOWN:
+        config = Config()
+        if config.CHROMADB_PERSIST_ON_SHUTDOWN:
             try:
                 await self._persist_chromadb()
             except Exception as e:
@@ -811,7 +819,8 @@ async def load_previous_state() -> Optional[Dict[str, Any]]:
         Previous state data or None if not available
     """
     try:
-        state_file = Path(Config.SHUTDOWN_STATE_FILE)
+        config = Config()
+        state_file = Path(config.SHUTDOWN_STATE_FILE)
         if not state_file.exists():
             return None
 
@@ -829,7 +838,8 @@ async def load_previous_state() -> Optional[Dict[str, Any]]:
 def cleanup_state_file():
     """Clean up the state file after successful recovery."""
     try:
-        state_file = Path(Config.SHUTDOWN_STATE_FILE)
+        config = Config()
+        state_file = Path(config.SHUTDOWN_STATE_FILE)
         if state_file.exists():
             state_file.unlink()
             logger.info("Previous state file cleaned up")

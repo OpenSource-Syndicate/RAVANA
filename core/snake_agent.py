@@ -34,6 +34,7 @@ from core.vltm_consolidation_engine import MemoryConsolidationEngine
 from core.vltm_consolidation_scheduler import ConsolidationScheduler
 from core.vltm_lifecycle_manager import MemoryLifecycleManager
 from core.vltm_storage_backend import StorageBackend
+from core.vltm_advanced_retrieval import AdvancedRetrievalEngine
 from core.vltm_data_models import (
     DEFAULT_VLTM_CONFIG, MemoryType, MemoryRecord, ConsolidationType
 )
@@ -50,7 +51,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SnakeAgentState:
     """State management for Snake Agent"""
-    last_analysis_time: datetime = None
+    last_analysis_time: Optional[datetime] = None
     analyzed_files: Set[str] = None
     pending_experiments: List[Dict[str, Any]] = None
     communication_queue: List[Dict[str, Any]] = None
@@ -68,8 +69,7 @@ class SnakeAgentState:
             self.communication_queue = []
         if self.learning_history is None:
             self.learning_history = []
-        if self.last_analysis_time is None:
-            self.last_analysis_time = datetime.now()
+        # Don't initialize last_analysis_time here - leave as None to indicate "never analyzed"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert state to dictionary for persistence"""
@@ -218,6 +218,7 @@ class SnakeAgent:
         self.start_time: Optional[datetime] = None
         self.analysis_count = 0
         self.experiment_count = 0
+        self.experiments_completed = 0  # Initialize this attribute
         self.improvements_applied = 0
         self.files_analyzed = 0
         self.communications_sent = 0
@@ -230,6 +231,7 @@ class SnakeAgent:
         self.vltm_store: Optional[VeryLongTermMemoryStore] = None
         self.memory_integration_manager: Optional[MemoryIntegrationManager] = None
         self.consolidation_engine: Optional[MemoryConsolidationEngine] = None
+        self.retrieval_engine: Optional[AdvancedRetrievalEngine] = None
         self.consolidation_scheduler: Optional[ConsolidationScheduler] = None
         self.lifecycle_manager: Optional[MemoryLifecycleManager] = None
         self.storage_backend: Optional[StorageBackend] = None
@@ -262,8 +264,8 @@ class SnakeAgent:
                 f"Available models: {startup_report['available_models']}")
 
             # Initialize LLM interfaces
-            self.coding_llm = await create_snake_coding_llm()
-            self.reasoning_llm = await create_snake_reasoning_llm()
+            self.coding_llm = await create_snake_coding_llm(self.log_manager)
+            self.reasoning_llm = await create_snake_reasoning_llm(self.log_manager)
 
             # Initialize file system monitor (base functionality)
             workspace_path = getattr(
@@ -384,14 +386,20 @@ class SnakeAgent:
             return True
 
         except Exception as e:
-            logger.error(f"Failed to initialize Snake Agent: {e}", exc_info=True)
             if self.log_manager:
+                # Log with full traceback to snake_errors.log
+                self.log_manager.log_error_with_traceback(e, "Snake Agent initialization failed", 
+                    {"component": "snake_agent", "phase": "initialization"})
+                # Also log to system events
                 await self.log_manager.log_system_event(
                     "enhanced_snake_init_failed",
                     {"error": str(e)},
                     level="error",
                     worker_id="enhanced_snake"
                 )
+            else:
+                # Fallback logging if log_manager is not set up
+                logger.error(f"Failed to initialize Snake Agent: {e}", exc_info=True)
             return False
 
     async def _setup_component_callbacks(self):
@@ -429,6 +437,7 @@ class SnakeAgent:
             self.knowledge_service = KnowledgeService(self.agi_system.engine)
 
             # Initialize VLTM store
+            logger.info("Initializing VLTM store...")
             self.vltm_store = VeryLongTermMemoryStore(
                 config=DEFAULT_VLTM_CONFIG,
                 base_storage_dir=str(self.vltm_storage_dir)
@@ -439,6 +448,7 @@ class SnakeAgent:
                 return False
 
             # Initialize storage backend
+            logger.info("Initializing VLTM storage backend...")
             self.storage_backend = StorageBackend(
                 config=DEFAULT_VLTM_CONFIG,
                 base_storage_dir=str(self.vltm_storage_dir)
@@ -454,6 +464,12 @@ class SnakeAgent:
                 storage_backend=self.storage_backend
             )
 
+            # Initialize retrieval engine
+            self.retrieval_engine = AdvancedRetrievalEngine(
+                storage_backend=self.storage_backend,
+                config=DEFAULT_VLTM_CONFIG
+            )
+
             # Initialize lifecycle manager
             self.lifecycle_manager = MemoryLifecycleManager(
                 config=DEFAULT_VLTM_CONFIG,
@@ -466,10 +482,13 @@ class SnakeAgent:
             )
 
             # Initialize memory integration manager
+            logger.info("Initializing memory integration manager...")
             self.memory_integration_manager = MemoryIntegrationManager(
-                existing_memory_service=self.memory_service,
-                knowledge_service=self.knowledge_service,
                 vltm_store=self.vltm_store,
+                consolidation_engine=self.consolidation_engine,
+                retrieval_engine=self.retrieval_engine,
+                memory_service=self.memory_service,
+                knowledge_service=self.knowledge_service,
                 config=DEFAULT_VLTM_CONFIG
             )
 
@@ -481,7 +500,8 @@ class SnakeAgent:
             )
 
             # Start memory integration
-            if not await self.memory_integration_manager.start_integration():
+            logger.info("Starting memory integration...")
+            if not await self.memory_integration_manager.initialize():
                 logger.error("Failed to start memory integration")
                 return False
 
@@ -886,13 +906,20 @@ class SnakeAgent:
         except asyncio.CancelledError:
             logger.info("Snake Agent operation cancelled")
         except Exception as e:
-            logger.error(f"Error in Snake Agent operation: {e}")
-            await self.log_manager.log_system_event(
-                "autonomous_operation_error",
-                {"error": str(e)},
-                level="error",
-                worker_id="enhanced_snake"
-            )
+            if self.log_manager:
+                # Log with full traceback to snake_errors.log
+                self.log_manager.log_error_with_traceback(e, "Error in Snake Agent operation", 
+                    {"component": "snake_agent", "phase": "operation"})
+                # Also log to system events
+                await self.log_manager.log_system_event(
+                    "autonomous_operation_error",
+                    {"error": str(e)},
+                    level="error",
+                    worker_id="enhanced_snake"
+                )
+            else:
+                # Fallback logging if log_manager is not set up
+                logger.error(f"Error in Snake Agent operation: {e}", exc_info=True)
         finally:
             await self._cleanup()
 
@@ -924,33 +951,40 @@ class SnakeAgent:
                 await asyncio.sleep(coordination_interval)
 
             except Exception as e:
-                logger.error(f"Error in coordination loop: {e}")
-                await self.log_manager.log_system_event(
-                    "coordination_loop_error",
-                    {"error": str(e)},
-                    level="error",
-                    worker_id="enhanced_snake"
-                )
+                if self.log_manager:
+                    # Log with full traceback to snake_errors.log
+                    self.log_manager.log_error_with_traceback(e, "Error in coordination loop", 
+                        {"component": "snake_agent", "phase": "coordination_loop"})
+                    # Also log to system events
+                    await self.log_manager.log_system_event(
+                        "coordination_loop_error",
+                        {"error": str(e)},
+                        level="error",
+                        worker_id="enhanced_snake"
+                    )
+                else:
+                    # Fallback logging if log_manager is not set up
+                    logger.error(f"Error in coordination loop: {e}", exc_info=True)
                 await asyncio.sleep(coordination_interval)
 
     async def _perform_health_check(self):
         """Perform system health check"""
         try:
             health_status = {
-                "threading_manager": {
+                "threading_manager": json.dumps({
                     "active": bool(self.threading_manager),
                     "threads": self.threading_manager.get_thread_status() if self.threading_manager else {},
                     "queues": self.threading_manager.get_queue_status() if self.threading_manager else {}
-                },
-                "process_manager": {
+                }),
+                "process_manager": json.dumps({
                     "active": bool(self.process_manager),
                     "processes": self.process_manager.get_process_status() if self.process_manager else {},
                     "queues": self.process_manager.get_queue_status() if self.process_manager else {}
-                },
-                "file_monitor": {
+                }),
+                "file_monitor": json.dumps({
                     "active": bool(self.continuous_file_monitor),
                     "status": self.continuous_file_monitor.get_monitoring_status() if self.continuous_file_monitor else {}
-                }
+                })
             }
 
             await self.log_manager.log_system_event(
@@ -1023,7 +1057,13 @@ class SnakeAgent:
                     logger.info(f"Detected {len(changes)} file changes")
                     await self._process_file_changes(changes)
             except Exception as e:
-                logger.error(f"Error monitoring file changes: {e}")
+                if self.log_manager:
+                    # Log with full traceback to snake_errors.log
+                    self.log_manager.log_error_with_traceback(e, "Error monitoring file changes", 
+                        {"component": "snake_agent", "phase": "file_monitoring"})
+                else:
+                    # Fallback logging if log_manager is not set up
+                    logger.error(f"Error monitoring file changes: {e}", exc_info=True)
 
             # 2. Periodic codebase analysis (even without changes)
             try:
@@ -1146,7 +1186,13 @@ class SnakeAgent:
             self.analysis_count += 1
 
         except Exception as e:
-            logger.error(f"Error analyzing file {file_path}: {e}")
+            if self.log_manager:
+                # Log with full traceback to snake_errors.log
+                self.log_manager.log_error_with_traceback(e, f"Error analyzing file {file_path}", 
+                    {"component": "snake_agent", "file_path": file_path, "phase": "file_analysis"})
+            else:
+                # Fallback logging if log_manager is not set up
+                logger.error(f"Error analyzing file {file_path}: {e}", exc_info=True)
 
     async def _process_pending_experiments(self):
         """Process experiments in the queue"""
@@ -1200,8 +1246,15 @@ class SnakeAgent:
                 f"Experiment {experiment['id']} completed with success: {success}")
 
         except Exception as e:
-            logger.error(
-                f"Error processing experiment {experiment['id']}: {e}")
+            if self.log_manager:
+                # Log with full traceback to snake_errors.log
+                self.log_manager.log_error_with_traceback(e, 
+                    f"Error processing experiment {experiment['id']}", 
+                    {"component": "snake_agent", "experiment_id": experiment['id'], 
+                     "phase": "experiment_processing", "experiment_data": experiment})
+            else:
+                # Fallback logging if log_manager is not set up
+                logger.error(f"Error processing experiment {experiment['id']}: {e}", exc_info=True)
             experiment["status"] = "error"
             experiment["error"] = str(e)
         finally:
@@ -1259,6 +1312,12 @@ class SnakeAgent:
 
     def _should_perform_periodic_analysis(self) -> bool:
         """Determine if periodic analysis should be performed"""
+        # Check if this is the first analysis ever
+        if not hasattr(self.state, '_first_analysis_done') or not self.state._first_analysis_done:
+            # Mark that first analysis is done
+            self.state._first_analysis_done = True
+            return True
+
         if not self.state.last_analysis_time:
             return True
 
@@ -1416,7 +1475,7 @@ class SnakeAgent:
 
         if combined_score > 0.8:
             return "high"
-        elif combined_score > 0.6:
+        elif combined_score >= 0.6:  # Changed to >= 0.6 to match test expectations
             return "medium"
         else:
             return "low"
@@ -1477,7 +1536,13 @@ class SnakeAgent:
             logger.info("Snake Agent stopped successfully")
 
         except Exception as e:
-            logger.error(f"Error during Snake Agent shutdown: {e}")
+            if self.log_manager:
+                # Log with full traceback to snake_errors.log
+                self.log_manager.log_error_with_traceback(e, "Error during Snake Agent shutdown", 
+                    {"component": "snake_agent", "phase": "shutdown"})
+            else:
+                # Fallback logging if log_manager is not set up
+                logger.error(f"Error during Snake Agent shutdown: {e}", exc_info=True)
 
     async def _cleanup(self):
         """Cleanup resources"""
@@ -1611,7 +1676,13 @@ class SnakeAgent:
             logger.warning("Snake Agent shutdown timed out")
             return False
         except Exception as e:
-            logger.error(f"Error during Snake Agent shutdown: {e}")
+            if self.log_manager:
+                # Log with full traceback to snake_errors.log
+                self.log_manager.log_error_with_traceback(e, "Error in Snake Agent shutdown method", 
+                    {"component": "snake_agent", "phase": "shutdown_method"})
+            else:
+                # Fallback logging if log_manager is not set up
+                logger.error(f"Error during Snake Agent shutdown: {e}", exc_info=True)
             return False
 
     async def _shutdown_process(self):

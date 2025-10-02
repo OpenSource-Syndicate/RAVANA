@@ -507,22 +507,28 @@ Provide complete, executable code with:
 
         return prompt
 
-    def validate_prompt(self, prompt: str) -> bool:
-        """Validate a prompt for quality and safety."""
+    def validate_prompt(self, prompt: str, require_sections: bool = False) -> bool:
+        """Validate a prompt for quality and safety.
+        
+        Args:
+            prompt: The prompt to validate
+            require_sections: Whether to require standard sections like [ROLE DEFINITION], etc.
+        """
         # Check for minimum length
         if len(prompt) < 10:
             logger.warning("Prompt is unusually short")
             return False
 
-        # Check for required sections
-        required_sections = ["[ROLE DEFINITION]",
-                             "[CONTEXT]", "[TASK INSTRUCTIONS]"]
-        missing_sections = [
-            section for section in required_sections if section not in prompt]
-        if missing_sections:
-            logger.warning(
-                f"Prompt missing required sections: {missing_sections}")
-            return False
+        # Check for required sections only if explicitly required
+        if require_sections:
+            required_sections = ["[ROLE DEFINITION]",
+                                 "[CONTEXT]", "[TASK INSTRUCTIONS]"]
+            missing_sections = [
+                section for section in required_sections if section not in prompt]
+            if missing_sections:
+                logger.warning(
+                    f"Prompt missing required sections: {missing_sections}")
+                return False
 
         return True
 

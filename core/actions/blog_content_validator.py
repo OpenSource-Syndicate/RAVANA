@@ -34,9 +34,10 @@ class BlogContentValidator:
     """
 
     def __init__(self):
-        self.min_length = Config.BLOG_MIN_CONTENT_LENGTH
-        self.max_length = Config.BLOG_MAX_CONTENT_LENGTH
-        self.max_tags = Config.BLOG_MAX_TAGS
+        config = Config()
+        self.min_length = config.BLOG_MIN_CONTENT_LENGTH
+        self.max_length = config.BLOG_MAX_CONTENT_LENGTH
+        self.max_tags = config.BLOG_MAX_TAGS
 
         # Security patterns to detect potentially harmful content
         self.security_patterns = [

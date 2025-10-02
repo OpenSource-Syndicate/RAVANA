@@ -70,12 +70,13 @@ class BlogAPIInterface:
     """
 
     def __init__(self):
-        self.api_url = Config.BLOG_API_URL
-        self.auth_token = Config.BLOG_AUTH_TOKEN
-        self.timeout = Config.BLOG_TIMEOUT_SECONDS
-        self.retry_attempts = Config.BLOG_RETRY_ATTEMPTS
-        self.backoff_factor = Config.BLOG_RETRY_BACKOFF_FACTOR
-        self.max_retry_delay = Config.BLOG_MAX_RETRY_DELAY
+        config = Config()
+        self.api_url = config.BLOG_API_URL
+        self.auth_token = config.BLOG_AUTH_TOKEN
+        self.timeout = config.BLOG_TIMEOUT_SECONDS
+        self.retry_attempts = config.BLOG_RETRY_ATTEMPTS
+        self.backoff_factor = config.BLOG_RETRY_BACKOFF_FACTOR
+        self.max_retry_delay = config.BLOG_MAX_RETRY_DELAY
         self.circuit_breaker = CircuitBreaker()
         self.rate_limit_reset = None
 
@@ -275,7 +276,8 @@ class BlogAPIInterface:
         Returns:
             True if configuration is valid, False otherwise
         """
-        if not Config.BLOG_ENABLED:
+        config = Config()
+        if not config.BLOG_ENABLED:
             logger.info("Blog integration is disabled")
             return False
 

@@ -206,6 +206,11 @@ Just send me a message and I'll respond!
         try:
             logger.info("Initializing Telegram bot application...")
             await self.application.initialize()
+            
+            # Access the bot instance to ensure it's properly initialized before starting
+            bot_info = await self.application.bot.get_me()
+            logger.info(f"Bot initialized successfully: @{bot_info.username}")
+            
             logger.info("Starting Telegram bot application...")
             await self.application.start()
             logger.info("Starting Telegram bot updater...")
@@ -220,6 +225,10 @@ Just send me a message and I'll respond!
                 await asyncio.sleep(1)
 
         except Exception as e:
+            # Log the initial values for debugging
+            logger.error(f"Error in Telegram bot start: {e}")
+            if hasattr(self.application, 'bot'):
+                logger.error(f"Bot exists: {self.application.bot is not None}")
             self._started = False  # Reset on error
             self.connected = False
             self._running = False

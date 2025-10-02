@@ -2,18 +2,18 @@ import asyncio
 import logging
 import random
 import json
+import time
 from typing import Any, Dict, List
 from transformers import pipeline
 from core.embeddings_manager import embeddings_manager, ModelPurpose
 from core.llm_selector import initialize_llm_selector
 from core.enhanced_memory_service import enhanced_memory_service, MemoryType
 from sqlmodel import Session, select
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from core.llm import decision_maker_loop
 from core.shutdown_coordinator import ShutdownCoordinator, ShutdownPriority, load_previous_state, cleanup_state_file
 from modules.reflection_module import ReflectionModule
-from modules.experimentation import ExperimentationModule
 from modules.situation_generator.situation_generator import SituationGenerator
 from modules.emotional_intellegence.emotional_intellegence import EmotionalIntelligence
 from modules.curiosity_trigger.curiosity_trigger import CuriosityTrigger
@@ -30,6 +30,8 @@ from modules.adaptive_learning.learning_engine import AdaptiveLearningEngine
 from services.multi_modal_service import MultiModalService
 from database.models import Event
 from modules.decision_engine.search_result_manager import search_result_manager
+from modules.performance_monitoring.performance_tracker import performance_tracker
+from modules.self_improvement.self_goal_manager import self_goal_manager, GoalStatus, GoalPriority
 
 # Import autonomous blog scheduler
 try:
@@ -71,10 +73,23 @@ class AGISystem:
         # Use enhanced memory service
         self.memory_service = enhanced_memory_service
 
+        # Initialize cognitive architecture components
+        self.cognitive_architecture = self._initialize_cognitive_architecture()
+        
+        # Initialize advanced reasoning engine
+        from core.reasoning_engine import ReasoningEngine, ReasoningType
+        self.reasoning_engine = ReasoningEngine(self.memory_service)
+        
+        # Initialize self-reflection and self-modification capabilities
+        from core.self_reflection_module import SelfReflectionModule, SelfModificationModule
+        self.self_reflection = SelfReflectionModule(self)
+        self.self_modification = SelfModificationModule(self)
+        
         # Initialize services
+        config = Config()
         self.data_service = DataService(
             engine,
-            Config.FEED_URLS,
+            config.FEED_URLS,
             self.embedding_model,
             self.sentiment_classifier
         )
@@ -100,6 +115,7 @@ class AGISystem:
             blog_scheduler=self.blog_scheduler)  # Enhanced with blog integration
         self.reflection_module = ReflectionModule(
             self, blog_scheduler=self.blog_scheduler)
+        from modules.experimentation_module import ExperimentationModule
         self.experimentation_module = ExperimentationModule(
             self, blog_scheduler=self.blog_scheduler)
         self.experimentation_engine = AGIExperimentationEngine(
@@ -116,18 +132,31 @@ class AGISystem:
         self.multi_modal_service = MultiModalService()
 
         # Initialize personality
+        config = Config()
         self.personality = Personality(
-            name=Config.PERSONA_NAME,
-            origin=Config.PERSONA_ORIGIN,
-            creativity=Config.PERSONA_CREATIVITY
+            name=config.PERSONA_NAME,
+            origin=config.PERSONA_ORIGIN,
+            creativity=config.PERSONA_CREATIVITY
         )
+        
+        # Track personality consistency
+        self.personality_consistency_tracker = self.personality.get_personality_consistency_report()
+        
+        # Initialize error recovery manager
+        from core.error_recovery.error_recovery_manager import initialize_error_recovery_manager
+        self.error_recovery_manager = None  # Will be initialized in initialize_components
+        
+        # Initialize resource manager
+        from core.resource_management.resource_manager import initialize_resource_manager
+        self.resource_manager = None  # Will be initialized in initialize_components
 
         # Initialize Snake Agent if enabled (Enhanced Version)
         self.snake_agent = None
-        if Config.SNAKE_AGENT_ENABLED:
+        config = Config()
+        if config.SNAKE_AGENT_ENABLED:
             try:
                 # Try enhanced version first, fall back to original if needed
-                enhanced_mode = getattr(Config, 'SNAKE_ENHANCED_MODE', True)
+                enhanced_mode = getattr(config, 'SNAKE_ENHANCED_MODE', True)
                 if enhanced_mode:
                     from core.snake_agent_enhanced import EnhancedSnakeAgent
                     self.snake_agent = EnhancedSnakeAgent(self)
@@ -153,7 +182,8 @@ class AGISystem:
         self.conversational_ai_thread = None
         # Track if Conversational AI has been started to prevent multiple instances
         self._conversational_ai_started = False
-        if Config.CONVERSATIONAL_AI_ENABLED and CONVERSATIONAL_AI_AVAILABLE:
+        config = Config()
+        if config.CONVERSATIONAL_AI_ENABLED and CONVERSATIONAL_AI_AVAILABLE:
             try:
                 self.conversational_ai = ConversationalAI()
                 logger.info("Conversational AI module initialized")
@@ -170,6 +200,12 @@ class AGISystem:
         self._shutdown = asyncio.Event()
         self.background_tasks = []
         self.shutdown_coordinator = ShutdownCoordinator(self)
+        
+        # Performance monitoring
+        self.performance_tracker = performance_tracker
+        
+        # Self-goal management
+        self.self_goal_manager = self_goal_manager
 
         # Register cleanup handlers
         self.shutdown_coordinator.register_cleanup_handler(
@@ -227,8 +263,28 @@ class AGISystem:
         # Invention tracking
         self.invention_history = []
 
-        # Load previous state if available
-        asyncio.create_task(self._load_previous_state())
+        # Load previous state if available - handle case where there's no running event loop (e.g. during tests)
+        try:
+            asyncio.create_task(self._load_previous_state())
+        except RuntimeError:
+            # If there's no running event loop, schedule the task for later when one becomes available
+            logger.warning("No running event loop found, scheduling _load_previous_state for later execution")
+            # This will be handled by the main loop when the system starts
+            pass
+        
+        # Load self-goals if available - with same loop protection
+        try:
+            asyncio.create_task(self.self_goal_manager.load_goals())
+        except RuntimeError:
+            logger.warning("No running event loop found, scheduling self_goal_manager.load_goals for later execution")
+            pass
+        
+        # Initialize goal setting - with same loop protection
+        try:
+            asyncio.create_task(self._initiate_goal_setting())
+        except RuntimeError:
+            logger.warning("No running event loop found, scheduling _initiate_goal_setting for later execution")
+            pass
 
     async def _check_for_search_results(self):
         """Enhanced search result processing with better error handling."""
@@ -294,9 +350,16 @@ class AGISystem:
             ("Knowledge Service", self._initialize_knowledge_service),
             ("Memory Service", self._initialize_memory_service),
             ("Blog Scheduler", self._initialize_blog_scheduler),
+            ("Cognitive Architecture", self._initialize_cognitive_architecture),
+            ("Reasoning Engine", self._initialize_reasoning_engine),
+            ("Self-Reflection Module", self._initialize_self_reflection_module),
+            ("Self-Modification Module", self._initialize_self_modification_module),
+            ("Experimentation Module", self._initialize_experimentation_module),
             ("Modules", self._initialize_modules),
             ("Action Manager", self._initialize_action_manager),
             ("Personality", self._initialize_personality),
+            ("Error Recovery Manager", self._initialize_error_recovery_manager),
+            ("Resource Manager", self._initialize_resource_manager),
             ("Snake Agent", self._initialize_snake_agent),
             ("Conversational AI", self._initialize_conversational_ai),
             ("Shutdown Coordinator", self._initialize_shutdown_coordinator)
@@ -373,9 +436,10 @@ class AGISystem:
     def _initialize_data_service(self):
         """Initialize data service."""
         try:
+            config = Config()
             self.data_service = DataService(
                 self.engine,
-                Config.FEED_URLS,
+                config.FEED_URLS,
                 self.embedding_model,
                 self.sentiment_classifier
             )
@@ -450,10 +514,11 @@ class AGISystem:
     def _initialize_personality(self):
         """Initialize personality."""
         try:
+            config = Config()
             self.personality = Personality(
-                name=Config.PERSONA_NAME,
-                origin=Config.PERSONA_ORIGIN,
-                creativity=Config.PERSONA_CREATIVITY
+                name=config.PERSONA_NAME,
+                origin=config.PERSONA_ORIGIN,
+                creativity=config.PERSONA_CREATIVITY
             )
             logger.info("Personality initialized")
         except Exception as e:
@@ -463,8 +528,9 @@ class AGISystem:
     def _initialize_snake_agent(self):
         """Initialize Snake Agent with better error handling."""
         try:
+            config = Config()
             self.snake_agent = None
-            if Config.SNAKE_AGENT_ENABLED:
+            if config.SNAKE_AGENT_ENABLED:
                 try:
                     # Try enhanced version first, fall back to original if needed
                     enhanced_mode = getattr(
@@ -500,7 +566,8 @@ class AGISystem:
         try:
             self.conversational_ai = None
             self.conversational_ai_thread = None
-            if Config.CONVERSATIONAL_AI_ENABLED and CONVERSATIONAL_AI_AVAILABLE:
+            config = Config()
+            if config.CONVERSATIONAL_AI_ENABLED and CONVERSATIONAL_AI_AVAILABLE:
                 try:
                     # Initialize Conversational AI with standalone=False since it will run in the main system
                     self.conversational_ai = ConversationalAI()
@@ -535,10 +602,288 @@ class AGISystem:
             if self.conversational_ai:
                 self.shutdown_coordinator.register_cleanup_handler(
                     self._cleanup_conversational_ai, is_async=False)
-
+            
             logger.info("Shutdown coordinator initialized")
         except Exception as e:
             logger.error(f"Failed to initialize shutdown coordinator: {e}")
+            raise
+
+    async def _initialize_error_recovery_manager(self):
+        """Initialize error recovery manager."""
+        try:
+            from core.error_recovery.error_recovery_manager import initialize_error_recovery_manager
+            self.error_recovery_manager = await initialize_error_recovery_manager(self)
+            logger.info("Error recovery manager initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize error recovery manager: {e}")
+            raise
+
+    async def _initialize_resource_manager(self):
+        """Initialize resource manager."""
+        try:
+            from core.resource_management.resource_manager import initialize_resource_manager
+            self.resource_manager = await initialize_resource_manager(self)
+            logger.info("Resource manager initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize resource manager: {e}")
+            raise
+
+    def _initialize_cognitive_architecture(self):
+        """Initialize cognitive architecture components for the AGI system."""
+        try:
+            # Initialize cognitive control systems
+            self.cognitive_control = {
+                'attention': {
+                    'focus_level': 0.5,
+                    'attention_spans': [],  # Tracks current focus areas
+                    'distraction_filter': 0.7,  # How well it filters distractions
+                    'salience_threshold': 0.3,  # Minimum salience for attention
+                    'attention_shift_threshold': 0.1  # When to shift attention
+                },
+                'working_memory': {
+                    'capacity': 7,  # Theoretical capacity of working memory
+                    'active_items': [],
+                    'decay_rate': 0.1,  # How quickly items fade from working memory
+                    'rehearsal_rate': 0.3,  # Rate at which items are rehearsed to prevent decay
+                    'capacity_utilization': 0.0  # Current utilization of working memory
+                },
+                'executive_function': {
+                    'planning_horizon': 5,  # Number of steps it can plan ahead
+                    'inhibition': 0.8,  # Ability to inhibit impulsive responses
+                    'cognitive_flexibility': 0.6,  # Ability to switch between tasks/concepts
+                    'task_switching_cost': 0.2  # Cost of switching between tasks
+                }
+            }
+            
+            # Initialize metacognitive awareness
+            self.metacognitive_awareness = {
+                'confidence_tracking': [],  # Track confidence in decisions
+                'error_detection': 0.8,  # Ability to detect errors in reasoning
+                'uncertainty_quantification': 0.5,  # How well it assesses uncertainty
+                'knowledge_limited_awareness': True,  # Knows when knowledge is limited
+                'learning_progress_monitoring': True,  # Monitors learning effectiveness
+                'memory_reliability_assessment': 0.7  # Assesses reliability of retrieved memories
+            }
+            
+            # Initialize goal hierarchy system
+            self.goal_hierarchy = {
+                'top_level_goals': [],  # Long-term objectives (e.g., self-improvement)
+                'mid_level_goals': [],  # Medium-term objectives (e.g., learning new skills)
+                'task_level_goals': [],  # Immediate action goals
+                'goal_conflict_resolver': self._resolve_goal_conflicts,
+                'goal_interdependence_map': {},  # Maps dependencies between goals
+                'goal_progress_tracker': {}  # Tracks progress toward each goal
+            }
+            
+            # Initialize memory management for cognitive architecture
+            self.memory_manager = self._initialize_memory_manager()
+            
+            logger.info("Cognitive architecture initialized with attention, memory, and executive functions")
+            return self.cognitive_control
+        except Exception as e:
+            logger.error(f"Failed to initialize cognitive architecture: {e}")
+            # Return a basic structure even if initialization fails
+            return {
+                'attention': {'focus_level': 0.5, 'attention_spans': [], 'distraction_filter': 0.7},
+                'working_memory': {'capacity': 7, 'active_items': [], 'decay_rate': 0.1},
+                'executive_function': {'planning_horizon': 5, 'inhibition': 0.8, 'cognitive_flexibility': 0.6}
+            }
+
+    def _initialize_memory_manager(self):
+        """Initialize memory management for the cognitive architecture."""
+        try:
+            # Create a memory manager that interfaces with the cognitive architecture
+            memory_manager = {
+                'episodic_buffer': [],  # Current episode being processed
+                'semantic_retrieval_functions': self._create_semantic_retrieval_functions(),
+                'episodic_retrieval_functions': self._create_episodic_retrieval_functions(),
+                'memory_integration_threshold': 0.6,  # Similarity threshold for integration
+                'memory_consolidation_scheduler': self._schedule_memory_consolidation(),
+                'memory_tagging_system': self._initialize_memory_tagging()
+            }
+            
+            logger.info("Memory manager initialized for cognitive architecture")
+            return memory_manager
+        except Exception as e:
+            logger.error(f"Failed to initialize memory manager: {e}")
+            return {}
+
+    def _create_semantic_retrieval_functions(self):
+        """Create functions for semantic memory retrieval."""
+        async def retrieve_factual_knowledge(query: str, top_k: int = 5):
+            """Retrieve factual knowledge from semantic memory."""
+            try:
+                # Retrieve only semantic memories
+                semantic_memories = self.memory_service.get_memories_by_type(MemoryType.SEMANTIC)
+                if not semantic_memories:
+                    return []
+                
+                # Create a query embedding and find most relevant semantic memories
+                from core.embeddings_manager import embeddings_manager, ModelPurpose
+                query_embedding = embeddings_manager.get_embedding(query, purpose=ModelPurpose.SEMANTIC_SEARCH)
+                
+                # Calculate similarities
+                similarities = []
+                for memory in semantic_memories:
+                    memory_embedding = memory.embedding
+                    try:
+                        # Calculate cosine similarity
+                        dot_product = sum(a * b for a, b in zip(query_embedding, memory_embedding))
+                        norm_query = sum(a * a for a in query_embedding) ** 0.5
+                        norm_memory = sum(a * a for a in memory_embedding) ** 0.5
+                        
+                        if norm_query == 0 or norm_memory == 0:
+                            similarity = 0.0
+                        else:
+                            similarity = dot_product / (norm_query * norm_memory)
+                        
+                        similarities.append((memory, similarity))
+                    except Exception as e:
+                        logger.warning(f"Error calculating similarity for semantic memory {memory.id}: {e}")
+                        continue
+                
+                # Sort by similarity and return top_k
+                similarities.sort(key=lambda x: x[1], reverse=True)
+                return similarities[:top_k]
+            except Exception as e:
+                logger.error(f"Error retrieving semantic knowledge: {e}")
+                return []
+        
+        return {
+            'retrieve_factual_knowledge': retrieve_factual_knowledge
+        }
+
+    def _create_episodic_retrieval_functions(self):
+        """Create functions for episodic memory retrieval."""
+        async def retrieve_episodic_memories(context: str, top_k: int = 5):
+            """Retrieve relevant episodic memories based on context."""
+            try:
+                # Retrieve only episodic memories
+                episodic_memories = self.memory_service.get_memories_by_type(MemoryType.EPISODIC)
+                if not episodic_memories:
+                    return []
+                
+                # Create a query embedding and find most relevant episodic memories
+                from core.embeddings_manager import embeddings_manager, ModelPurpose
+                query_embedding = embeddings_manager.get_embedding(context, purpose=ModelPurpose.SEMANTIC_SEARCH)
+                
+                # Calculate similarities
+                similarities = []
+                for memory in episodic_memories:
+                    memory_embedding = memory.embedding
+                    try:
+                        # Calculate cosine similarity
+                        dot_product = sum(a * b for a, b in zip(query_embedding, memory_embedding))
+                        norm_query = sum(a * a for a in query_embedding) ** 0.5
+                        norm_memory = sum(a * a for a in memory_embedding) ** 0.5
+                        
+                        if norm_query == 0 or norm_memory == 0:
+                            similarity = 0.0
+                        else:
+                            similarity = dot_product / (norm_query * norm_memory)
+                        
+                        similarities.append((memory, similarity))
+                    except Exception as e:
+                        logger.warning(f"Error calculating similarity for episodic memory {memory.id}: {e}")
+                        continue
+                
+                # Sort by similarity and return top_k
+                similarities.sort(key=lambda x: x[1], reverse=True)
+                return similarities[:top_k]
+            except Exception as e:
+                logger.error(f"Error retrieving episodic memories: {e}")
+                return []
+        
+        return {
+            'retrieve_episodic_memories': retrieve_episodic_memories
+        }
+
+    def _schedule_memory_consolidation(self):
+        """Schedule memory consolidation tasks."""
+        import asyncio
+        
+        async def periodic_consolidation():
+            """Periodically consolidate memories."""
+            while not self._shutdown.is_set():
+                try:
+                    # Wait for consolidation interval
+                    await asyncio.sleep(7200)  # Every 2 hours
+                    
+                    # Perform memory consolidation
+                    consolidation_result = await self.memory_service.consolidate_old_memories()
+                    logger.info(f"Memory consolidation completed: {consolidation_result}")
+                except Exception as e:
+                    logger.error(f"Error during periodic memory consolidation: {e}")
+        
+        # Start the consolidation task in the background
+        consolidation_task = asyncio.create_task(periodic_consolidation())
+        self.background_tasks.append(consolidation_task)
+        
+        return consolidation_task
+
+    def _initialize_memory_tagging(self):
+        """Initialize memory tagging system."""
+        return {
+            'semantic_tags': set(),  # Tags for semantic memories
+            'episodic_tags': set(),  # Tags for episodic memories
+            'procedural_tags': set(),  # Tags for procedural memories
+            'auto_tagging_enabled': True,  # Whether auto-tagging is enabled
+            'tagging_rules': self._create_tagging_rules()  # Rules for automatic tagging
+        }
+
+    def _create_tagging_rules(self):
+        """Create rules for automatic memory tagging."""
+        return {
+            'topic_identification': ['science', 'technology', 'mathematics', 'physics', 'biology', 'chemistry'],
+            'task_identification': ['problem_solving', 'learning', 'decision_making', 'planning'],
+            'learning_identification': ['new_skill', 'concept_understanding', 'fact_learning'],
+            'emotional_identification': ['positive_experience', 'negative_experience', 'learning_experience']
+        }
+
+    def _resolve_goal_conflicts(self, goals):
+        """Resolve conflicts between competing goals based on priority and context."""
+        # Simple priority-based conflict resolution
+        # In a real implementation, this would be more sophisticated
+        return sorted(goals, key=lambda g: g.get('priority', 0), reverse=True)[:1]
+
+    def _initialize_reasoning_engine(self):
+        """Initialize advanced reasoning engine."""
+        try:
+            from core.reasoning_engine import ReasoningEngine
+            self.reasoning_engine = ReasoningEngine(self.memory_service)
+            logger.info("Reasoning engine initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize reasoning engine: {e}")
+            raise
+
+    def _initialize_self_reflection_module(self):
+        """Initialize self-reflection module."""
+        try:
+            from core.self_reflection_module import SelfReflectionModule
+            self.self_reflection = SelfReflectionModule(self)
+            logger.info("Self-reflection module initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize self-reflection module: {e}")
+            raise
+
+    def _initialize_self_modification_module(self):
+        """Initialize self-modification module."""
+        try:
+            from core.self_reflection_module import SelfModificationModule
+            self.self_modification = SelfModificationModule(self)
+            logger.info("Self-modification module initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize self-modification module: {e}")
+            raise
+
+    def _initialize_experimentation_module(self):
+        """Initialize experimentation module."""
+        try:
+            from modules.experimentation_module import ExperimentationModule
+            self.experimentation_module = ExperimentationModule(self, self.blog_scheduler)
+            logger.info("Experimentation module initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize experimentation module: {e}")
             raise
 
     async def stop(self, reason: str = "system_shutdown"):
@@ -577,7 +922,8 @@ class AGISystem:
     async def _save_final_state(self):
         """Save final system state before shutdown."""
         try:
-            if Config.STATE_PERSISTENCE_ENABLED:
+            config = Config()
+            if config.STATE_PERSISTENCE_ENABLED:
                 # This is handled by the shutdown coordinator
                 # but we can add any AGI-specific state saving here
                 logger.info(
@@ -800,6 +1146,333 @@ class AGISystem:
             logger.error(f"Error loading previous state: {e}")
             logger.info("Continuing with fresh initialization")
 
+    async def _initiate_goal_setting(self):
+        """Initiate the process of setting self-improvement goals."""
+        try:
+            logger.info("Initiating self-improvement goal setting...")
+            
+            # Wait for system to be fully initialized
+            await asyncio.sleep(5)
+            
+            # Set initial goals based on system analysis
+            await self._set_initial_improvement_goals()
+            
+            # Start the goal evaluation loop
+            asyncio.create_task(self._goal_evaluation_loop())
+            
+            logger.info("Self-improvement goal setting initiated")
+        except Exception as e:
+            logger.error(f"Error initiating goal setting: {e}")
+
+    async def _set_initial_improvement_goals(self):
+        """Set initial improvement goals based on system analysis."""
+        try:
+            # Analyze current system performance
+            performance_summary = self.performance_tracker.get_performance_summary()
+            advanced_metrics = await self.performance_tracker.calculate_advanced_metrics()
+            
+            # Set goals based on performance gaps
+            await self._analyze_and_set_performance_goals(performance_summary, advanced_metrics)
+            await self._analyze_and_set_capability_goals()
+            await self._analyze_and_set_learning_goals(advanced_metrics)
+            
+            logger.info(f"Set {len(self.self_goal_manager.goals)} initial improvement goals")
+        except Exception as e:
+            logger.error(f"Error setting initial improvement goals: {e}")
+
+    async def _analyze_and_set_performance_goals(self, performance_summary: Dict[str, Any], advanced_metrics: Dict[str, Any]):
+        """Analyze performance and set relevant goals."""
+        # Set goal to improve low metrics
+        if performance_summary.get("improvements_per_hour", 0) < 0.2:
+            self.self_goal_manager.create_goal(
+                title="Increase Improvement Generation Rate",
+                description="Improve the rate of identifying and implementing system improvements",
+                category="performance",
+                priority=GoalPriority.HIGH,
+                target_date=datetime.now(timezone.utc) + timedelta(days=14),
+                metrics={"improvements_per_hour_target": 0.3},
+                dependencies=[]
+            )
+        
+        if performance_summary.get("improvement_success_rate", 0) < 0.6:
+            self.self_goal_manager.create_goal(
+                title="Improve Success Rate of Implementations",
+                description="Increase the success rate of proposed improvements",
+                category="quality",
+                priority=GoalPriority.HIGH,
+                target_date=datetime.now(timezone.utc) + timedelta(days=10),
+                metrics={"success_rate_target": 0.7},
+                dependencies=[]
+            )
+        
+        if advanced_metrics.get("efficiency_metrics", {}).get("efficiency_score", 0) < 0.5:
+            self.self_goal_manager.create_goal(
+                title="Optimize Implementation Efficiency",
+                description="Improve the efficiency of improvement implementations",
+                category="efficiency",
+                priority=GoalPriority.MEDIUM,
+                target_date=datetime.now(timezone.utc) + timedelta(days=21),
+                metrics={"efficiency_score_target": 0.7},
+                dependencies=[]
+            )
+
+    async def _analyze_and_set_capability_goals(self):
+        """Set goals to improve system capabilities."""
+        # Set capability improvement goals
+        self.self_goal_manager.create_goal(
+            title="Enhance Memory Integration",
+            description="Improve the connection between different memory systems",
+            category="capability",
+            priority=GoalPriority.HIGH,
+            target_date=datetime.now(timezone.utc) + timedelta(days=30),
+            metrics={"memory_linking_improvement": 0.8},
+            dependencies=[]
+        )
+        
+        self.self_goal_manager.create_goal(
+            title="Improve Emotional Reasoning",
+            description="Enhance the connection between emotional state and decision-making",
+            category="capability",
+            priority=GoalPriority.MEDIUM,
+            target_date=datetime.now(timezone.utc) + timedelta(days=25),
+            metrics={"emotional_reasoning_accuracy": 0.85},
+            dependencies=[]
+        )
+
+    async def _analyze_and_set_learning_goals(self, advanced_metrics: Dict[str, Any]):
+        """Set goals to improve learning capabilities."""
+        if advanced_metrics.get("learning_metrics", {}).get("learning_rate", 0) < 0.1:
+            self.self_goal_manager.create_goal(
+                title="Improve Learning Rate",
+                description="Enhance the system's ability to learn from experiences and experiments",
+                category="learning",
+                priority=GoalPriority.HIGH,
+                target_date=datetime.now(timezone.utc) + timedelta(days=18),
+                metrics={"learning_rate_target": 0.15},
+                dependencies=[]
+            )
+        
+        self.self_goal_manager.create_goal(
+            title="Enhance Knowledge Integration",
+            description="Improve the system's ability to connect new knowledge with existing knowledge",
+            category="learning",
+            priority=GoalPriority.MEDIUM,
+            target_date=datetime.now(timezone.utc) + timedelta(days=35),
+            metrics={"knowledge_integration_rate": 0.75},
+            dependencies=[]
+        )
+
+    async def _goal_evaluation_loop(self):
+        """Periodically evaluate goal progress and set new goals."""
+        while not self._shutdown.is_set():
+            try:
+                logger.info("Evaluating self-improvement goals...")
+                
+                # Review current goals and their progress
+                await self._review_goals_progress()
+                
+                # Set new goals based on changing needs
+                await self._set_adaptive_goals()
+                
+                # Save goals state
+                await self.self_goal_manager.save_goals()
+                
+                # Wait before next evaluation
+                await asyncio.sleep(3600)  # Every hour
+                
+            except Exception as e:
+                logger.error(f"Error in goal evaluation loop: {e}")
+                await asyncio.sleep(300)  # Wait 5 minutes before retrying
+
+    async def _review_goals_progress(self):
+        """Review the progress of current goals."""
+        try:
+            # Get all goals to review, not just high priority ones
+            all_goals = self.self_goal_manager.goals
+            if not all_goals:
+                logger.info("No goals to review")
+                return
+            
+            logger.info(f"Reviewing progress of {len(all_goals)} total goals")
+            
+            # Initialize metrics for tracking
+            completed_goals = []
+            in_progress_goals = []
+            overdue_goals = []
+            at_risk_goals = []
+            
+            current_time = datetime.now(timezone.utc)
+            
+            for goal_id, goal in all_goals.items():
+                # Calculate progress percentage if possible
+                if goal.target_date:
+                    # Ensure both datetimes have timezone info to avoid mixing offset-naive and offset-aware
+                    created_at_tz = goal.created_at
+                    target_date_tz = goal.target_date
+                    
+                    # If goal.created_at is naive, assume UTC
+                    if created_at_tz.tzinfo is None:
+                        created_at_tz = created_at_tz.replace(tzinfo=timezone.utc)
+                    
+                    # If goal.target_date is naive, assume UTC  
+                    if target_date_tz.tzinfo is None:
+                        target_date_tz = target_date_tz.replace(tzinfo=timezone.utc)
+                    
+                    # Calculate time remaining as a percentage
+                    total_duration = (target_date_tz - created_at_tz).total_seconds()
+                    elapsed_duration = (current_time - created_at_tz).total_seconds()
+                    time_progress = min(1.0, elapsed_duration / total_duration) if total_duration > 0 else 1.0
+                else:
+                    time_progress = 0.0
+                
+                # Evaluate goal status
+                if goal.status == GoalStatus.COMPLETED:
+                    completed_goals.append(goal)
+                elif goal.status == GoalStatus.OVERDUE:
+                    overdue_goals.append(goal)
+                else:
+                    # For in-progress goals, evaluate based on metrics
+                    in_progress_goals.append(goal)
+                    
+                    # Check if goal is at risk based on time and progress
+                    if (time_progress > 0.7 and goal.current_progress < 0.5) or \
+                       (time_progress > 0.5 and goal.current_progress < 0.2):
+                        at_risk_goals.append(goal)
+            
+            # Log summary
+            logger.info(f"Goal review summary: {len(completed_goals)} completed, "
+                       f"{len(in_progress_goals)} in progress, "
+                       f"{len(overdue_goals)} overdue, "
+                       f"{len(at_risk_goals)} at risk")
+            
+            # Perform more detailed analysis for at-risk goals
+            for goal in at_risk_goals:
+                logger.warning(f"Goal at risk: {goal.title} - "
+                              f"Time progress: {time_progress:.1%}, "
+                              f"Completion: {goal.current_progress:.1%}")
+                
+                # Trigger adaptive adjustments for at-risk goals
+                await self._adjust_at_risk_goal(goal)
+            
+            # Update self-goal manager with analysis
+            self.self_goal_manager.last_review_time = current_time
+            self.self_goal_manager.goals_summary = {
+                'total': len(all_goals),
+                'completed': len(completed_goals),
+                'in_progress': len(in_progress_goals),
+                'overdue': len(overdue_goals),
+                'at_risk': len(at_risk_goals),
+                'review_time': current_time.isoformat()
+            }
+            
+            # Update performance metrics based on goal progress
+            await self._update_performance_metrics_from_goals(
+                completed_goals, in_progress_goals, overdue_goals)
+                
+        except Exception as e:
+            logger.error(f"Error in goal review process: {e}")
+            logger.exception("Full traceback:")
+
+    async def _adjust_at_risk_goal(self, goal):
+        """Adjust an at-risk goal to improve its chances of success."""
+        try:
+            logger.info(f"Adjusting at-risk goal: {goal.title}")
+            
+            # Possible adjustments:
+            # 1. Extend deadline if reasonable
+            # 2. Break into smaller sub-goals
+            # 3. Reallocate resources
+            # 4. Adjust scope
+            
+            # For now, let's try extending the deadline by 25% if it's within reason
+            if goal.target_date and goal.status != GoalStatus.OVERDUE:
+                # Ensure both datetimes have timezone info to avoid mixing offset-naive and offset-aware
+                created_at_tz = goal.created_at
+                target_date_tz = goal.target_date
+                
+                # If goal.created_at is naive, assume UTC
+                if created_at_tz.tzinfo is None:
+                    created_at_tz = created_at_tz.replace(tzinfo=timezone.utc)
+                
+                # If goal.target_date is naive, assume UTC  
+                if target_date_tz.tzinfo is None:
+                    target_date_tz = target_date_tz.replace(tzinfo=timezone.utc)
+                
+                original_duration = (target_date_tz - created_at_tz).total_seconds()
+                new_duration = original_duration * 1.25  # 25% extension
+                new_target_date = created_at_tz + timedelta(seconds=new_duration)
+                
+                # Only extend if not extending too far
+                max_extension = timedelta(days=30)  # Max 30 days extension
+                if new_target_date - goal.target_date <= max_extension:
+                    old_target = goal.target_date
+                    goal.target_date = new_target_date
+                    logger.info(f"Extended deadline for goal '{goal.title}' "
+                               f"from {old_target} to {new_target_date}")
+                    
+                    # Update the goal in the manager
+                    await self.self_goal_manager.update_goal(goal.id, {
+                        'target_date': new_target_date
+                    })
+            
+        except Exception as e:
+            logger.error(f"Error adjusting at-risk goal {goal.title}: {e}")
+
+    async def _update_performance_metrics_from_goals(self, completed_goals, in_progress_goals, overdue_goals):
+        """Update system performance metrics based on goal progress."""
+        try:
+            if not self.performance_tracker:
+                return
+
+            # Calculate goal-related performance metrics
+            total_goals = len(completed_goals) + len(in_progress_goals) + len(overdue_goals)
+            
+            if total_goals > 0:
+                completion_rate = len(completed_goals) / total_goals
+                overdue_rate = len(overdue_goals) / total_goals
+                
+                # Update performance tracker with goal-related metrics
+                await self.performance_tracker.record_metric(
+                    name="goal_completion_rate",
+                    value=completion_rate,
+                    unit="percentage",
+                    source="goal_review_system",
+                    tags=["performance", "goals"]
+                )
+                
+                await self.performance_tracker.record_metric(
+                    name="goal_overdue_rate",
+                    value=overdue_rate,
+                    unit="percentage",
+                    source="goal_review_system",
+                    tags=["performance", "goals"]
+                )
+                
+                logger.info(f"Updated performance metrics: "
+                           f"Completion rate: {completion_rate:.1%}, "
+                           f"Overdue rate: {overdue_rate:.1%}")
+        except Exception as e:
+            logger.error(f"Error updating performance metrics from goals: {e}")
+
+    async def _set_adaptive_goals(self):
+        """Set new goals based on changing system needs."""
+        # Analyze system state and performance to set new goals
+        performance_summary = self.performance_tracker.get_performance_summary()
+        
+        # Example: If experiments are successful, set a goal to run more
+        if performance_summary.get("improvement_success_rate", 0) > 0.8:
+            # Check if this goal already exists
+            if not any("Experiment" in goal.title for goal in self.self_goal_manager.goals.values()):
+                self.self_goal_manager.create_goal(
+                    title="Increase Experimentation Rate",
+                    description="Since improvements are successful, increase experimentation to find more opportunities",
+                    category="exploration",
+                    priority=GoalPriority.MEDIUM,
+                    target_date=datetime.now(timezone.utc) + timedelta(days=14),
+                    metrics={"experimentation_rate_increase": 0.5},
+                    dependencies=[]
+                )
+
     async def _memorize_interaction(self, situation_prompt: str, decision: dict, action_output: Any):
         """Extracts and saves memories from an interaction."""
         interaction_summary = f"Situation: {situation_prompt}\nDecision: {decision}\nAction Output: {action_output}"
@@ -809,7 +1482,7 @@ class AGISystem:
                 await self.memory_service.save_memories(memories_to_save.memories)
                 logger.info(
                     f"Saved {len(memories_to_save.memories)} new memories.")
-                self.last_interaction_time = datetime.utcnow()
+                self.last_interaction_time = datetime.now(timezone.utc)
         except Exception as e:
             logger.error(f"Failed during memorization: {e}", exc_info=True)
 
@@ -822,7 +1495,8 @@ class AGISystem:
 
     async def _handle_curiosity(self):
         """Enhanced curiosity handling with async operations and better context."""
-        if random.random() < Config.CURIOSITY_CHANCE:
+        config = Config()
+        if random.random() < config.CURIOSITY_CHANCE:
             logger.info("Curiosity triggered. Generating new topics...")
 
             try:
@@ -864,7 +1538,7 @@ class AGISystem:
                         # Persist a short log
                         for idea in ideas:
                             self.invention_history.append(
-                                {"idea": idea, "ts": datetime.utcnow().isoformat()})
+                                {"idea": idea, "ts": datetime.now(timezone.utc).isoformat()})
                         logger.info(
                             f"Personality generated {len(ideas)} invention ideas.")
                 except Exception as e:
@@ -912,22 +1586,54 @@ class AGISystem:
 
     async def _retrieve_memories(self, situation_prompt: str):
         try:
-            logger.info("Getting relevant memories.")
-            memory_response = await self.memory_service.retrieve_relevant_memories(situation_prompt)
+            logger.info("Getting relevant memories with contextual and emotional awareness.")
+            
+            # Get emotional context for enhanced retrieval
+            mood_vector = self.shared_state.mood if hasattr(self.shared_state, 'mood') else None
+            
+            # Apply emotional memory bias if available
+            emotional_memory_bias = getattr(self.shared_state, 'emotional_memory_bias', 0.0)
+            
+            # Use enhanced contextual retrieval
+            memory_response = await self.memory_service.retrieve_contextually_relevant_memories(
+                query=situation_prompt,
+                emotion_context=mood_vector,
+                time_range_minutes=1440,  # Last 24 hours
+                top_k=10  # Get more memories for better context
+            )
+            
             # If memory_response is a tuple list, extract just the memories
             if isinstance(memory_response, list) and memory_response and isinstance(memory_response[0], tuple):
                 # Extract Memory objects from (memory, similarity) tuples
                 memories = [item[0] for item in memory_response]
             else:
                 memories = memory_response
+            
+            # Apply emotional memory bias by re-ranking if bias is significant
+            if abs(emotional_memory_bias) > 0.3:
+                memories = await self._apply_emotional_memory_bias(memories, emotional_memory_bias)
+                logger.info(f"Applied emotional memory bias: {emotional_memory_bias}")
+            
             self.shared_state.recent_memories = memories
-            logger.info("Got relevant memories.")
+            logger.info("Got relevant memories with contextual and emotional awareness.")
         except Exception as e:
-            logger.warning(f"Could not retrieve memories: {e}")
-            self.shared_state.recent_memories = []
+            logger.warning(f"Could not retrieve memories with context: {e}")
+            # Fallback to basic retrieval
+            try:
+                memory_response = await self.memory_service.retrieve_relevant_memories(situation_prompt)
+                if isinstance(memory_response, list) and memory_response and isinstance(memory_response[0], tuple):
+                    # Extract Memory objects from (memory, similarity) tuples
+                    memories = [item[0] for item in memory_response]
+                else:
+                    memories = memory_response
+                self.shared_state.recent_memories = memories
+                logger.info("Got relevant memories using fallback method.")
+            except Exception as fallback_error:
+                logger.warning(f"Fallback memory retrieval also failed: {fallback_error}")
+                self.shared_state.recent_memories = []
 
     async def _make_decision(self, situation: dict):
-        logger.info("Making enhanced decision with adaptive learning.")
+        logger.info("Making enhanced decision with adaptive learning and self-improvement goals.")
 
         # Get available actions from the action manager's registry
         available_actions = self.action_manager.action_registry.get_action_definitions()
@@ -937,7 +1643,8 @@ class AGISystem:
             'situation': situation,
             'mood': self.shared_state.mood,
             'memory': self.shared_state.recent_memories,
-            'rag_context': getattr(self.shared_state, 'search_results', [])
+            'rag_context': getattr(self.shared_state, 'search_results', []),
+            'self_improvement_goals': self._get_active_improvement_goals()
         }
 
         learning_adaptations = await self.learning_engine.apply_learning_to_decision(decision_context)
@@ -953,20 +1660,17 @@ class AGISystem:
         except Exception as e:
             logger.debug(f"Personality influence failed: {e}")
 
-        # Enhanced decision making with learning adaptations
-        decision = await asyncio.to_thread(
-            decision_maker_loop,
+        # Use advanced reasoning engine for enhanced decision making
+        reasoning_result = await self.reasoning_engine.reason(
             situation=situation,
-            memory=self.shared_state.recent_memories,
-            mood=self.shared_state.mood,
-            actions=available_actions,
-            rag_context=getattr(self.shared_state, 'search_results', []),
-            persona={
-                'name': self.personality.name,
-                'traits': self.personality.traits,
-                'creativity': self.personality.creativity,
-                'communication_style': self.personality.get_communication_style()
-            }
+            memory_context=self.shared_state.recent_memories,
+            goal_context=self._get_active_improvement_goals()
+        )
+        
+        # Convert reasoning result to decision format compatible with existing code
+        decision = await self._convert_reasoning_to_decision(
+            reasoning_result, 
+            available_actions
         )
 
         # Apply learning adaptations to decision
@@ -995,6 +1699,202 @@ class AGISystem:
             f"Made enhanced decision with confidence {decision.get('confidence', 0.5):.2f}: {decision.get('action', 'unknown')}")
         return decision
 
+    def _get_active_improvement_goals(self) -> List[Dict[str, Any]]:
+        """Get active self-improvement goals to inform decision making."""
+        try:
+            # Get high-priority and in-progress goals
+            active_goals = self.self_goal_manager.get_goals_by_status(GoalStatus.IN_PROGRESS)
+            high_priority_goals = self.self_goal_manager.get_high_priority_goals()
+            
+            # Combine and remove duplicates by ID (since SelfGoal objects aren't hashable)
+            seen_ids = set()
+            all_relevant_goals = []
+            for goal in active_goals + high_priority_goals:
+                if goal.id not in seen_ids:
+                    seen_ids.add(goal.id)
+                    all_relevant_goals.append(goal)
+            
+            # Convert to dictionary format for decision making
+            goal_dicts = []
+            for goal in all_relevant_goals:
+                goal_dicts.append({
+                    'id': goal.id,
+                    'title': goal.title,
+                    'description': goal.description,
+                    'category': goal.category,
+                    'priority': goal.priority.value,
+                    'progress': goal.current_progress,
+                    'target_date': goal.target_date.isoformat(),
+                    'metrics': goal.metrics
+                })
+            
+            return goal_dicts
+        except Exception as e:
+            logger.error(f"Error getting active improvement goals: {e}")
+            return []
+
+    async def _convert_reasoning_to_decision(self, reasoning_result: Dict[str, Any], 
+                                          available_actions: List[Dict]) -> Dict[str, Any]:
+        """
+        Convert reasoning engine output to decision format compatible with the system.
+        
+        Args:
+            reasoning_result: Output from the reasoning engine
+            available_actions: List of available actions to choose from
+            
+        Returns:
+            Dictionary in the format expected by the rest of the system
+        """
+        try:
+            # Extract key information from reasoning results
+            synthesized_conclusion = reasoning_result.get('synthesized_conclusion', '')
+            confidence_score = reasoning_result.get('confidence_score', 0.5)
+            reasoning_steps = reasoning_result.get('reasoning_steps', [])
+            
+            # Determine the best action based on reasoning conclusion
+            best_action = await self._select_best_action_from_reasoning(
+                synthesized_conclusion, 
+                available_actions
+            )
+            
+            # Create a plan based on reasoning
+            plan = await self._create_plan_from_reasoning(
+                reasoning_result, 
+                best_action
+            )
+            
+            # Create decision in compatible format
+            decision = {
+                'raw_response': json.dumps({
+                    'analysis': reasoning_result.get('synthesized_conclusion', ''),
+                    'reasoning_process': reasoning_result.get('reasoning_process', {}),
+                    'metacognitive_evaluation': reasoning_result.get('metacognitive_evaluation', {}),
+                    'plan': plan,
+                    'action': best_action.get('name', 'log_message'),
+                    'params': best_action.get('default_params', {}),
+                    'confidence': confidence_score
+                }, indent=2),
+                'analysis': reasoning_result.get('synthesized_conclusion', ''),
+                'reasoning_process': reasoning_result.get('reasoning_process', {}),
+                'metacognitive_evaluation': reasoning_result.get('metacognitive_evaluation', {}),
+                'plan': plan,
+                'action': best_action.get('name', 'log_message'),
+                'params': best_action.get('default_params', {}),
+                'confidence': confidence_score,
+                'reasoning_steps': reasoning_steps,
+                'reasoning_types_used': reasoning_result.get('reasoning_types_used', [])
+            }
+            
+            logger.info(f"Converted reasoning to decision with action: {decision['action']} "
+                       f"and confidence: {confidence_score:.2f}")
+            
+            return decision
+        except Exception as e:
+            logger.error(f"Error converting reasoning to decision: {e}")
+            # Fallback: return a basic decision
+            return {
+                'raw_response': f'{{"action": "log_message", "params": {{"message": "Error in reasoning conversion: {e}"}}}}',
+                'action': 'log_message',
+                'params': {'message': f'Error in reasoning: {e}'},
+                'confidence': 0.1,
+                'error': str(e)
+            }
+
+    async def _select_best_action_from_reasoning(self, conclusion: str, available_actions: List[Dict]) -> Dict:
+        """
+        Select the best action based on the reasoning conclusion.
+        
+        Args:
+            conclusion: The conclusion from the reasoning process
+            available_actions: List of available actions
+            
+        Returns:
+            Dictionary representing the best action
+        """
+        # In a sophisticated implementation, this would use AI to select the best action
+        # For now, we'll implement a simple keyword-based matching approach
+        
+        # Check if the conclusion contains keywords that suggest a specific action
+        conclusion_lower = conclusion.lower()
+        
+        for action in available_actions:
+            action_name = action.get('name', '').lower()
+            
+            # If the conclusion explicitly mentions an action name, select it
+            if action_name in conclusion_lower:
+                logger.info(f"Selected action '{action_name}' based on keyword match")
+                return action
+        
+        # If no keyword match, try to infer action based on common patterns
+        if 'research' in conclusion_lower or 'search' in conclusion_lower or 'find' in conclusion_lower:
+            for action in available_actions:
+                if action.get('name', '').lower() in ['web_search', 'research_action']:
+                    return action
+        
+        if 'code' in conclusion_lower or 'implement' in conclusion_lower or 'write' in conclusion_lower:
+            for action in available_actions:
+                if action.get('name', '').lower() in ['write_python_code', 'write_file', 'execute_python_file']:
+                    return action
+        
+        # Default: return the first available action if it exists
+        if available_actions:
+            return available_actions[0]
+        
+        # Fallback: return a basic logging action
+        return {
+            'name': 'log_message',
+            'description': 'Log a message to record reasoning outcome',
+            'parameters': [{'name': 'message', 'type': 'string'}],
+            'default_params': {'message': f'Reasoning completed: {conclusion[:200]}...'}
+        }
+
+    async def _create_plan_from_reasoning(self, reasoning_result: Dict[str, Any], 
+                                        selected_action: Dict) -> List[Dict]:
+        """
+        Create an execution plan based on the reasoning results.
+        
+        Args:
+            reasoning_result: The output from the reasoning engine
+            selected_action: The action selected for execution
+            
+        Returns:
+            List of steps in the execution plan
+        """
+        try:
+            # Extract information from reasoning about what needs to be done
+            synthesized_conclusion = reasoning_result.get('synthesized_conclusion', '')
+            
+            # Create a plan with the selected action as the main step
+            plan = [{
+                'action': selected_action.get('name', 'log_message'),
+                'params': selected_action.get('default_params', {}),
+                'rationale': f'Action selected based on reasoning: {synthesized_conclusion[:100]}...',
+                'expected_outcome': 'Execution of the selected action',
+                'success_criteria': 'Action completes without error'
+            }]
+            
+            # Add follow-up steps based on metacognitive evaluation if available
+            meta_eval = reasoning_result.get('metacognitive_evaluation', {})
+            if meta_eval:
+                # Consider adding a reflection step after action execution
+                plan.append({
+                    'action': 'log_message',
+                    'params': {'message': f'Reasoning evaluation completed: {str(meta_eval)[:200]}...'},
+                    'rationale': 'Metacognitive reflection on reasoning process',
+                    'expected_outcome': 'System records evaluation of its reasoning',
+                    'success_criteria': 'Evaluation is logged for future reference'
+                })
+            
+            logger.info(f"Created plan with {len(plan)} steps")
+            return plan
+        except Exception as e:
+            logger.error(f"Error creating plan from reasoning: {e}")
+            # Fallback plan
+            return [{
+                'action': 'log_message',
+                'params': {'message': f'Error creating plan: {e}'}
+            }]
+
     async def invention_task(self):
         """Background task where the personality occasionally picks an idea to pursue and records a lightweight outcome."""
         while not self._shutdown.is_set():
@@ -1017,7 +1917,7 @@ class AGISystem:
                     self.personality.record_invention_outcome(
                         chosen.get('id'), outcome)
                     self.invention_history.append(
-                        {"idea": chosen, "outcome": outcome, "ts": datetime.utcnow().isoformat()})
+                        {"idea": chosen, "outcome": outcome, "ts": datetime.now(timezone.utc).isoformat()})
                     logger.info(
                         f"Personality pursued invention '{chosen.get('title')}' with outcome: {outcome}")
             except asyncio.CancelledError:
@@ -1048,7 +1948,7 @@ class AGISystem:
         return action_output
 
     async def _update_mood_and_reflect(self, action_output: Any):
-        logger.info("Updating mood.")
+        logger.info("Updating mood and applying emotional influences.")
         old_mood = self.shared_state.mood.copy()
         self.emotional_intelligence.process_action_natural(str(action_output))
         self.shared_state.mood = self.emotional_intelligence.get_mood_vector()
@@ -1060,10 +1960,14 @@ class AGISystem:
 
         logger.info("Updated mood.")
 
+        # Get behavior modifications from emotional intelligence
         self.behavior_modifiers = self.emotional_intelligence.influence_behavior()
         if self.behavior_modifiers:
             logger.info(
                 f"Generated behavior modifiers for next loop: {self.behavior_modifiers}")
+            
+            # Apply emotional influences to system parameters
+            await self._apply_emotional_influences(self.behavior_modifiers)
 
         # If the action output contains a directive (like initiating an experiment),
         # merge it into the behavior modifiers for the next loop.
@@ -1072,6 +1976,194 @@ class AGISystem:
                 logger.info(
                     f"Action output contains a directive to '{action_output['action']}'. Starting experiment.")
                 self.experimentation_engine.start_experiment(action_output)
+
+    async def _apply_emotional_influences(self, behavior_modifiers: Dict[str, float]):
+        """
+        Apply emotional behavior modifiers to various system parameters.
+        This function makes emotions truly influence system behavior.
+        """
+        # Adjust exploration vs exploitation based on emotions
+        exploration_bias = behavior_modifiers.get("exploration_bias", 0.5)
+        # Ensure exploration_bias is a float - convert from string if necessary
+        if isinstance(exploration_bias, str):
+            exploration_bias_map = {
+                "very_low": 0.1,
+                "low": 0.3,
+                "medium": 0.5,
+                "high": 0.7,
+                "very_high": 0.9
+            }
+            exploration_bias = exploration_bias_map.get(exploration_bias.lower(), 0.5)
+        
+        if exploration_bias > 0.7:
+            # High exploration bias - increase curiosity chance
+            self.config.CURIOSITY_CHANCE = min(0.9, 0.4 + (exploration_bias * 0.5))
+            logger.debug(f"Emotional influence: Increased curiosity chance to {self.config.CURIOSITY_CHANCE}")
+        elif exploration_bias < 0.3:
+            # Low exploration bias - decrease curiosity chance
+            self.config.CURIOSITY_CHANCE = max(0.1, 0.4 - ((1 - exploration_bias) * 0.3))
+            logger.debug(f"Emotional influence: Decreased curiosity chance to {self.config.CURIOSITY_CHANCE}")
+        
+        # Adjust risk tolerance
+        risk_tolerance = behavior_modifiers.get("risk_tolerance", 0.5)
+        # Ensure risk_tolerance is a float - convert from string if necessary
+        if isinstance(risk_tolerance, str):
+            # Map string values to numeric values
+            risk_tolerance_map = {
+                "very_low": 0.1,
+                "low": 0.3,
+                "medium": 0.5,
+                "high": 0.7,
+                "very_high": 0.9
+            }
+            risk_tolerance = risk_tolerance_map.get(risk_tolerance.lower(), 0.5)
+        
+        if risk_tolerance > 0.7:
+            # High risk tolerance - allow more experimental actions
+            logger.debug("Emotional influence: High risk tolerance - allowing more experimental decisions")
+        elif risk_tolerance < 0.3:
+            # Low risk tolerance - be more conservative in decision making
+            logger.debug("Emotional influence: Low risk tolerance - being more conservative in decisions")
+        
+        # Adjust decision speed
+        decision_speed = behavior_modifiers.get("decision_speed", 0.5)
+        # Ensure decision_speed is a float - convert from string if necessary
+        if isinstance(decision_speed, str):
+            decision_speed_map = {
+                "very_slow": 0.1,
+                "slow": 0.3,
+                "medium": 0.5,
+                "fast": 0.7,
+                "very_fast": 0.9
+            }
+            decision_speed = decision_speed_map.get(decision_speed.lower(), 0.5)
+        
+        if decision_speed > 0.7:
+            # Fast decision making - potentially reduce thoroughness in reasoning
+            logger.debug("Emotional influence: Fast decision making mode")
+        elif decision_speed < 0.3:
+            # Slow decision making - increase thoroughness in reasoning
+            logger.debug("Emotional influence: Thorough decision making mode")
+        
+        # Influence memory recall based on mood
+        emotional_memory_bias = behavior_modifiers.get("emotional_memory_bias", 0.0)
+        # Ensure emotional_memory_bias is a float - convert from string if necessary
+        if isinstance(emotional_memory_bias, str):
+            emotional_bias_map = {
+                "very_negative": -0.9,
+                "negative": -0.6,
+                "neutral": 0.0,
+                "positive": 0.6,
+                "very_positive": 0.9
+            }
+            emotional_memory_bias = emotional_bias_map.get(emotional_memory_bias.lower(), 0.0)
+        
+        if abs(emotional_memory_bias) > 0.3:
+            # Apply emotional memory bias for next memory retrieval
+            self.shared_state.emotional_memory_bias = emotional_memory_bias
+            logger.debug(f"Emotional influence: Applied memory bias {emotional_memory_bias}")
+        
+        # Adjust attention span
+        attention_span = behavior_modifiers.get("attention_span", 1.0)
+        # Ensure attention_span is a float - convert from string if necessary
+        if isinstance(attention_span, str):
+            attention_span_map = {
+                "very_short": 0.1,
+                "short": 0.3,
+                "medium": 0.5,
+                "long": 0.8,
+                "very_long": 0.9
+            }
+            attention_span = attention_span_map.get(attention_span.lower(), 1.0)
+        
+        if attention_span < 0.5:
+            # Short attention span - increase likelihood of task switching
+            logger.debug("Emotional influence: Short attention span detected")
+        elif attention_span > 0.8:
+            # Long attention span - maintain focus on current task
+            logger.debug("Emotional influence: Long attention span detected, maintaining focus")
+        
+        # Apply creativity bias
+        creativity_bias = behavior_modifiers.get("creativity_bias", 0.5)
+        # Ensure creativity_bias is a float - convert from string if necessary
+        if isinstance(creativity_bias, str):
+            creativity_bias_map = {
+                "very_low": 0.1,
+                "low": 0.3,
+                "medium": 0.5,
+                "high": 0.7,
+                "very_high": 0.9
+            }
+            creativity_bias = creativity_bias_map.get(creativity_bias.lower(), 0.5)
+        
+        if creativity_bias > 0.7:
+            # High creativity - encourage novel solutions in reasoning
+            logger.debug("Emotional influence: High creativity mode - encouraging novel solutions")
+        elif creativity_bias < 0.3:
+            # Low creativity - stick to conventional approaches
+            logger.debug("Emotional influence: Low creativity mode - favoring conventional approaches")
+        
+        # Emotional regulation advice
+        current_mood_state = self.emotional_intelligence.get_mood_vector()
+        regulation_advice = self.emotional_intelligence.get_emotional_regulation_advice(current_mood_state)
+        if regulation_advice:
+            logger.info(f"Emotional regulation advice: {regulation_advice}")
+        
+        # Track emotional influence weight for meta-cognition
+        emotional_decision_weight = behavior_modifiers.get("emotional_decision_weight", 0.0)
+        self.shared_state.emotional_influence_weight = emotional_decision_weight
+        logger.debug(f"Emotional decision weight: {emotional_decision_weight}")
+
+    async def _apply_emotional_memory_bias(self, memories, emotional_bias: float) -> list:
+        """
+        Apply emotional memory bias to re-rank retrieved memories.
+        
+        Args:
+            memories: List of retrieved memories
+            emotional_bias: Bias value (-1 for negative memories, +1 for positive memories)
+            
+        Returns:
+            Re-ranked list of memories based on emotional congruence
+        """
+        if not memories or not self.emotional_intelligence:
+            return memories
+        
+        # Categorize memories based on emotional content
+        positive_memories = []
+        negative_memories = []
+        neutral_memories = []
+        
+        for memory in memories:
+            # Determine if memory has positive or negative emotional content
+            # This is a simplified approach - in a real implementation, we'd analyze sentiment
+            content = getattr(memory, 'content', str(memory)).lower()
+            
+            # Check for positive/negative keywords
+            positive_keywords = ['success', 'achieved', 'happy', 'good', 'great', 'excellent', 'learned', 'progress', 'improved']
+            negative_keywords = ['failed', 'error', 'bad', 'sad', 'worst', 'problem', 'issue', 'difficulty', 'frustrated']
+            
+            positive_score = sum(1 for word in positive_keywords if word in content)
+            negative_score = sum(1 for word in negative_keywords if word in content)
+            
+            if positive_score > negative_score:
+                positive_memories.append(memory)
+            elif negative_score > positive_score:
+                negative_memories.append(memory)
+            else:
+                neutral_memories.append(memory)
+        
+        # Re-rank based on emotional bias
+        if emotional_bias > 0.3:  # Positive bias - favor positive memories
+            # Prioritize positive memories, then neutral, then negative
+            re_ranked = positive_memories + neutral_memories + negative_memories
+        elif emotional_bias < -0.3:  # Negative bias - favor negative memories
+            # Prioritize negative memories, then neutral, then positive
+            re_ranked = negative_memories + neutral_memories + positive_memories
+        else:  # Neutral bias - maintain original order
+            re_ranked = memories
+        
+        # Ensure we return the same number of memories as input
+        return re_ranked[:len(memories)]
 
         mood_changed_for_better = self._did_mood_improve(old_mood, new_mood)
 
@@ -1088,7 +2180,7 @@ class AGISystem:
         """
         Retrieves recent events from the database.
         """
-        time_limit = datetime.utcnow() - timedelta(seconds=time_limit_seconds)
+        time_limit = datetime.now(timezone.utc) - timedelta(seconds=time_limit_seconds)
         stmt = select(Event).where(Event.timestamp >=
                                    time_limit).order_by(Event.timestamp.desc())
 
@@ -1107,6 +2199,9 @@ class AGISystem:
 
     async def run_iteration(self):
         """Runs a single iteration of the AGI's thought process."""
+        # Start timing for performance tracking
+        iteration_start_time = time.time()
+        
         # 1. Check for external data and completed tasks
         await self._check_for_search_results()
 
@@ -1177,6 +2272,17 @@ class AGISystem:
 
         # Update mood and reflect
         await self._update_mood_and_reflect(action_output)
+        
+        # Record iteration performance metrics
+        iteration_duration = time.time() - iteration_start_time
+        self.performance_tracker.record_metric(
+            name="iteration_duration",
+            value=iteration_duration,
+            unit="seconds",
+            source="agi_system",
+            tags=["performance", "iteration"]
+        )
+        self.performance_tracker.increment_iteration_count()
 
     async def run_autonomous_loop(self):
         """The main autonomous loop of the AGI."""
@@ -1228,7 +2334,7 @@ class AGISystem:
         logger.info(f"--- Running Single Task: {prompt} ---")
         self.shared_state.current_task = prompt
 
-        max_iterations = Config.MAX_ITERATIONS
+        max_iterations = Config().MAX_ITERATIONS
         for i in range(max_iterations):
             if self._shutdown.is_set():
                 logger.info("Task appears to be complete. Ending run.")
@@ -1250,10 +2356,11 @@ class AGISystem:
         """
         Checks if the overall mood has improved based on positive and negative mood components.
         """
-        old_score = sum(old_mood.get(m, 0) for m in Config.POSITIVE_MOODS) - \
-            sum(old_mood.get(m, 0) for m in Config.NEGATIVE_MOODS)
-        new_score = sum(new_mood.get(m, 0) for m in Config.POSITIVE_MOODS) - \
-            sum(new_mood.get(m, 0) for m in Config.NEGATIVE_MOODS)
+        config = Config()  # Get the config singleton instance
+        old_score = sum(old_mood.get(m, 0) for m in config.POSITIVE_MOODS) - \
+            sum(old_mood.get(m, 0) for m in config.NEGATIVE_MOODS)
+        new_score = sum(new_mood.get(m, 0) for m in config.POSITIVE_MOODS) - \
+            sum(new_mood.get(m, 0) for m in config.NEGATIVE_MOODS)
 
         logger.info(
             f"Mood score changed from {old_score:.2f} to {new_score:.2f}")
@@ -1317,15 +2424,24 @@ class AGISystem:
         while not self._shutdown.is_set():
             try:
                 logger.info("Starting memory consolidation...")
+                
+                # Perform enhanced memory consolidation
                 consolidation_result = await self.memory_service.consolidate_old_memories()
                 logger.info(
                     f"Memory consolidation finished. Report: {consolidation_result}")
+                
+                # Clean up expired memories from short-term and working memory
+                if hasattr(self.memory_service, 'cleanup_expired_memories'):
+                    await self.memory_service.cleanup_expired_memories()
+                    logger.info("Expired memories cleaned up from short-term and working memory")
+                    
             except Exception as e:
                 logger.error(
                     f"Error during memory consolidation: {e}", exc_info=True)
 
             try:
-                await asyncio.sleep(21600)
+                # Update sleep interval to be more frequent for better memory management
+                await asyncio.sleep(10800)  # 3 hours instead of 6
             except asyncio.CancelledError:
                 break
         logger.info("Memory consolidation task shut down.")

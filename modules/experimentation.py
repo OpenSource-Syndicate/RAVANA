@@ -297,6 +297,54 @@ The confidence level of {confidence:.1f} reflects the reliability of the finding
             logger.warning(
                 f"Failed to register experiment completion blog trigger: {e}")
 
+    async def generate_hypothesis(self, domain: str, focus_area: str = None) -> str:
+        """
+        Generate a testable hypothesis based on current knowledge and gaps.
+        
+        Args:
+            domain: The domain to generate a hypothesis in
+            focus_area: Specific area within the domain to focus on
+            
+        Returns:
+            A testable hypothesis
+        """
+        # Get relevant memories to inform hypothesis generation
+        query = f"information about {domain} and related concepts"
+        if focus_area:
+            query += f" particularly about {focus_area}"
+            
+        try:
+            memories = await self.agi_system.memory_service.retrieve_relevant_memories(
+                query, top_k=10
+            )
+            
+            memory_summaries = [mem[0].summary for mem in memories if mem[0].summary]
+            
+            prompt = f"""
+            Based on this information about {domain}:
+            {chr(10).join(memory_summaries[:5])}
+            
+            Generate a specific, testable hypothesis that would advance understanding in this domain.
+            The hypothesis should be:
+            1. Falsifiable (can be proven wrong)
+            2. Specific (not vague)
+            3. Testable through experimentation or observation
+            4. Relevant to advancing knowledge in {domain}
+            
+            Return only the hypothesis statement, no additional text.
+            """
+            
+            hypothesis = safe_call_llm(prompt, timeout=30, retries=3)
+            # Clean up the response to just the hypothesis
+            hypothesis = hypothesis.strip().split('\n')[0].strip()
+            
+            logger.info(f"Generated hypothesis: {hypothesis}")
+            return hypothesis
+        except Exception as e:
+            logger.error(f"Error generating hypothesis: {e}")
+            # Fallback hypothesis
+            return f"Performing exploratory analysis of {domain} to identify patterns and insights"
+
     def get_experiment_summary(self) -> Dict[str, Any]:
         """Get a summary of completed experiments."""
         try:

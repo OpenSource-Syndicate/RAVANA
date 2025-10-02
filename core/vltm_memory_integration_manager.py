@@ -785,3 +785,40 @@ class MemoryIntegrationManager:
         except Exception as e:
             logger.error(f"Error removing memory bridge: {e}")
             return False
+
+    async def stop_integration(self):
+        """Stop the memory integration processes"""
+        try:
+            logger.info("Stopping memory integration...")
+            
+            # Cancel all sync tasks
+            for task_name, task in self.sync_tasks.items():
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        logger.info(f"Cancelled sync task: {task_name}")
+
+            # Perform any cleanup operations
+            await self.shutdown()
+            
+            logger.info("Memory integration stopped successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error stopping memory integration: {e}")
+            return False
+
+    def set_consolidation_components(self, consolidation_engine=None, lifecycle_manager=None, consolidation_scheduler=None):
+        """Set consolidation components for integration with VLTM consolidation processes"""
+        if consolidation_engine:
+            self.consolidation_engine = consolidation_engine
+            
+        if lifecycle_manager:
+            self.lifecycle_manager = lifecycle_manager
+            
+        if consolidation_scheduler:
+            self.consolidation_scheduler = consolidation_scheduler
+            
+        logger.info("Consolidation components set for memory integration")

@@ -1,0 +1,19 @@
+{
+  "user_id": "user123",
+  "last_platform": "discord",
+  "platform_user_id": "user123",
+  "preferences": {
+    "interaction_stats": {
+      "total_interactions": 1,
+      "positive_interactions": 0,
+      "negative_interactions": 0,
+      "topics_discussed": {
+        "general": 1
+      },
+      "preferred_communication_styles": {
+        "balanced": 1
+      }
+    }
+  },
+  "last_interaction": "2025-10-01T20:06:15.930659"
+}

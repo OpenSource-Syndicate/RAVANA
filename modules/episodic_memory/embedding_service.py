@@ -11,19 +11,18 @@ from typing import Dict, Any, Optional, List
 import time
 
 try:
-    from sentence_transformers import SentenceTransformer
     import torch
     import torchvision.transforms as transforms
     from PIL import Image
     TRANSFORMERS_AVAILABLE = True
 except ImportError as e:
     TRANSFORMERS_AVAILABLE = False
-    SentenceTransformer = None
     torch = None
     transforms = None
     Image = None
     logging.warning(f"Transformers dependencies not available: {e}")
 
+from core.embeddings_manager import embeddings_manager, ModelPurpose
 from .models import MemoryRecord, ContentType
 from .whisper_processor import WhisperAudioProcessor
 
@@ -109,16 +108,10 @@ class EmbeddingService:
         logger.info(f"Initialized EmbeddingService with device={self.device}")
 
     def _load_text_model(self):
-        """Lazy load text embedding model."""
-        if self.text_model is None:
-            try:
-                logger.info(f"Loading text model: {self.text_model_name}")
-                self.text_model = SentenceTransformer(
-                    self.text_model_name, device=self.device)
-                logger.info(f"Text model loaded successfully on {self.device}")
-            except Exception as e:
-                logger.error(f"Failed to load text model: {e}")
-                raise
+        """Lazy load text embedding model. We now use the shared embeddings manager."""
+        # Instead of loading our own model, we'll use the global embeddings manager
+        # The embeddings manager handles model loading and caching globally
+        pass
 
     def _load_whisper_processor(self):
         """Lazy load Whisper processor for audio."""
@@ -149,19 +142,19 @@ class EmbeddingService:
         if cached is not None:
             return cached
 
-        self._load_text_model()
-
+        # Use the global embeddings manager instead of loading our own model
         try:
-            # Generate embedding
-            loop = asyncio.get_event_loop()
-            embedding = await loop.run_in_executor(
-                None,
-                lambda: self.text_model.encode(
-                    text, convert_to_tensor=False, normalize_embeddings=True)
-            )
-
-            # Convert to list and cache
-            embedding_list = embedding.tolist()
+            # Generate embedding using the shared embeddings manager
+            from core.embeddings_manager import ModelPurpose
+            embedding = embeddings_manager.get_embedding(text, purpose=ModelPurpose.GENERAL, normalize=True)
+            
+            # Convert to list if needed
+            if hasattr(embedding, 'tolist'):
+                embedding_list = embedding.tolist()
+            else:
+                embedding_list = list(embedding)
+            
+            # Cache the result
             self.cache.put(text, self.text_model_name, embedding_list)
 
             return embedding_list
@@ -467,24 +460,42 @@ class EmbeddingService:
         Returns:
             List of embeddings
         """
-        self._load_text_model()
-
         try:
             # Filter out empty texts
             valid_texts = [text for text in texts if text and text.strip()]
             if not valid_texts:
                 return [[0.0] * self.text_embedding_dim] * len(texts)
 
-            # Generate embeddings in batch
-            loop = asyncio.get_event_loop()
-            embeddings = await loop.run_in_executor(
-                None,
-                lambda: self.text_model.encode(
-                    valid_texts, convert_to_tensor=False, normalize_embeddings=True)
-            )
-
+            # Generate embeddings using the shared embeddings manager
+            from core.embeddings_manager import ModelPurpose
+            embeddings = embeddings_manager.get_embedding(valid_texts, purpose=ModelPurpose.GENERAL, normalize=True)
+            
             # Convert to list format
-            return [emb.tolist() for emb in embeddings]
+            if hasattr(embeddings, 'tolist'):
+                embeddings = embeddings.tolist()
+            
+            # Handle the case where we have multiple texts
+            if len(valid_texts) == 1:
+                # If only one text, embeddings is a 1D array, need to make it 2D
+                if isinstance(embeddings[0], (int, float)):
+                    embeddings = [embeddings]
+            else:
+                # If multiple texts, embeddings should already be 2D
+                if not isinstance(embeddings[0], (list, tuple)):
+                    # If it's still 1D but we expected 2D, make it 2D
+                    embeddings = [embeddings]
+            
+            # Make sure we return the same number of embeddings as input texts
+            result = []
+            valid_idx = 0
+            for text in texts:
+                if text and text.strip():
+                    result.append(embeddings[valid_idx])
+                    valid_idx += 1
+                else:
+                    result.append([0.0] * self.text_embedding_dim)
+            
+            return result
 
         except Exception as e:
             logger.error(f"Batch embedding generation failed: {e}")
@@ -505,9 +516,8 @@ class EmbeddingService:
 
     def cleanup(self):
         """Clean up resources."""
-        if self.text_model is not None:
-            del self.text_model
-            self.text_model = None
+        # Note: We no longer manage the text model directly as it's handled by the global embeddings manager
+        # No need to delete self.text_model since we're now using the shared embeddings manager
 
         if self.whisper_processor is not None:
             self.whisper_processor.cleanup()

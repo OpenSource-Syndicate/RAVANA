@@ -549,3 +549,74 @@ Response:
             logger.error(
                 f"Error searching archived conversations for user {user_id}: {e}")
             return []
+
+    def store_learning_experience(self, user_id: str, learning_experience: Dict[str, Any]):
+        """
+        Store a learning experience from user interaction.
+        
+        Args:
+            user_id: Unique identifier for the user
+            learning_experience: Learning experience to store
+        """
+        try:
+            memory_path = self._get_user_memory_path(user_id)
+
+            # Load existing memory or create new structure
+            if os.path.exists(memory_path):
+                try:
+                    with open(memory_path, 'r') as f:
+                        user_memory = json.load(f)
+                except Exception as e:
+                    logger.error(
+                        f"Error loading existing memory for {user_id}: {e}")
+                    user_memory = self._create_user_memory_structure(user_id)
+            else:
+                user_memory = self._create_user_memory_structure(user_id)
+
+            # Add learning experience
+            if "learning_experiences" not in user_memory:
+                user_memory["learning_experiences"] = []
+            user_memory["learning_experiences"].append(learning_experience)
+
+            # Keep only recent experiences (last 50)
+            if len(user_memory["learning_experiences"]) > 50:
+                user_memory["learning_experiences"] = user_memory["learning_experiences"][-50:]
+
+            # Save updated memory
+            with open(memory_path, 'w') as f:
+                json.dump(user_memory, f, indent=2, default=str)
+
+            logger.info(f"Stored learning experience for user {user_id}")
+
+        except Exception as e:
+            logger.error(f"Error storing learning experience for user {user_id}: {e}")
+
+    def get_learning_experiences(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get recent learning experiences for a user.
+        
+        Args:
+            user_id: Unique identifier for the user
+            limit: Maximum number of experiences to return
+            
+        Returns:
+            List of recent learning experiences
+        """
+        try:
+            memory_path = self._get_user_memory_path(user_id)
+            if not os.path.exists(memory_path):
+                return []
+
+            try:
+                with open(memory_path, 'r') as f:
+                    user_memory = json.load(f)
+            except Exception as e:
+                logger.error(f"Error loading memory for {user_id}: {e}")
+                return []
+
+            experiences = user_memory.get("learning_experiences", [])
+            return experiences[-limit:] if experiences else []
+
+        except Exception as e:
+            logger.error(f"Error getting learning experiences for user {user_id}: {e}")
+            return []

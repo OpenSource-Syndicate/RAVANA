@@ -9,8 +9,9 @@ import hashlib
 import ssl
 from typing import List, Tuple, Dict, Optional
 from cachetools import TTLCache
-from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import util
 from core.llm import call_llm  # Import the LLM utility
+from core.embeddings_manager import embeddings_manager, ModelPurpose
 import wikipedia
 
 # Import autonomous blog scheduler
@@ -22,23 +23,15 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Global caches and models
+# Global caches
 _FACT_CACHE = TTLCache(maxsize=500, ttl=7200)  # 2 hours cache
-_EMBED_MODEL = None  # Lazy loaded
 _TOPIC_CACHE = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache for topics
 
 
 def _get_embedding_model():
-    """Lazy load the embedding model."""
-    global _EMBED_MODEL
-    if _EMBED_MODEL is None:
-        try:
-            _EMBED_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
-            logger.info("Loaded embedding model for curiosity filtering")
-        except Exception as e:
-            logger.warning(f"Failed to load embedding model: {e}")
-            _EMBED_MODEL = None
-    return _EMBED_MODEL
+    """Get the shared embedding model from the embeddings manager."""
+    # Instead of loading our own model, we'll use the global embeddings manager
+    return embeddings_manager
 
 
 async def fetch_html_async(url: str, headers: Optional[Dict] = None, timeout: int = 10) -> str:
@@ -89,21 +82,35 @@ async def fetch_html_async(url: str, headers: Optional[Dict] = None, timeout: in
 
 def _filter_similar_topics(candidates: List[str], recent: List[str], threshold: float = 0.7) -> List[str]:
     """Filter out topics too similar to recent ones using embeddings."""
-    model = _get_embedding_model()
-    if not model or not recent or not candidates:
+    embeddings_mgr = _get_embedding_model()
+    if not embeddings_mgr or not recent or not candidates:
         return candidates
 
     try:
-        # Encode all at once for efficiency
-        candidate_embeddings = model.encode(candidates, convert_to_tensor=True)
-        recent_embeddings = model.encode(recent, convert_to_tensor=True)
+        # Use the shared embeddings manager to generate embeddings
+        candidate_embeddings = embeddings_mgr.get_embedding(candidates, purpose=ModelPurpose.SEMANTIC_SEARCH)
+        recent_embeddings = embeddings_mgr.get_embedding(recent, purpose=ModelPurpose.SEMANTIC_SEARCH)
 
         filtered = []
-        for i, candidate_emb in enumerate(candidate_embeddings):
-            # Calculate similarity with all recent topics
-            similarities = util.cos_sim(candidate_emb, recent_embeddings)
-            max_similarity = similarities.max().item()
-
+        # Calculate similarities for each candidate against all recent topics
+        for i, candidate_text in enumerate(candidates):
+            candidate_emb = candidate_embeddings[i] if len(candidate_embeddings.shape) > 1 else candidate_embeddings
+            max_similarity = 0.0
+            
+            for recent_emb in recent_embeddings:
+                # Calculate cosine similarity manually since we're using numpy arrays
+                dot_product = sum(a * b for a, b in zip(candidate_emb, recent_emb))
+                norm_a = sum(a * a for a in candidate_emb) ** 0.5
+                norm_b = sum(a * a for a in recent_emb) ** 0.5
+                
+                if norm_a == 0 or norm_b == 0:
+                    similarity = 0.0
+                else:
+                    similarity = dot_product / (norm_a * norm_b)
+                
+                if similarity > max_similarity:
+                    max_similarity = similarity
+            
             if max_similarity < threshold:
                 filtered.append(candidates[i])
 

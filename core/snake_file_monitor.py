@@ -10,6 +10,7 @@ import time
 import hashlib
 import os
 import uuid
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Callable
@@ -485,7 +486,6 @@ class ContinuousFileMonitor:
         """Thread-safe info logging"""
         try:
             # Use asyncio to schedule logging
-            import asyncio
             asyncio.run_coroutine_threadsafe(
                 self.log_manager.log_system_event(
                     event_type, data, worker_id="file_monitor"),
@@ -497,7 +497,6 @@ class ContinuousFileMonitor:
     def _log_error(self, event_type: str, data: Dict):
         """Thread-safe error logging"""
         try:
-            import asyncio
             asyncio.run_coroutine_threadsafe(
                 self.log_manager.log_system_event(
                     event_type, data, level="error", worker_id="file_monitor"),

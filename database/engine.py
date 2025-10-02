@@ -1,8 +1,11 @@
 from sqlmodel import create_engine, SQLModel
 from core.config import Config
 
-engine = create_engine(Config.DATABASE_URL, echo=True)
+
+def get_engine():
+    config = Config()
+    return create_engine(config.DATABASE_URL, echo=True)
 
 
-def create_db_and_tables():
+def create_db_and_tables(engine):
     SQLModel.metadata.create_all(engine)

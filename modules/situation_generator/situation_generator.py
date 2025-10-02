@@ -89,7 +89,8 @@ class SituationGenerator:
         setup_db()
 
         # Load RSS feeds
-        self.feed_urls = Config.FEED_URLS
+        config = Config()
+        self.feed_urls = config.FEED_URLS
 
         self.logger.info("SituationGenerator initialized")
 

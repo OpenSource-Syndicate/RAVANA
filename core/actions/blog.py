@@ -51,6 +51,7 @@ class BlogPublishAction(Action):
 
     @property
     def parameters(self) -> List[Dict[str, Any]]:
+        config = Config()
         return [
             {
                 "name": "topic",
@@ -61,7 +62,7 @@ class BlogPublishAction(Action):
             {
                 "name": "style",
                 "type": "string",
-                "description": f"Writing style: {', '.join(Config.BLOG_CONTENT_STYLES)}",
+                "description": f"Writing style: {', '.join(config.BLOG_CONTENT_STYLES)}",
                 "required": False,
             },
             {
@@ -96,7 +97,8 @@ class BlogPublishAction(Action):
         """
         try:
             # Validate configuration
-            if not Config.BLOG_ENABLED:
+            config = Config()
+            if not config.BLOG_ENABLED:
                 return {
                     "status": "skipped",
                     "message": "Blog publishing is disabled in configuration",
@@ -112,7 +114,7 @@ class BlogPublishAction(Action):
                     "error": "MISSING_TOPIC"
                 }
 
-            style = kwargs.get("style", Config.BLOG_DEFAULT_STYLE)
+            style = kwargs.get("style", config.BLOG_DEFAULT_STYLE)
             context = kwargs.get("context")
             custom_tags = kwargs.get("custom_tags", [])
             dry_run = kwargs.get("dry_run", False)
@@ -311,7 +313,8 @@ class BlogPublishAction(Action):
             Dict containing connection test results
         """
         try:
-            if not Config.BLOG_ENABLED:
+            config = Config()
+            if not config.BLOG_ENABLED:
                 return {
                     "status": "skipped",
                     "message": "Blog integration is disabled",
@@ -332,7 +335,7 @@ class BlogPublishAction(Action):
                 "status": "success" if connection_ok else "error",
                 "message": "Connection test successful" if connection_ok else "Connection test failed",
                 "connected": connection_ok,
-                "api_url": Config.BLOG_API_URL,
+                "api_url": config.BLOG_API_URL,
                 "timestamp": datetime.now().isoformat()
             }
 
@@ -374,19 +377,20 @@ class BlogPublishAction(Action):
         Returns:
             Dict containing configuration details
         """
+        config = Config()
         return {
-            "enabled": Config.BLOG_ENABLED,
-            "api_url": Config.BLOG_API_URL,
-            "default_style": Config.BLOG_DEFAULT_STYLE,
-            "available_styles": Config.BLOG_CONTENT_STYLES,
+            "enabled": config.BLOG_ENABLED,
+            "api_url": config.BLOG_API_URL,
+            "default_style": config.BLOG_DEFAULT_STYLE,
+            "available_styles": config.BLOG_CONTENT_STYLES,
             "content_length_limits": {
-                "min": Config.BLOG_MIN_CONTENT_LENGTH,
-                "max": Config.BLOG_MAX_CONTENT_LENGTH
+                "min": config.BLOG_MIN_CONTENT_LENGTH,
+                "max": config.BLOG_MAX_CONTENT_LENGTH
             },
-            "auto_tagging_enabled": Config.BLOG_AUTO_TAGGING_ENABLED,
-            "max_tags": Config.BLOG_MAX_TAGS,
-            "timeout_seconds": Config.BLOG_TIMEOUT_SECONDS,
-            "retry_attempts": Config.BLOG_RETRY_ATTEMPTS,
-            "auto_publish_enabled": Config.BLOG_AUTO_PUBLISH_ENABLED,
-            "require_approval": Config.BLOG_REQUIRE_APPROVAL
+            "auto_tagging_enabled": config.BLOG_AUTO_TAGGING_ENABLED,
+            "max_tags": config.BLOG_MAX_TAGS,
+            "timeout_seconds": config.BLOG_TIMEOUT_SECONDS,
+            "retry_attempts": config.BLOG_RETRY_ATTEMPTS,
+            "auto_publish_enabled": config.BLOG_AUTO_PUBLISH_ENABLED,
+            "require_approval": config.BLOG_REQUIRE_APPROVAL
         }

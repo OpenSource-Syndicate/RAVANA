@@ -124,6 +124,8 @@ class SnakeLogManager:
         self.analysis_logger = self._create_logger("analysis")
         self.communication_logger = self._create_logger("communication")
         self.system_logger = self._create_logger("system")
+        self.error_logger = self._create_error_logger("snake_errors")  # New error logger
+        self.interactions_logger = self._create_json_logger("interactions")  # New interactions logger
 
         # Thread-safe logging queue and worker
         self.log_queue = queue.Queue()
@@ -163,6 +165,68 @@ class SnakeLogManager:
             backupCount=5,
             encoding='utf-8'
         )
+        json_handler.setFormatter(self.json_formatter)
+        logger.addHandler(json_handler)
+
+        return logger
+
+    def _create_error_logger(self, name: str) -> logging.Logger:
+        """Create specialized error logger with traceback support"""
+        logger = logging.getLogger(f"snake.{name}")
+        logger.setLevel(logging.ERROR)
+        logger.propagate = False
+
+        # Clear any existing handlers
+        logger.handlers.clear()
+
+        from core.config import Config
+        # Use configured values or defaults
+        max_bytes = getattr(Config, 'SNAKE_LOG_MAX_FILE_SIZE', 10 * 1024 * 1024)
+        backup_count = getattr(Config, 'SNAKE_LOG_BACKUP_COUNT', 5)
+        
+        # Create rotating file handler for errors with traceback
+        log_file = self.log_dir / f"{name}.log"
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding='utf-8'
+        )
+        
+        # Use a formatter that includes traceback information
+        error_formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s\n%(exc_info)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(error_formatter)
+        logger.addHandler(file_handler)
+
+        return logger
+
+    def _create_json_logger(self, name: str) -> logging.Logger:
+        """Create logger specifically for JSON structured logging of interactions"""
+        logger = logging.getLogger(f"snake.{name}")
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+
+        # Clear any existing handlers
+        logger.handlers.clear()
+
+        from core.config import Config
+        # Use configured values or defaults
+        max_bytes = getattr(Config, 'SNAKE_LOG_MAX_FILE_SIZE', 10 * 1024 * 1024)
+        backup_count = getattr(Config, 'SNAKE_LOG_BACKUP_COUNT', 5)
+        
+        # Create JSON file handler for structured data
+        json_log_file = self.log_dir / f"{name}.json"
+        json_handler = RotatingFileHandler(
+            json_log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding='utf-8'
+        )
+        
+        # Create a JSON formatter
         json_handler.setFormatter(self.json_formatter)
         logger.addHandler(json_handler)
 
@@ -253,6 +317,7 @@ class SnakeLogManager:
                 json_data = json.dumps(
                     log_entry, default=str, ensure_ascii=False)
                 logger.info(json_data)
+                self.system_logger.info(f"Processing log entry: {json_data}")
 
         except Exception as e:
             # Fallback to system logger
@@ -357,6 +422,75 @@ class SnakeLogManager:
         except Exception as e:
             self.system_logger.error(f"Error getting recent logs: {e}")
             return []
+
+    def log_error_with_traceback(self, error: Exception, context: str = "", extra_data: Dict[str, Any] = None):
+        """Log error with full traceback information"""
+        try:
+            import traceback
+            error_info = {
+                "timestamp": datetime.now().isoformat(),
+                "context": context,
+                "error_type": type(error).__name__,
+                "error_message": str(error),
+                "traceback": traceback.format_exception(type(error), error, error.__traceback__)
+            }
+            
+            if extra_data:
+                error_info["extra_data"] = extra_data
+
+            # Log to error file with traceback
+            self.error_logger.error(
+                f"{context} - {str(error)}", 
+                exc_info=True  # This will include the full traceback
+            )
+
+            # Also add to the JSON interactions log for comprehensive tracking
+            json_error_info = {
+                "type": "error",
+                "data": error_info
+            }
+            self.interactions_logger.info(json.dumps(json_error_info, default=str))
+        except Exception as e:
+            print(f"Error in error logging system: {e}")
+
+    def log_interaction(self, interaction_type: str, prompt: str, response: str = None, 
+                       metadata: Dict[str, Any] = None):
+        """Log LLM interactions (prompts and responses)"""
+        try:
+            interaction_data = {
+                "timestamp": datetime.now().isoformat(),
+                "interaction_type": interaction_type,
+                "prompt": prompt,
+                "response": response,
+                "metadata": metadata or {}
+            }
+
+            json_interaction = {
+                "type": "interaction",
+                "data": interaction_data
+            }
+            self.interactions_logger.info(json.dumps(json_interaction, default=str))
+        except Exception as e:
+            self.system_logger.error(f"Error logging interaction: {e}")
+
+    def log_detailed_event(self, event_type: str, data: Dict[str, Any], 
+                          metadata: Dict[str, Any] = None):
+        """Log detailed system events with full context"""
+        try:
+            event_data = {
+                "timestamp": datetime.now().isoformat(),
+                "event_type": event_type,
+                "data": data,
+                "metadata": metadata or {}
+            }
+
+            json_event = {
+                "type": "detailed_event",
+                "data": event_data
+            }
+            self.interactions_logger.info(json.dumps(json_event, default=str))
+        except Exception as e:
+            self.system_logger.error(f"Error logging detailed event: {e}")
 
     def cleanup_old_logs(self, days_to_keep: int = 30):
         """Cleanup old log files"""

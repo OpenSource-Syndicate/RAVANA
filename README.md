@@ -105,8 +105,61 @@ The repo includes test harnesses to stretch RAVANA’s abilities:
 * `scripts/physics_experiment_prompts.py` — collection of physics experiment prompts
 * `scripts/cleanup_session.py` — clean up session data and temporary files
 * `scripts/launch_conversational_ai.py` — standalone conversational AI interface
+* `test_snake_agent_performance.py` — comprehensive test suite for Snake Agent
+* `snake_performance_monitor.py` — real-time performance monitoring
+* `run_optimized_snake_agent.py` — run Snake Agent with optimized settings
 
 Run them from an active virtual environment to watch the system’s behavior unfold.
+
+## ⚡ Snake Agent Optimization
+
+The Snake Agent has been enhanced with performance optimizations using threading and multiprocessing:
+
+### Performance Features
+- **Threading Architecture**: Multiple specialized threads for different tasks (file monitoring, analysis, communication)
+- **Multiprocessing**: CPU-intensive tasks run in separate processes for isolation and performance
+- **VLTM Integration**: Very Long-Term Memory system for knowledge retention and pattern recognition
+- **Performance Monitoring**: Real-time metrics collection and analysis
+- **Auto-Recovery**: Automatic recovery from failures and errors
+
+### Running with Optimal Performance
+To run the Snake Agent with optimized settings:
+
+```bash
+# Set environment variables for optimal performance (optional, defaults are optimized):
+export SNAKE_MAX_THREADS=12
+export SNAKE_MAX_PROCESSES=6
+export SNAKE_ANALYSIS_THREADS=4
+export SNAKE_PERF_MONITORING=True
+export SNAKE_AUTO_RECOVERY=True
+
+# Run the optimized snake agent
+python run_optimized_snake_agent.py --demo
+```
+
+### Performance Monitoring
+Monitor the Snake Agent's performance in real-time:
+
+```bash
+# Monitor performance for 5 minutes
+python snake_performance_monitor.py --short-test
+
+# Analyze historical performance data
+python snake_performance_monitor.py --analyze-file snake_performance.json
+```
+
+### Testing Performance
+Run comprehensive performance tests:
+
+```bash
+# Run the comprehensive test suite
+python test_snake_agent_performance.py
+
+# Run specific tests
+python -m pytest tests/test_enhanced_snake_agent.py -v
+```
+
+For more detailed information about Snake Agent optimization, see the [performance guide](docs/snake_agent_performance_guide.md).
 
 ---
 

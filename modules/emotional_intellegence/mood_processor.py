@@ -174,4 +174,31 @@ Be nuanced: an action can trigger multiple categories. For example, discovering 
 
         # Extract JSON from the response
         triggers = self._extract_json_from_response(llm_response)
+        
+        # Fallback: If no triggers were identified, try to infer from the action output
+        if not triggers:
+            # Simple heuristic-based mood assignment for common patterns
+            action_lower = action_output.lower()
+            
+            # Check for common positive patterns
+            if any(word in action_lower for word in ["discovered", "discovery", "new", "found", "identified", "created", "developed"]):
+                triggers["new_discovery"] = True
+            elif any(word in action_lower for word in ["completed", "finished", "done", "achieved", "succeeded"]):
+                triggers["task_completed"] = True
+            elif any(word in action_lower for word in ["error", "failed", "error", "broke", "problem", "issue"]):
+                triggers["error_occurred"] = True
+            elif any(word in action_lower for word in ["repeat", "repeating", "loop", "same"]):
+                triggers["repetition_detected"] = True
+            elif any(word in action_lower for word in ["milestone", "major", "significant", "important"]):
+                triggers["milestone_achieved"] = True
+            elif any(word in action_lower for word in ["feedback", "comment", "review"]):
+                if "positive" in action_lower or "good" in action_lower or "well" in action_lower:
+                    triggers["external_feedback_positive"] = True
+                elif "negative" in action_lower or "bad" in action_lower or "poor" in action_lower:
+                    triggers["external_feedback_negative"] = True
+            elif any(word in action_lower for word in ["resource", "computational", "limit", "constraint"]):
+                triggers["resource_limitation"] = True
+            elif any(word in action_lower for word in ["conflict", "contradiction", "inconsistency"]):
+                triggers["conflict_detected"] = True
+        
         self.process_action_result(triggers)

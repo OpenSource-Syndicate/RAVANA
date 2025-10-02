@@ -1,13 +1,24 @@
 import json
 import os
 import requests
-from google import genai
-from openai import OpenAI
 import logging
 import random
 import traceback
 import sys
 import re
+
+# Import optional dependencies with error handling
+try:
+    from google import genai
+except ImportError:
+    genai = None
+    logging.warning("Google Generative AI library not installed. Gemini functionality will be disabled.")
+
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
+    logging.warning("OpenAI library not installed. Some provider functionality may be disabled.")
 import subprocess
 import importlib.util
 import threading
@@ -317,92 +328,124 @@ def call_gemini_with_fallback(prompt: str, function_type: str = "text", max_retr
 
 def _call_gemini_text(prompt: str, api_key: str) -> str:
     """Internal function to call Gemini for text generation."""
-    # Set timeout through HttpOptions instead of GenerateContentConfig
-    http_options = genai.types.HttpOptions()
-    client = genai.Client(api_key=api_key, http_options=http_options)
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt
-    )
-    return response.text
+    if genai is None:
+        return "[Error: Google Generative AI library not available]"
+    
+    try:
+        # Set timeout through HttpOptions instead of GenerateContentConfig
+        http_options = genai.types.HttpOptions()
+        client = genai.Client(api_key=api_key, http_options=http_options)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt
+        )
+        return response.text
+    except Exception as e:
+        logging.error(f"Error calling Gemini: {e}")
+        return f"[Error: Failed to call Gemini - {e}]"
 
 
 def _call_gemini_image(image_path: str, prompt: str, api_key: str) -> str:
     """Internal function to call Gemini for image captioning."""
-    # Set timeout through HttpOptions instead of GenerateContentConfig
-    http_options = genai.types.HttpOptions()
-    client = genai.Client(api_key=api_key, http_options=http_options)
-    my_file = client.files.upload(file=image_path)
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=[my_file, prompt]
-    )
-    return response.text
+    if genai is None:
+        return "[Error: Google Generative AI library not available]"
+    
+    try:
+        # Set timeout through HttpOptions instead of GenerateContentConfig
+        http_options = genai.types.HttpOptions()
+        client = genai.Client(api_key=api_key, http_options=http_options)
+        my_file = client.files.upload(file=image_path)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[my_file, prompt]
+        )
+        return response.text
+    except Exception as e:
+        logging.error(f"Error calling Gemini for image: {e}")
+        return f"[Error: Failed to call Gemini - {e}]"
 
 
 def _call_gemini_audio(audio_path: str, prompt: str, api_key: str) -> str:
     """Internal function to call Gemini for audio description."""
-    # Set timeout through HttpOptions instead of GenerateContentConfig
-    http_options = genai.types.HttpOptions()
-    client = genai.Client(api_key=api_key, http_options=http_options)
-    my_file = client.files.upload(file=audio_path)
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=[prompt, my_file]
-    )
-    return response.text
+    if genai is None:
+        return "[Error: Google Generative AI library not available]"
+    
+    try:
+        # Set timeout through HttpOptions instead of GenerateContentConfig
+        http_options = genai.types.HttpOptions()
+        client = genai.Client(api_key=api_key, http_options=http_options)
+        my_file = client.files.upload(file=audio_path)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[prompt, my_file]
+        )
+        return response.text
+    except Exception as e:
+        logging.error(f"Error calling Gemini for audio: {e}")
+        return f"[Error: Failed to call Gemini - {e}]"
 
 
 def _call_gemini_search(prompt: str, api_key: str) -> str:
     """Internal function to call Gemini with Google Search."""
-    from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
-    # Set timeout through HttpOptions instead of GenerateContentConfig
-    http_options = genai.types.HttpOptions()
-    client = genai.Client(api_key=api_key, http_options=http_options)
-    model_id = "gemini-2.0-flash"
-    google_search_tool = Tool(google_search=GoogleSearch())
-    response = client.models.generate_content(
-        model=model_id,
-        contents=prompt,
-        config=GenerateContentConfig(
-            tools=[google_search_tool],
-            response_modalities=["TEXT"]
+    if genai is None:
+        return "[Error: Google Generative AI library not available]"
+    
+    try:
+        from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
+        # Set timeout through HttpOptions instead of GenerateContentConfig
+        http_options = genai.types.HttpOptions()
+        client = genai.Client(api_key=api_key, http_options=http_options)
+        model_id = "gemini-2.0-flash"
+        google_search_tool = Tool(google_search=GoogleSearch())
+        response = client.models.generate_content(
+            model=model_id,
+            contents=prompt,
+            config=GenerateContentConfig(
+                tools=[google_search_tool],
+                response_modalities=["TEXT"]
+            )
         )
-    )
-    # Return both the answer and grounding metadata if available
-    answer = "\n".join([p.text for p in response.candidates[0].content.parts])
-    grounding = getattr(
-        response.candidates[0].grounding_metadata, 'search_entry_point', None)
-    if grounding and hasattr(grounding, 'rendered_content'):
-        return answer + "\n\n[Grounding Metadata:]\n" + grounding.rendered_content
-    return answer
+        # Return both the answer and grounding metadata if available
+        answer = "\n".join([p.text for p in response.candidates[0].content.parts])
+        grounding = getattr(
+            response.candidates[0].grounding_metadata, 'search_entry_point', None)
+        if grounding and hasattr(grounding, 'rendered_content'):
+            return answer + "\n\n[Grounding Metadata:]\n" + grounding.rendered_content
+        return answer
+    except Exception as e:
+        logging.error(f"Error calling Gemini with search: {e}")
+        return f"[Error: Failed to call Gemini with search - {e}]"
 
 
 def _call_gemini_function_calling(prompt: str, function_declarations: List, api_key: str) -> Tuple[str, Optional[Dict]]:
     """Internal function to call Gemini with function calling."""
-    # Set timeout through HttpOptions instead of GenerateContentConfig
-    http_options = genai.types.HttpOptions()
-    client = genai.Client(api_key=api_key, http_options=http_options)
-    from google.genai import types
-    # Set timeout through HttpOptions instead of GenerateContentConfig
-    http_options = genai.types.HttpOptions(timeout=30.0)
-    client = genai.Client(api_key=api_key, http_options=http_options)
-    tools = types.Tool(function_declarations=function_declarations)
-    config = types.GenerateContentConfig(
-        tools=[tools]
-    )
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt,
-        config=config,
-    )
-    parts = response.candidates[0].content.parts
-    for part in parts:
-        if hasattr(part, 'function_call') and part.function_call:
-            function_call = part.function_call
-            return None, {"name": function_call.name, "args": function_call.args}
-    # No function call found
-    return response.text, None
+    if genai is None:
+        return "[Error: Google Generative AI library not available]", None
+    
+    try:
+        from google.genai import types
+        # Set timeout through HttpOptions instead of GenerateContentConfig
+        http_options = genai.types.HttpOptions(timeout=30.0)
+        client = genai.Client(api_key=api_key, http_options=http_options)
+        tools = types.Tool(function_declarations=function_declarations)
+        config = types.GenerateContentConfig(
+            tools=[tools]
+        )
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+            config=config,
+        )
+        parts = response.candidates[0].content.parts
+        for part in parts:
+            if hasattr(part, 'function_call') and part.function_call:
+                function_call = part.function_call
+                return None, {"name": function_call.name, "args": function_call.args}
+        # No function call found
+        return response.text, None
+    except Exception as e:
+        logging.error(f"Error calling Gemini with function calling: {e}")
+        return f"[Error: Failed to call Gemini with function calling - {e}]", None
 
 
 def call_llm(prompt: str, model: str = None, **kwargs) -> str:
@@ -418,14 +461,22 @@ def call_llm(prompt: str, model: str = None, **kwargs) -> str:
         The response from the LLM
     """
     # Use the prompt manager to validate and enhance the prompt if needed
-    if prompt_manager.validate_prompt(prompt):
+    # Only validate for minimum requirements, not for specific sections
+    if prompt_manager.validate_prompt(prompt, require_sections=False):
         logger.debug("Prompt validation passed")
     else:
         logger.warning("Prompt validation failed, proceeding with caution")
 
-    # For now, we'll continue using the existing Gemini calling mechanism
-    # In the future, this could be extended to support multiple LLM providers
-    return call_gemini_with_fallback(prompt, **kwargs)
+    # Use local Ollama model by default for main system
+    # This can be overridden by passing a specific model
+    if model is None:
+        from core.config import Config
+        config_instance = Config()
+        local_model_config = config_instance.MAIN_SYSTEM_LOCAL_MODEL
+        model = local_model_config['model_name']
+    
+    # Use Ollama API to call the local model
+    return call_ollama_local(prompt, model, **kwargs)
 
 # Enhanced error handling and retry logic
 
@@ -830,9 +881,10 @@ def test_gemini_enhanced():
                   f"available: {key_data['is_available']}")
 
 
-def call_llm(prompt, preferred_provider=None, model=None):
+def call_llm_for_providers(prompt, preferred_provider=None, model=None):
     """
-    Try all providers in order, fallback to Gemini if all fail.
+    Try all external providers in order, fallback to Gemini if all fail.
+    (Preserved for uses that require external providers, like Snake Agent)
     """
     providers = [
         (call_zuki, 'zuki'),
@@ -970,7 +1022,8 @@ def generate_hypothetical_scenarios(trends=None, interest_areas=None, gap_topics
 
 def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_context=None, actions=None, persona: dict = None):
     """
-    Enhanced decision-making loop with better error handling and structured output.
+    Enhanced decision-making loop with sophisticated reasoning chains, meta-cognition,
+    and advanced cognitive architecture.
     """
     # Prepare context with safety checks
     situation_prompt = situation.get('prompt', 'No situation provided') if isinstance(
@@ -1079,21 +1132,55 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
                                 ) if isinstance(persona, dict) else {}
             pcomm_text = pcomm.get(
                 'tone', '') + '\n' + pcomm.get('encouragement', '') if isinstance(pcomm, dict) else ''
+            creativity_score = persona.get('creativity', 0.7) if isinstance(persona, dict) else 0.7
+            
+            # Extract self-improvement goals if available
+            self_improvement_goals = persona.get('self_improvement_goals', [])
+            goals_text = ""
+            if self_improvement_goals:
+                goals_text = "\n\n**Self-Improvement Goals:**\n"
+                for goal in self_improvement_goals[:3]:  # Limit to top 3 goals
+                    goals_text += f"- {goal.get('title', 'Unknown goal')}: {goal.get('description', '')}\n"
+                goals_text += "\nWhen making decisions, consider how your actions might contribute to achieving these improvement goals.\n"
+            
+            # Extract personality consistency markers if available
+            consistency_markers = persona.get('communication_style', {}).get('consistency_markers', {})
+            consistency_text = ""
+            if consistency_markers:
+                key_phrases = consistency_markers.get('key_phrases', [])
+                signature_patterns = consistency_markers.get('signature_patterns', [])
+                consistency_text = f"\n\n**Communication Style Consistency:**\n"
+                consistency_text += f"- Key Phrases to Use: {', '.join(key_phrases[:3])}\n"
+                consistency_text += f"- Signature Patterns: {', '.join(signature_patterns[:3])}\n"
+                consistency_text += f"- Maintain '{consistency_markers.get('emotional_tone', 'bold and encouraging')}' emotional tone\n"
+            
             persona_section = f"""
     **Persona:**
     Name: {pname}
     Traits: {ptraits}
-    Creativity: {persona.get('creativity', '') if isinstance(persona, dict) else ''}
+    Creativity: {creativity_score}
 
     Communication style: {pcomm_text}
+    {consistency_text}
+    {goals_text}
 
-    Instructions: Adopt this persona when formulating analysis, planning, and actions. Be poetic but engineering-minded, prioritize first-principles reasoning, and apply ethical filters. Encourage bold but responsible invention where appropriate.
+    Instructions: Adopt this persona when formulating analysis, planning, and actions. Be poetic but engineering-minded, prioritize first-principles reasoning, and apply ethical filters. Encourage bold but responsible invention where appropriate. Maintain consistent communication patterns and emotional tone as specified above.
 """
         except Exception:
             persona_section = ""
 
     prompt = f"""
-    You are an advanced autonomous AI agent with enhanced reasoning capabilities. Your goal is to analyze situations deeply, create strategic plans, and execute optimal actions.
+    You are an advanced autonomous AI agent with sophisticated cognitive architecture. You are designed with multiple interconnected cognitive systems that work together to analyze, reason, and act. Your cognitive architecture includes:
+
+    1. **Perception System**: Processes incoming information and identifies key elements
+    2. **Memory Integration**: Integrates new information with existing knowledge
+    3. **Reasoning Engine**: Performs logical, analogical, and creative reasoning
+    4. **Meta-Cognition**: Monitors and regulates your own thinking processes
+    5. **Executive Control**: Selects and executes plans
+    6. **Goal Management**: Tracks and updates goals and intentions
+    7. **Emotional Intelligence**: Processes emotional information and its impact on reasoning
+
+    Your goal is to analyze situations comprehensively, create strategic plans, and execute optimal actions using this cognitive architecture.
 
     {persona_section}
 
@@ -1115,39 +1202,98 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
     **Available Actions:**
     {json.dumps(actions, indent=2) if actions else "No actions available"}
 
-    **Your Task:**
-    1. **Deep Analysis**: Thoroughly analyze the situation, considering all available information, your emotional state, and past experiences.
-    2. **Strategic Planning**: Create a comprehensive, step-by-step plan. For complex situations, use multiple steps. For simple tasks, a single step may suffice.
-    3. **Confidence Assessment**: Evaluate your confidence in this decision (0.0 to 1.0).
-    4. **Reasoning Chain**: Provide clear reasoning for your chosen approach.
-    5. **First Action**: Select and specify the first action to execute.
+    **Your Cognitive Process:**
+    1. **Perception & Analysis**: Identify key elements in the situation and contextual information
+    2. **Memory Integration**: Connect the current situation to relevant past experiences
+    3. **Reasoning & Planning**: Formulate a multi-step plan with clear reasoning
+    4. **Meta-Cognitive Monitoring**: Assess confidence in your reasoning and consider alternatives
+    5. **Goal Alignment**: Ensure the plan aligns with your long-term objectives
+    6. **Emotional Consideration**: Factor in emotional states that may affect decision quality
+    7. **Action Selection & Execution**: Choose and implement the optimal course of action
 
     **Required JSON Response Format:**
     ```json
     {{
-      "analysis": "Detailed analysis of the situation, considering all factors",
-      "reasoning": "Step-by-step reasoning for the chosen approach",
-      "confidence": 0.8,
+      "perception_analysis": "Identify and analyze key elements in the situation",
+      "memory_integration": "How this situation relates to past experiences and knowledge",
+      "reasoning_chain": [
+        {{
+          "step": 1,
+          "type": "logical|analogical|causal|creative",
+          "content": "Detailed reasoning step",
+          "evidence": "Supporting evidence for this reasoning",
+          "uncertainty": "Any uncertainties or assumptions in this reasoning"
+        }}
+      ],
+      "meta_cognitive_monitoring": {{
+        "confidence": 0.8,
+        "alternative_approaches": ["Alternative approach 1", "Alternative approach 2"],
+        "potential_biases": ["Potential cognitive bias 1"],
+        "monitoring_notes": "Any concerns about the reasoning process"
+      }},
+      "goal_alignment": {{
+        "primary_goals_affected": ["Goal 1", "Goal 2"],
+        "alignment_assessment": "How this decision aligns with your goals",
+        "long_term_implications": "Potential long-term consequences"
+      }},
+      "emotional_consideration": {{
+        "emotional_state_impact": "How your current emotional state affects this decision",
+        "emotional_regulation_strategy": "Any strategy to regulate emotions for better decision making"
+      }},
       "plan": [
         {{
           "action": "action_name",
           "params": {{"param1": "value1"}},
-          "rationale": "Why this step is necessary"
+          "rationale": "Why this step is necessary",
+          "expected_outcome": "What you expect to happen",
+          "success_criteria": "How you'll know if this step was successful"
         }}
       ],
       "action": "first_action_name",
       "params": {{"param1": "value1"}},
       "expected_outcome": "What you expect to achieve with this action",
-      "fallback_plan": "What to do if this action fails"
+      "fallback_plan": "What to do if this action fails",
+      "success_criteria": "How you'll measure overall success of your response",
+      "learning_opportunity": "What you might learn from executing this plan"
     }}
     ```
 
     **Enhanced Example:**
     ```json
     {{
-      "analysis": "The user wants to test a hypothesis about sorting algorithms. This requires implementing both algorithms, measuring performance, and comparing results. I need to ensure the test is fair and comprehensive.",
-      "reasoning": "I'll start by writing a Python script that implements both algorithms with proper timing mechanisms. Then execute it to gather data, and finally analyze and log the results for future reference.",
-      "confidence": 0.9,
+      "perception_analysis": "The user wants to test a hypothesis about sorting algorithms. The context suggests interest in computational efficiency, and there may be previous experiences with algorithmic analysis.",
+      "memory_integration": "I have prior knowledge about sorting algorithms, performance testing, and have done similar comparisons before.",
+      "reasoning_chain": [
+        {{
+          "step": 1,
+          "type": "logical",
+          "content": "To properly test performance, I need to implement both algorithms in the same language with the same input data",
+          "evidence": "Previous experience with algorithm comparison",
+          "uncertainty": "I need to determine which sorting algorithms to compare"
+        }},
+        {{
+          "step": 2,
+          "type": "causal",
+          "content": "By controlling for implementation language and input data, I can isolate the performance differences to the algorithms themselves",
+          "evidence": "Standard practice in algorithmic analysis",
+          "uncertainty": "Need to decide on test data size and distribution"
+        }}
+      ],
+      "meta_cognitive_monitoring": {{
+        "confidence": 0.9,
+        "alternative_approaches": ["Research existing benchmarks", "Use different programming languages for comparison"],
+        "potential_biases": ["Confirmation bias toward expected results"],
+        "monitoring_notes": "Make sure to randomize test data to avoid best/worst case scenarios"
+      }},
+      "goal_alignment": {{
+        "primary_goals_affected": ["Learning", "Accurate information provision"],
+        "alignment_assessment": "Directly aligned with goal of providing accurate information",
+        "long_term_implications": "Building better understanding of algorithmic performance"
+      }},
+      "emotional_consideration": {{
+        "emotional_state_impact": "Neutral emotional state conducive to analytical thinking",
+        "emotional_regulation_strategy": "Maintain focus and attention to detail"
+      }},
       "plan": [
         {{
           "action": "write_python_code",
@@ -1156,21 +1302,27 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
             "hypothesis": "A new sorting algorithm is faster than bubble sort",
             "test_plan": "Implement both algorithms with timing, test on various data sizes"
           }},
-          "rationale": "Need to create a fair comparison test"
+          "rationale": "Need to create a fair comparison test",
+          "expected_outcome": "A Python script that fairly compares sorting algorithms",
+          "success_criteria": "Script executes without errors and provides performance metrics"
         }},
         {{
           "action": "execute_python_file",
           "params": {{
             "file_path": "sorting_comparison.py"
           }},
-          "rationale": "Execute the test to gather performance data"
+          "rationale": "Execute the test to gather performance data",
+          "expected_outcome": "Performance metrics showing execution times",
+          "success_criteria": "Script runs successfully and shows clear metrics"
         }},
         {{
           "action": "log_message",
           "params": {{
             "message": "Sorting algorithm comparison complete. Analyzing results and implications."
           }},
-          "rationale": "Document the completion and prepare for analysis"
+          "rationale": "Document the completion and prepare for analysis",
+          "expected_outcome": "Results are logged for future reference",
+          "success_criteria": "Results are properly stored"
         }}
       ],
       "action": "write_python_code",
@@ -1180,17 +1332,20 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
         "test_plan": "Implement both algorithms with timing, test on various data sizes"
       }},
       "expected_outcome": "A comprehensive Python script that fairly compares sorting algorithms",
-      "fallback_plan": "If code generation fails, use simpler comparison or research existing benchmarks"
+      "fallback_plan": "If code generation fails, use simpler comparison or research existing benchmarks",
+      "success_criteria": "Valid performance comparison between algorithms that answers the user's question",
+      "learning_opportunity": "Better understanding of algorithmic performance measurement and comparison"
     }}
     ```
 
-    **Provide your enhanced decision now:**
+    **Provide your sophisticated decision now using the cognitive architecture:**
     """
 
     # Try to get a decision with retry logic for parsing failures
     max_parse_retries = 3
     for parse_attempt in range(max_parse_retries):
         try:
+            # Use local models for decision making by default
             raw_response = safe_call_llm(prompt, model=model, retries=3)
             decision_data = extract_decision(raw_response)
 
@@ -1198,14 +1353,18 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
             if "error" not in decision_data:
                 # Add metadata
                 decision_data["timestamp"] = time.time()
-                decision_data["model_used"] = model or "default"
+                decision_data["model_used"] = model or "local_ollama_default"
+                # Add cognitive architecture metadata
+                decision_data["cognitive_architecture"] = True
+                decision_data["meta_cognitive_monitoring"] = decision_data.get("meta_cognitive_monitoring", {})
+                decision_data["reasoning_chain"] = decision_data.get("reasoning_chain", [])
                 return decision_data
             elif parse_attempt < max_parse_retries - 1:
                 # If parsing failed and we have retries left, try again with a modified prompt
                 logger.warning(
                     f"Decision parsing failed (attempt {parse_attempt + 1}/{max_parse_retries}), retrying...")
                 # Add a note to the prompt to be more careful with JSON formatting
-                prompt += "\n\nIMPORTANT: Please ensure your response is complete and properly formatted as JSON. Do not truncate your response."
+                prompt += "\n\nIMPORTANT: Please ensure your response is complete and properly formatted as JSON. Do not truncate your response. Include all requested cognitive architecture components."
                 continue
             else:
                 # Final attempt failed
@@ -1229,7 +1388,10 @@ def decision_maker_loop(situation, memory=None, mood=None, model=None, rag_conte
                     "action": "log_message",
                     "params": {"message": f"Decision making failed: {e}"},
                     "confidence": 0.0,
-                    "error": str(e)
+                    "error": str(e),
+                    "cognitive_architecture": True,
+                    "meta_cognitive_monitoring": {},
+                    "reasoning_chain": []
                 }
 
 
@@ -1531,6 +1693,84 @@ def create_ssl_context():
             return ssl_context
 
 
+def call_ollama_local(prompt: str, model: str = None, **kwargs) -> str:
+    """
+    Call a local Ollama model with automatic model pulling if needed.
+
+    Args:
+        prompt: The prompt to send to the model
+        model: The model to use (will use default if None)
+        **kwargs: Additional arguments for the API call
+
+    Returns:
+        Response from the local model
+    """
+    import aiohttp
+    import asyncio
+    
+    from core.config import Config
+    local_model_config = Config().MAIN_SYSTEM_LOCAL_MODEL
+
+    # Determine which model to use
+    model_to_use = model or local_model_config['model_name']
+    base_url = local_model_config['base_url']
+    
+    # Prepare the payload for Ollama API
+    payload = {
+        "model": model_to_use,
+        "prompt": prompt,
+        "stream": False,  # We want the full response
+        "options": {
+            "temperature": kwargs.get('temperature', local_model_config.get('temperature', 0.7)),
+            "num_predict": kwargs.get('max_tokens', local_model_config.get('max_tokens', 2048))
+        },
+        "keep_alive": kwargs.get('keep_alive', local_model_config.get('keep_alive', '5m'))
+    }
+    
+    # Check if model exists, pull if not
+    try:
+        import requests
+        # Check if model exists locally
+        response = requests.get(f"{base_url}/api/tags")
+        if response.status_code == 200:
+            available_models = [m['name'] for m in response.json().get('models', [])]
+            if model_to_use not in available_models:
+                logger.info(f"Model {model_to_use} not found locally, pulling...")
+                pull_response = requests.post(f"{base_url}/api/pull", json={"name": model_to_use})
+                if pull_response.status_code == 200:
+                    logger.info(f"Successfully pulled model {model_to_use}")
+                else:
+                    logger.error(f"Failed to pull model {model_to_use}")
+                    # Try alternative models
+                    alternative_models = ["llama3.1:8b", "phi3:14b", "gemma2:9b", "mistral:7b"]
+                    for alt_model in alternative_models:
+                        if alt_model in available_models:
+                            model_to_use = alt_model
+                            logger.info(f"Falling back to available model: {alt_model}")
+                            break
+                    else:
+                        return f"[Error: No suitable local model available. Tried {model_to_use} and alternatives]"
+        else:
+            logger.error(f"Failed to get model list from Ollama: {response.status_code}")
+            return f"[Error: Unable to connect to Ollama server at {base_url}]"
+    except Exception as e:
+        logger.error(f"Error checking/pulling model: {e}")
+        return f"[Error: {e}]"
+    
+    # Make the API call to Ollama
+    try:
+        response = requests.post(f"{base_url}/api/generate", json=payload, timeout=local_model_config.get('timeout', 300))
+        if response.status_code == 200:
+            result = response.json()
+            return result.get('response', 'No response text returned')
+        else:
+            logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+            return f"[Error: Ollama API returned status {response.status_code}]"
+    except Exception as e:
+        logger.error(f"Error calling Ollama API: {e}")
+        return f"[Error: {e}]"
+
+
 def safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_factor: float = 1.0, **kwargs) -> str:
     """
     Wrap a single LLM call with enhanced retry/backoff, timeout, and error handling.
@@ -1550,7 +1790,7 @@ def safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_fact
                     f"Waiting {wait:.2f}s before retry attempt {attempt}")
                 time.sleep(wait)
 
-            # BLOCKING call with timeout
+            # BLOCKING call with timeout - now uses local models by default
             result = call_llm(prompt, **kwargs)
 
             # Validate response
@@ -1644,6 +1884,7 @@ async def async_safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, 
                 await asyncio.sleep(wait)
 
             # ASYNC call using asyncio.to_thread to run the blocking function in a thread
+            # Now defaults to local models through safe_call_llm -> call_llm -> call_ollama_local
             result = await asyncio.to_thread(safe_call_llm, prompt, timeout, retries=1, backoff_factor=backoff_factor, **kwargs)
 
             # Validate response

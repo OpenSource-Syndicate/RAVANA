@@ -7,7 +7,7 @@ and all related entities in the Intelligent Adaptive Builder system.
 
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import uuid
 

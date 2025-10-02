@@ -13,6 +13,8 @@ class CommunicationType(Enum):
     TASK_RESULT = "task_result"
     NOTIFICATION = "notification"
     USER_MESSAGE = "user_message"
+    LEARNING_EXPERIENCE = "learning_experience"
+    IMPROVEMENT_OPPORTUNITY = "improvement_opportunity"
 
 
 class Priority(Enum):

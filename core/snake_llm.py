@@ -28,37 +28,92 @@ class SnakeConfigValidator:
                 f"{Config.SNAKE_OLLAMA_BASE_URL}/api/tags", timeout=5)
             return response.status_code == 200
         except Exception as e:
-            logger.error(f"Cannot connect to Ollama: {e}")
+            logger.debug(f"Cannot connect to Ollama: {e}")
+            return False
+
+    @staticmethod
+    def validate_electronhub_connection() -> bool:
+        """Verify electronhub API is accessible"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {Config.SNAKE_CODING_MODEL.get('api_key', Config.SNAKE_REASONING_MODEL.get('api_key', ''))}",
+                "Content-Type": "application/json"
+            }
+            response = requests.get(
+                f"{Config.SNAKE_CODING_MODEL.get('base_url', Config.SNAKE_REASONING_MODEL.get('base_url', 'https://api.electronhub.ai'))}/v1/models", 
+                headers=headers, timeout=10)
+            return response.status_code == 200
+        except Exception as e:
+            logger.debug(f"Cannot connect to electronhub: {e}")
             return False
 
     @staticmethod
     def validate_models_available() -> tuple[bool, bool, List[str]]:
-        """Check if required models are pulled"""
-        try:
-            response = requests.get(
-                f"{Config.SNAKE_OLLAMA_BASE_URL}/api/tags", timeout=5)
-            if response.status_code == 200:
-                available_models = [m['name']
-                                    for m in response.json().get('models', [])]
-                coding_available = Config.SNAKE_CODING_MODEL['model_name'] in available_models
-                reasoning_available = Config.SNAKE_REASONING_MODEL['model_name'] in available_models
-                return coding_available, reasoning_available, available_models
-        except Exception as e:
-            logger.error(f"Error checking models: {e}")
-        return False, False, []
+        """Check if required models are pulled (for Ollama) or accessible (for other providers)"""
+        # Determine which provider each model uses
+        coding_provider = Config.SNAKE_CODING_MODEL.get('provider', 'ollama').lower()
+        reasoning_provider = Config.SNAKE_REASONING_MODEL.get('provider', 'ollama').lower()
+        
+        coding_available = False
+        reasoning_available = False
+        available_models = []
+        
+        if coding_provider == 'ollama':
+            try:
+                response = requests.get(f"{Config.SNAKE_OLLAMA_BASE_URL}/api/tags", timeout=5)
+                if response.status_code == 200:
+                    models_data = response.json()
+                    available_models.extend([m['name'] for m in models_data.get('models', [])])
+                    coding_available = Config.SNAKE_CODING_MODEL['model_name'] in available_models
+            except Exception as e:
+                logger.debug(f"Error checking coding models: {e}")
+        else:
+            # For other providers, assume model is available if API is accessible
+            try:
+                headers = {"Authorization": f"Bearer {Config.SNAKE_CODING_MODEL.get('api_key', '')}", "Content-Type": "application/json"}
+                response = requests.get(
+                    f"{Config.SNAKE_CODING_MODEL.get('base_url', 'https://api.electronhub.ai')}/v1/models", 
+                    headers=headers, timeout=10)
+                coding_available = response.status_code == 200
+            except Exception as e:
+                logger.debug(f"Error checking electronhub coding model: {e}")
+        
+        if reasoning_provider == 'ollama':
+            try:
+                response = requests.get(f"{Config.SNAKE_OLLAMA_BASE_URL}/api/tags", timeout=5)
+                if response.status_code == 200:
+                    models_data = response.json()
+                    available_models.extend([m['name'] for m in models_data.get('models', []) if m['name'] not in available_models])
+                    reasoning_available = Config.SNAKE_REASONING_MODEL['model_name'] in available_models
+            except Exception as e:
+                logger.debug(f"Error checking reasoning models: {e}")
+        else:
+            # For other providers, assume model is available if API is accessible
+            try:
+                headers = {"Authorization": f"Bearer {Config.SNAKE_REASONING_MODEL.get('api_key', '')}", "Content-Type": "application/json"}
+                response = requests.get(
+                    f"{Config.SNAKE_REASONING_MODEL.get('base_url', 'https://api.electronhub.ai')}/v1/models", 
+                    headers=headers, timeout=10)
+                reasoning_available = response.status_code == 200
+            except Exception as e:
+                logger.debug(f"Error checking electronhub reasoning model: {e}")
+
+        return coding_available, reasoning_available, available_models
 
     @staticmethod
     def get_startup_report() -> Dict[str, Any]:
         """Generate configuration status report"""
         ollama_connected = SnakeConfigValidator.validate_ollama_connection()
+        electronhub_connected = SnakeConfigValidator.validate_electronhub_connection()
         coding_available, reasoning_available, available_models = SnakeConfigValidator.validate_models_available()
 
         return {
             "ollama_connected": ollama_connected,
+            "electronhub_connected": electronhub_connected,
             "coding_model_available": coding_available,
             "reasoning_model_available": reasoning_available,
             "available_models": available_models,
-            "config_valid": ollama_connected and coding_available and reasoning_available
+            "config_valid": (ollama_connected or electronhub_connected) and coding_available and reasoning_available
         }
 
 
@@ -71,42 +126,55 @@ class OllamaClient:
         self.model_name = config['model_name']
 
     async def pull_model_if_needed(self) -> bool:
-        """Ensure model is available locally, pull if necessary"""
+        """Ensure model is available for the provider (only required for Ollama)"""
         try:
-            # Check if model exists
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"{self.base_url}/api/tags") as response:
-                    if response.status == 200:
-                        models_data = await response.json()
-                        available_models = [m['name']
-                                            for m in models_data.get('models', [])]
+            # For Ollama providers, check if model exists
+            provider = self.config.get('provider', 'ollama').lower()
+            
+            if provider == 'ollama':
+                # Ollama-specific model checking
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(f"{self.base_url}/api/tags") as response:
+                        if response.status == 200:
+                            models_data = await response.json()
+                            available_models = [m['name']
+                                                for m in models_data.get('models', [])]
 
-                        if self.model_name not in available_models:
-                            logger.info(
-                                f"Model {self.model_name} not found. Attempting to pull...")
-                            # Pull the model
-                            pull_payload = {"name": self.model_name}
-                            async with session.post(f"{self.base_url}/api/pull", json=pull_payload) as pull_response:
-                                if pull_response.status == 200:
-                                    # Monitor pull progress
-                                    async for line in pull_response.content:
-                                        if line:
-                                            try:
-                                                progress = json.loads(line)
-                                                if progress.get("status") == "success":
-                                                    logger.info(
-                                                        f"Successfully pulled model {self.model_name}")
-                                                    return True
-                                            except json.JSONDecodeError:
-                                                continue
-                                else:
-                                    logger.error(
-                                        f"Failed to pull model {self.model_name}")
-                                    return False
-                        else:
-                            logger.info(
-                                f"Model {self.model_name} is already available")
-                            return True
+                            if self.model_name not in available_models:
+                                logger.info(
+                                    f"Model {self.model_name} not found. Attempting to pull...")
+                                # Pull the model
+                                pull_payload = {"name": self.model_name}
+                                async with session.post(f"{self.base_url}/api/pull", json=pull_payload) as pull_response:
+                                    if pull_response.status == 200:
+                                        # Monitor pull progress
+                                        async for line in pull_response.content:
+                                            if line:
+                                                try:
+                                                    progress = json.loads(line)
+                                                    if progress.get("status") == "success":
+                                                        logger.info(
+                                                            f"Successfully pulled model {self.model_name}")
+                                                        return True
+                                                except json.JSONDecodeError:
+                                                    continue
+                                    else:
+                                        logger.error(
+                                            f"Failed to pull model {self.model_name}")
+                                        return False
+                            else:
+                                logger.info(
+                                    f"Model {self.model_name} is already available")
+                                return True
+            else:
+                # For other providers like electronhub, models don't need to be "pulled"
+                # Just check that the API key is set and the service is accessible
+                if self.config.get('api_key'):
+                    logger.info(f"Model {self.model_name} configured for {provider} provider (no pull needed)")
+                    return True
+                else:
+                    logger.warning(f"No API key provided for {provider} model {self.model_name}")
+                    return False
         except Exception as e:
             logger.error(f"Error checking/pulling model: {e}")
             return False
@@ -129,41 +197,74 @@ class SnakeLLMInterface:
             return True
 
         try:
-            # Verify Ollama connection
-            if not SnakeConfigValidator.validate_ollama_connection():
-                logger.warning(
-                    f"Cannot connect to Ollama at {self.config['base_url']}, trying fallback models...")
-                # Try fallback model if available
-                if 'fallback_model' in self.config and self.config['fallback_model']:
-                    logger.info(
-                        f"Using fallback model: {self.config['fallback_model']}")
-                    self.config['model_name'] = self.config['fallback_model']
-                    # Update base URL for fallback if needed
-                    if self.config.get('fallback_provider') == 'ollama':
-                        self.config['base_url'] = Config.SNAKE_OLLAMA_BASE_URL
-                else:
-                    raise ConnectionError(
-                        f"Cannot connect to Ollama at {self.config['base_url']}")
-            else:
-                # Ensure model is available
-                model_available = await self.client.pull_model_if_needed()
-                if not model_available:
+            # Determine provider type
+            provider = self.config.get('provider', 'ollama').lower()
+            
+            if provider == 'ollama':
+                # For Ollama, verify connection to Ollama server
+                if not SnakeConfigValidator.validate_ollama_connection():
                     logger.warning(
-                        f"Model {self.config['model_name']} not available, trying fallback...")
+                        f"Cannot connect to Ollama at {self.config['base_url']}, trying fallback models...")
                     # Try fallback model if available
                     if 'fallback_model' in self.config and self.config['fallback_model']:
+                        logger.info(
+                            f"Using fallback model: {self.config['fallback_model']}")
                         self.config['model_name'] = self.config['fallback_model']
-                        model_available = await self.client.pull_model_if_needed()
-                        if not model_available:
-                            raise RuntimeError(
-                                f"Main model {self.config['model_name']} and fallback not available")
+                        # Update base URL for fallback if needed
+                        if self.config.get('fallback_provider') == 'ollama':
+                            self.config['base_url'] = Config.SNAKE_OLLAMA_BASE_URL
                     else:
-                        raise RuntimeError(
-                            f"Model {self.config['model_name']} not available")
+                        raise ConnectionError(
+                            f"Cannot connect to Ollama at {self.config['base_url']}")
+                else:
+                    # Ensure model is available
+                    model_available = await self.client.pull_model_if_needed()
+                    if not model_available:
+                        logger.warning(
+                            f"Model {self.config['model_name']} not available, trying fallback...")
+                        # Try fallback model if available
+                        if 'fallback_model' in self.config and self.config['fallback_model']:
+                            self.config['model_name'] = self.config['fallback_model']
+                            model_available = await self.client.pull_model_if_needed()
+                            if not model_available:
+                                raise RuntimeError(
+                                    f"Main model {self.config['model_name']} and fallback not available")
+                        else:
+                            raise RuntimeError(
+                                f"Model {self.config['model_name']} not available")
+            else:
+                # For other providers (electronhub, etc.), just check connectivity
+                try:
+                    # Just verify that the API key is set and we can potentially connect
+                    if not self.config.get('api_key'):
+                        logger.warning(f"No API key provided for {provider} provider")
+                        # Try fallback if available
+                        if 'fallback_model' in self.config and self.config['fallback_model']:
+                            logger.info(f"Switching to fallback provider/model: {self.config['fallback_model']}")
+                            # Switch to fallback provider
+                            self.config['provider'] = self.config['fallback_provider']
+                            self.config['model_name'] = self.config['fallback_model']
+                            self.config['base_url'] = Config.SNAKE_OLLAMA_BASE_URL
+                            provider = self.config['provider']
+                        else:
+                            raise RuntimeError(f"No API key provided for {provider} provider and no fallback available")
+                    else:
+                        logger.info(f"Successfully initialized {provider} provider for model {self.config['model_name']}")
+                except Exception as e:
+                    logger.warning(f"Error initializing {provider} provider: {e}, trying fallback...")
+                    if 'fallback_model' in self.config and self.config['fallback_model']:
+                        logger.info(f"Switching to fallback provider/model: {self.config['fallback_model']}")
+                        # Switch to fallback provider
+                        self.config['provider'] = self.config['fallback_provider']
+                        self.config['model_name'] = self.config['fallback_model']
+                        self.config['base_url'] = Config.SNAKE_OLLAMA_BASE_URL
+                        provider = self.config['provider']
+                    else:
+                        raise
 
             self._initialized = True
             logger.info(
-                f"Snake {self.model_type} LLM interface initialized successfully")
+                f"Snake {self.model_type} LLM interface initialized successfully for {provider} provider")
             return True
 
         except Exception as e:
@@ -172,68 +273,148 @@ class SnakeLLMInterface:
             return False
 
     async def _call_ollama(self, prompt: str, unlimited: bool = None) -> str:
-        """Make async call to Ollama API with optional unlimited token generation"""
+        """Make async call to LLM API with support for both Ollama and OpenAI-compatible APIs"""
         if not self._initialized:
             await self.initialize()
 
+        # Determine provider type to decide API format
+        provider = self.config.get('provider', 'ollama').lower()
+        
         # Determine if unlimited mode should be used
         use_unlimited = unlimited if unlimited is not None else self.config.get(
             'unlimited_mode', False)
 
-        # Set num_predict based on unlimited mode
-        if use_unlimited or self.config.get('max_tokens') is None:
-            num_predict = -1  # Ollama unlimited tokens
-            logger.debug(
-                f"Using unlimited token generation for {self.model_type} model")
-        else:
-            num_predict = self.config['max_tokens']
-            logger.debug(
-                f"Using limited tokens ({num_predict}) for {self.model_type} model")
-
-        payload = {
-            "model": self.config['model_name'],
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": self.config['temperature'],
-                "num_predict": num_predict
-            },
-            "keep_alive": self.config['keep_alive']
-        }
-
+        # Get the logger instance if available from the parent system for interaction logging
+        try:
+            log_manager = getattr(self, 'log_manager', None)
+        except:
+            log_manager = None
+            
         try:
             timeout = aiohttp.ClientTimeout(total=self.config['timeout'])
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 start_time = time.time()
-                async with session.post(f"{self.config['base_url']}/api/generate", json=payload) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        response_text = result.get('response', '')
-
-                        # Log response metrics
-                        elapsed_time = time.time() - start_time
-                        response_length = len(response_text)
+                
+                # Log the prompt being sent
+                if log_manager:
+                    await log_manager.log_interaction(
+                        interaction_type=f"{self.model_type}_prompt",
+                        prompt=prompt,
+                        metadata={
+                            "provider": provider,
+                            "model": self.config['model_name'],
+                            "unlimited": use_unlimited
+                        }
+                    )
+                
+                # Use different API formats based on provider
+                if provider in ['electronhub', 'zuki', 'zanity', 'gemini'] or 'openai' in provider:
+                    # OpenAI-compatible API format
+                    payload = {
+                        "model": self.config['model_name'],
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": self.config['temperature'],
+                        "stream": False
+                    }
+                    
+                    # Add max_tokens if specified
+                    if self.config.get('max_tokens'):
+                        payload["max_tokens"] = self.config['max_tokens']
+                    
+                    headers = {
+                        "Authorization": f"Bearer {self.config.get('api_key', '')}",
+                        "Content-Type": "application/json"
+                    }
+                    
+                    api_endpoint = f"{self.config['base_url']}/v1/chat/completions"
+                    async with session.post(api_endpoint, json=payload, headers=headers) as response:
+                        if response.status == 200:
+                            result = await response.json()
+                            response_text = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+                        else:
+                            error_text = await response.text()
+                            raise Exception(
+                                f"OpenAI-compatible API error {response.status}: {error_text}")
+                else:
+                    # Ollama API format (default)
+                    # Set num_predict based on unlimited mode
+                    if use_unlimited or self.config.get('max_tokens') is None:
+                        num_predict = -1  # Ollama unlimited tokens
                         logger.debug(
-                            f"LLM response: {response_length} chars in {elapsed_time:.2f}s (unlimited: {use_unlimited})")
-
-                        return response_text
+                            f"Using unlimited token generation for {self.model_type} model")
                     else:
-                        error_text = await response.text()
-                        raise Exception(
-                            f"Ollama API error {response.status}: {error_text}")
+                        num_predict = self.config['max_tokens']
+                        logger.debug(
+                            f"Using limited tokens ({num_predict}) for {self.model_type} model")
+
+                    payload = {
+                        "model": self.config['model_name'],
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {
+                            "temperature": self.config['temperature'],
+                            "num_predict": num_predict
+                        },
+                        "keep_alive": self.config['keep_alive']
+                    }
+                    
+                    async with session.post(f"{self.config['base_url']}/api/generate", json=payload) as response:
+                        if response.status == 200:
+                            result = await response.json()
+                            response_text = result.get('response', '')
+                        else:
+                            error_text = await response.text()
+                            raise Exception(
+                                f"Ollama API error {response.status}: {error_text}")
+
+                # Log response metrics
+                elapsed_time = time.time() - start_time
+                response_length = len(response_text)
+                logger.debug(
+                    f"LLM response: {response_length} chars in {elapsed_time:.2f}s (provider: {provider})")
+
+                # Log the response
+                if log_manager:
+                    await log_manager.log_interaction(
+                        interaction_type=f"{self.model_type}_response",
+                        prompt=prompt,
+                        response=response_text,
+                        metadata={
+                            "provider": provider,
+                            "model": self.config['model_name'],
+                            "response_length": response_length,
+                            "elapsed_time": elapsed_time
+                        }
+                    )
+
+                return response_text
 
         except asyncio.TimeoutError:
+            # Log timeout error
+            if log_manager:
+                log_manager.log_error_with_traceback(
+                    TimeoutError(f"LLM request timed out after {self.config['timeout']} seconds ({self.config['timeout']//60} minutes)"),
+                    f"LLM timeout error for {self.model_type}",
+                    {"provider": provider, "model": self.config['model_name'], "prompt": prompt[:100] + "..." if len(prompt) > 100 else prompt}
+                )
             raise TimeoutError(
-                f"Ollama request timed out after {self.config['timeout']} seconds ({self.config['timeout']//60} minutes)")
+                f"LLM request timed out after {self.config['timeout']} seconds ({self.config['timeout']//60} minutes)")
         except Exception as e:
-            logger.error(f"Error calling Ollama API: {e}")
+            # Log other errors
+            if log_manager:
+                log_manager.log_error_with_traceback(
+                    e, 
+                    f"Error calling LLM API for {self.model_type}",
+                    {"provider": provider, "model": self.config['model_name'], "prompt": prompt[:100] + "..." if len(prompt) > 100 else prompt}
+                )
+            logger.error(f"Error calling LLM API: {e}")
             raise
 
 
 class SnakeCodingLLM(SnakeLLMInterface):
     """Specialized LLM interface for coding tasks"""
 
-    def __init__(self):
+    def __init__(self, log_manager=None):
         # If the configured provider exists in repository providers config,
         # prefer a provider-selected model (e.g., electronhub) for coding tasks.
         conf = Config.SNAKE_CODING_MODEL or {}
@@ -242,7 +423,10 @@ class SnakeCodingLLM(SnakeLLMInterface):
             try:
                 prov_model = Config.get_provider_model(provider, role='coding')
                 if prov_model and prov_model.get('model_name'):
+                    # Ensure API key is included from the original config
+                    prov_model['api_key'] = conf.get('api_key', '')
                     super().__init__(prov_model, 'coding')
+                    self.log_manager = log_manager
                     return
             except Exception as e:
                 logger.warning(f"Failed to get provider model for coding: {e}")
@@ -256,8 +440,9 @@ class SnakeCodingLLM(SnakeLLMInterface):
             # Final fallback to a simple Ollama model that's more likely to be available
             fallback_config = {
                 'provider': 'ollama',
-                'model_name': 'codellama:7b',
+                'model_name': 'gpt-oss:20b',
                 'base_url': Config.SNAKE_OLLAMA_BASE_URL,
+                'api_key': '',  # Ollama doesn't need API key
                 'temperature': 0.1,
                 'max_tokens': None,
                 'unlimited_mode': True,
@@ -265,9 +450,10 @@ class SnakeCodingLLM(SnakeLLMInterface):
                 'timeout': 300,
                 'keep_alive': '10m',
                 'fallback_provider': 'ollama',
-                'fallback_model': 'codellama:7b'
+                'fallback_model': 'gpt-oss:20b'
             }
             super().__init__(fallback_config, 'coding')
+        self.log_manager = log_manager
 
     async def analyze_code(self, code_content: str, analysis_type: str = "general") -> str:
         """Analyze code with specialized prompts for coding model"""
@@ -360,7 +546,7 @@ Provide a safety score (0-10) and detailed explanation.
 class SnakeReasoningLLM(SnakeLLMInterface):
     """Specialized LLM interface for reasoning tasks"""
 
-    def __init__(self):
+    def __init__(self, log_manager=None):
         conf = Config.SNAKE_REASONING_MODEL or {}
         provider = conf.get('provider')
         if provider and provider in Config.PROVIDERS_CONFIG:
@@ -368,7 +554,10 @@ class SnakeReasoningLLM(SnakeLLMInterface):
                 prov_model = Config.get_provider_model(
                     provider, role='reasoning')
                 if prov_model and prov_model.get('model_name'):
+                    # Ensure API key is included from the original config
+                    prov_model['api_key'] = conf.get('api_key', '')
                     super().__init__(prov_model, 'reasoning')
+                    self.log_manager = log_manager
                     return
             except Exception as e:
                 logger.warning(
@@ -383,8 +572,9 @@ class SnakeReasoningLLM(SnakeLLMInterface):
             # Final fallback to a simple Ollama model that's more likely to be available
             fallback_config = {
                 'provider': 'ollama',
-                'model_name': 'llama3.1:8b',
+                'model_name': 'deepseek-r1:8b',
                 'base_url': Config.SNAKE_OLLAMA_BASE_URL,
+                'api_key': '',  # Ollama doesn't need API key
                 'temperature': 0.3,
                 'max_tokens': None,
                 'unlimited_mode': True,
@@ -392,9 +582,10 @@ class SnakeReasoningLLM(SnakeLLMInterface):
                 'timeout': 300,
                 'keep_alive': '10m',
                 'fallback_provider': 'ollama',
-                'fallback_model': 'llama3.1:8b'
+                'fallback_model': 'deepseek-r1:8b'
             }
             super().__init__(fallback_config, 'reasoning')
+        self.log_manager = log_manager
 
     async def evaluate_safety(self, proposed_change: Dict[str, Any]) -> Dict[str, Any]:
         """Evaluate safety and impact of proposed changes"""
@@ -514,15 +705,15 @@ Provide detailed JSON response with impact assessment.
 
 
 # Factory functions for easy instantiation
-async def create_snake_coding_llm() -> SnakeCodingLLM:
+async def create_snake_coding_llm(log_manager=None) -> SnakeCodingLLM:
     """Create and initialize coding LLM interface"""
-    llm = SnakeCodingLLM()
+    llm = SnakeCodingLLM(log_manager)
     await llm.initialize()
     return llm
 
 
-async def create_snake_reasoning_llm() -> SnakeReasoningLLM:
+async def create_snake_reasoning_llm(log_manager=None) -> SnakeReasoningLLM:
     """Create and initialize reasoning LLM interface"""
-    llm = SnakeReasoningLLM()
+    llm = SnakeReasoningLLM(log_manager)
     await llm.initialize()
     return llm

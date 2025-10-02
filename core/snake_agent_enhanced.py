@@ -33,10 +33,6 @@ from core.vltm_consolidation_engine import MemoryConsolidationEngine
 from core.vltm_lifecycle_manager import MemoryLifecycleManager
 from core.vltm_storage_backend import StorageBackend
 from core.vltm_scheduler import ConsolidationScheduler
-from core.vltm_consolidation_engine import MemoryConsolidationEngine
-from core.vltm_consolidation_scheduler import ConsolidationScheduler
-from core.vltm_lifecycle_manager import MemoryLifecycleManager
-from core.vltm_storage_backend import StorageBackend
 from core.vltm_data_models import (
     DEFAULT_VLTM_CONFIG, MemoryType, MemoryRecord, ConsolidationType
 )
@@ -112,6 +108,30 @@ class EnhancedSnakeAgent:
             os.getenv('SNAKE_VLTM_STORAGE_DIR', 'snake_vltm_storage'))
         self.session_id = str(uuid.uuid4())  # Unique session identifier
 
+    @property
+    def state(self):
+        """Property to access the snake agent's state for compatibility"""
+        # Return a state object that has a to_dict method for compatibility
+        class SnakeAgentState:
+            def __init__(self, agent):
+                self.agent = agent
+                
+            def to_dict(self):
+                # Return a dictionary representation of the agent's state
+                return {
+                    "start_time": self.agent.start_time.isoformat() if self.agent.start_time else None,
+                    "improvements_applied": self.agent.improvements_applied,
+                    "experiments_completed": self.agent.experiments_completed,
+                    "files_analyzed": self.agent.files_analyzed,
+                    "communications_sent": self.agent.communications_sent,
+                    "running": self.agent.running,
+                    "initialized": self.agent.initialized,
+                    "vltm_enabled": self.agent.vltm_enabled,
+                    "session_id": self.agent.session_id
+                }
+        
+        return SnakeAgentState(self)
+
     async def initialize(self) -> bool:
         """Initialize all Enhanced Snake Agent components"""
         try:
@@ -135,8 +155,8 @@ class EnhancedSnakeAgent:
 
             # Initialize LLM interfaces with better error handling and fallback
             try:
-                self.coding_llm = await create_snake_coding_llm()
-                self.reasoning_llm = await create_snake_reasoning_llm()
+                self.coding_llm = await create_snake_coding_llm(self.log_manager)
+                self.reasoning_llm = await create_snake_reasoning_llm(self.log_manager)
             except Exception as e:
                 logger.error(f"Failed to initialize LLM interfaces: {e}")
                 await self.log_manager.log_system_event(
@@ -247,15 +267,20 @@ class EnhancedSnakeAgent:
             return True
 
         except Exception as e:
-            logger.error(
-                f"Failed to initialize Enhanced Snake Agent: {e}", exc_info=True)
             if self.log_manager:
+                # Log with full traceback to snake_errors.log
+                self.log_manager.log_error_with_traceback(e, "Enhanced Snake Agent initialization failed", 
+                    {"component": "enhanced_snake_agent", "phase": "initialization"})
+                # Also log to system events
                 await self.log_manager.log_system_event(
                     "enhanced_snake_init_failed",
                     {"error": str(e)},
                     level="error",
                     worker_id="enhanced_snake"
                 )
+            else:
+                # Fallback logging if log_manager is not set up
+                logger.error(f"Failed to initialize Enhanced Snake Agent: {e}", exc_info=True)
             return False
 
     async def _setup_component_callbacks(self):
@@ -290,6 +315,7 @@ class EnhancedSnakeAgent:
             self.knowledge_service = KnowledgeService(self.agi_system.engine)
 
             # Initialize VLTM store
+            logger.info("Initializing VLTM store...")
             self.vltm_store = VeryLongTermMemoryStore(
                 config=DEFAULT_VLTM_CONFIG,
                 base_storage_dir=str(self.vltm_storage_dir)
@@ -300,6 +326,7 @@ class EnhancedSnakeAgent:
                 return False
 
             # Initialize storage backend
+            logger.info("Initializing VLTM storage backend...")
             self.storage_backend = StorageBackend(
                 config=DEFAULT_VLTM_CONFIG,
                 base_storage_dir=str(self.vltm_storage_dir)
@@ -323,8 +350,8 @@ class EnhancedSnakeAgent:
 
             # Initialize retrieval engine
             self.retrieval_engine = AdvancedRetrievalEngine(
-                config=DEFAULT_VLTM_CONFIG,
-                vltm_store=self.vltm_store
+                storage_backend=self.storage_backend,
+                config=DEFAULT_VLTM_CONFIG
             )
 
             # Initialize consolidation scheduler
@@ -333,6 +360,7 @@ class EnhancedSnakeAgent:
             )
 
             # Initialize memory integration manager
+            logger.info("Initializing memory integration manager...")
             self.memory_integration_manager = MemoryIntegrationManager(
                 vltm_store=self.vltm_store,
                 consolidation_engine=self.consolidation_engine,
@@ -350,7 +378,8 @@ class EnhancedSnakeAgent:
             )
 
             # Start memory integration
-            if not await self.memory_integration_manager.start_integration():
+            logger.info("Starting memory integration...")
+            if not await self.memory_integration_manager.initialize():
                 logger.error("Failed to start memory integration")
                 return False
 
@@ -400,13 +429,20 @@ class EnhancedSnakeAgent:
         except asyncio.CancelledError:
             logger.info("Enhanced Snake Agent operation cancelled")
         except Exception as e:
-            logger.error(f"Error in Enhanced Snake Agent operation: {e}")
-            await self.log_manager.log_system_event(
-                "autonomous_operation_error",
-                {"error": str(e)},
-                level="error",
-                worker_id="enhanced_snake"
-            )
+            if self.log_manager:
+                # Log with full traceback to snake_errors.log
+                self.log_manager.log_error_with_traceback(e, "Error in Enhanced Snake Agent operation", 
+                    {"component": "enhanced_snake_agent", "phase": "operation"})
+                # Also log to system events
+                await self.log_manager.log_system_event(
+                    "autonomous_operation_error",
+                    {"error": str(e)},
+                    level="error",
+                    worker_id="enhanced_snake"
+                )
+            else:
+                # Fallback logging if log_manager is not set up
+                logger.error(f"Error in Enhanced Snake Agent operation: {e}", exc_info=True)
         finally:
             await self._cleanup()
 
@@ -415,6 +451,8 @@ class EnhancedSnakeAgent:
         coordination_interval = 10.0  # 10 seconds
         last_health_check = datetime.now()
         last_metrics_log = datetime.now()
+        last_self_evaluation = datetime.now()
+        last_goal_setting = datetime.now()
 
         while self.running and not self._shutdown_event.is_set():
             try:
@@ -431,6 +469,16 @@ class EnhancedSnakeAgent:
                         await self._log_performance_metrics()
                         last_metrics_log = current_time
 
+                    # Periodic self-evaluation
+                    if current_time - last_self_evaluation >= timedelta(hours=1):
+                        await self._perform_self_evaluation()
+                        last_self_evaluation = current_time
+
+                    # Periodic goal setting and adjustment
+                    if current_time - last_goal_setting >= timedelta(hours=2):
+                        await self._set_improvement_goals()
+                        last_goal_setting = current_time
+
                     # State persistence
                     await self._save_state()
 
@@ -438,14 +486,315 @@ class EnhancedSnakeAgent:
                 await asyncio.sleep(coordination_interval)
 
             except Exception as e:
-                logger.error(f"Error in coordination loop: {e}")
-                await self.log_manager.log_system_event(
-                    "coordination_loop_error",
-                    {"error": str(e)},
-                    level="error",
-                    worker_id="enhanced_snake"
-                )
+                if self.log_manager:
+                    # Log with full traceback to snake_errors.log
+                    self.log_manager.log_error_with_traceback(e, "Error in coordination loop", 
+                        {"component": "enhanced_snake_agent", "phase": "coordination_loop"})
+                    # Also log to system events
+                    await self.log_manager.log_system_event(
+                        "coordination_loop_error",
+                        {"error": str(e)},
+                        level="error",
+                        worker_id="enhanced_snake"
+                    )
+                else:
+                    # Fallback logging if log_manager is not set up
+                    logger.error(f"Error in coordination loop: {e}", exc_info=True)
                 await asyncio.sleep(coordination_interval)
+
+    async def _perform_self_evaluation(self):
+        """Perform self-evaluation to assess performance and identify improvement areas"""
+        try:
+            logger.info("Performing self-evaluation...")
+            
+            # Calculate performance metrics
+            metrics = await self._calculate_self_evaluation_metrics()
+            
+            # Store self-evaluation in VLTM
+            if self.vltm_enabled and self.vltm_store:
+                await self._store_self_evaluation(metrics)
+            
+            # Log the self-evaluation
+            await self.log_manager.log_system_event(
+                "self_evaluation_performed",
+                {
+                    "metrics": metrics,
+                    "timestamp": datetime.now().isoformat()
+                },
+                worker_id="enhanced_snake"
+            )
+            
+            logger.info(f"Self-evaluation completed. Performance score: {metrics.get('performance_score', 'N/A')}")
+            
+        except Exception as e:
+            logger.error(f"Error performing self-evaluation: {e}")
+            await self.log_manager.log_system_event(
+                "self_evaluation_error",
+                {"error": str(e)},
+                level="error",
+                worker_id="enhanced_snake"
+            )
+
+    async def _calculate_self_evaluation_metrics(self) -> Dict[str, Any]:
+        """Calculate metrics for self-evaluation"""
+        if not self.start_time:
+            return {}
+            
+        uptime = datetime.now() - self.start_time
+        
+        # Calculate various metrics
+        metrics = {
+            "uptime_seconds": uptime.total_seconds(),
+            "total_improvements_applied": self.improvements_applied,
+            "total_experiments_completed": self.experiments_completed,
+            "total_files_analyzed": self.files_analyzed,
+            "improvements_per_hour": self.improvements_applied / max(uptime.total_seconds() / 3600, 1),
+            "experiments_per_hour": self.experiments_completed / max(uptime.total_seconds() / 3600, 1),
+            "files_analyzed_per_hour": self.files_analyzed / max(uptime.total_seconds() / 3600, 1),
+            "improvement_success_rate": self.improvements_applied / max(self.experiments_completed, 1),
+            "recent_activities": []  # Will be populated with recent activity patterns
+        }
+        
+        # Calculate performance score (0-1 scale)
+        # Weighted combination of various factors
+        improvement_factor = min(1.0, metrics["improvements_per_hour"] * 2)  # Max 0.5 improvements per hour = full score
+        experiment_factor = min(1.0, metrics["experiments_per_hour"] * 1)   # Max 1 experiment per hour = full score
+        analysis_factor = min(1.0, metrics["files_analyzed_per_hour"] * 0.1)  # Max 10 files per hour = full score
+        success_factor = metrics["improvement_success_rate"]
+        
+        # Weighted performance score
+        metrics["performance_score"] = (
+            improvement_factor * 0.4 + 
+            experiment_factor * 0.3 + 
+            analysis_factor * 0.2 + 
+            success_factor * 0.1
+        )
+        
+        # Identify patterns and trends
+        metrics["trends"] = await self._analyze_trends(metrics)
+        
+        return metrics
+
+    async def _analyze_trends(self, current_metrics: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze trends in performance over time"""
+        try:
+            # For now, we'll just return a basic analysis
+            # In a full implementation, this would compare to historical data
+            trends = {
+                "improvement_trend": "increasing" if current_metrics.get("improvements_per_hour", 0) > 0.1 else "stable",
+                "experiment_trend": "increasing" if current_metrics.get("experiments_per_hour", 0) > 0.5 else "stable",
+                "analysis_trend": "increasing" if current_metrics.get("files_analyzed_per_hour", 0) > 1.0 else "stable",
+                "suggestions": []
+            }
+            
+            # Add suggestions based on trends
+            if current_metrics.get("improvements_per_hour", 0) < 0.1:
+                trends["suggestions"].append("Focus on generating more practical improvements")
+            if current_metrics.get("experiments_per_hour", 0) < 0.5:
+                trends["suggestions"].append("Increase experimentation to validate more hypotheses")
+            if current_metrics.get("files_analyzed_per_hour", 0) < 1.0:
+                trends["suggestions"].append("Improve code analysis efficiency")
+            
+            return trends
+        except Exception as e:
+            logger.error(f"Error analyzing trends: {e}")
+            return {"error": str(e)}
+
+    async def _store_self_evaluation(self, metrics: Dict[str, Any]):
+        """Store self-evaluation in Very Long-Term Memory"""
+        try:
+            if not self.vltm_store:
+                return
+
+            memory_content = {
+                "event_type": "self_evaluation",
+                "metrics": metrics,
+                "timestamp": datetime.now().isoformat(),
+                "session_id": self.session_id,
+                "agent_context": {
+                    "total_experiments": self.experiments_completed,
+                    "total_improvements": self.improvements_applied,
+                    "uptime_hours": (datetime.now() - self.start_time).total_seconds() / 3600 if self.start_time else 0
+                }
+            }
+
+            metadata = {
+                "source": "enhanced_snake_agent",
+                "category": "self_assessment",
+                "performance_score": metrics.get("performance_score"),
+                "evaluation_type": "comprehensive"
+            }
+
+            memory_id = await self.vltm_store.store_memory(
+                content=memory_content,
+                memory_type="strategic_knowledge",
+                metadata=metadata,
+                source_session=self.session_id
+            )
+
+            if memory_id:
+                logger.debug(f"Stored self-evaluation memory: {memory_id}")
+
+        except Exception as e:
+            logger.error(f"Error storing self-evaluation memory: {e}")
+
+    async def _set_improvement_goals(self):
+        """Set or adjust improvement goals based on self-evaluation"""
+        try:
+            logger.info("Setting improvement goals...")
+            
+            # Calculate current state metrics
+            current_metrics = await self._calculate_self_evaluation_metrics()
+            
+            # Define goals based on current state and trends
+            goals = await self._derive_improvement_goals(current_metrics)
+            
+            # Store goals in state for tracking
+            self.current_goals = goals
+            
+            # Log the goals
+            await self.log_manager.log_system_event(
+                "improvement_goals_set",
+                {
+                    "goals": goals,
+                    "timestamp": datetime.now().isoformat()
+                },
+                worker_id="enhanced_snake"
+            )
+            
+            logger.info(f"Set {len(goals)} improvement goals")
+            
+        except Exception as e:
+            logger.error(f"Error setting improvement goals: {e}")
+            await self.log_manager.log_system_event(
+                "improvement_goals_error",
+                {"error": str(e)},
+                level="error",
+                worker_id="enhanced_snake"
+            )
+
+    async def _derive_improvement_goals(self, current_metrics: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Derive improvement goals based on current metrics and trends"""
+        goals = []
+        
+        # Goal: Increase improvement rate if it's low
+        if current_metrics.get("improvements_per_hour", 0) < 0.2:
+            goals.append({
+                "id": f"goal_{uuid.uuid4().hex[:8]}",
+                "type": "improvement_rate",
+                "description": "Increase number of improvements applied per hour",
+                "target": 0.3,  # Target 0.3 improvements per hour
+                "current": current_metrics.get("improvements_per_hour", 0),
+                "timeframe_days": 7,
+                "priority": "high",
+                "strategies": [
+                    "Focus on higher-impact improvements",
+                    "Streamline improvement validation process",
+                    "Improve heuristics for identifying improvement opportunities"
+                ]
+            })
+        
+        # Goal: Increase experiment rate if it's low
+        if current_metrics.get("experiments_per_hour", 0) < 0.7:
+            goals.append({
+                "id": f"goal_{uuid.uuid4().hex[:8]}",
+                "type": "experiment_rate",
+                "description": "Increase number of experiments conducted per hour",
+                "target": 1.0,  # Target 1 experiment per hour
+                "current": current_metrics.get("experiments_per_hour", 0),
+                "timeframe_days": 5,
+                "priority": "medium",
+                "strategies": [
+                    "Automate more experimental setup procedures",
+                    "Improve hypothesis generation algorithms",
+                    "Parallelize experiment execution where possible"
+                ]
+            })
+        
+        # Goal: Improve success rate if it's low
+        if current_metrics.get("improvement_success_rate", 0) < 0.5:
+            goals.append({
+                "id": f"goal_{uuid.uuid4().hex[:8]}",
+                "type": "success_rate",
+                "description": "Improve success rate of proposed improvements",
+                "target": 0.7,  # Target 70% success rate
+                "current": current_metrics.get("improvement_success_rate", 0),
+                "timeframe_days": 10,
+                "priority": "high",
+                "strategies": [
+                    "Improve pre-implementation validation checks",
+                    "Implement better risk assessment for proposed changes",
+                    "Learn from past failed improvements"
+                ]
+            })
+        
+        # Goal: Expand analysis capabilities
+        if current_metrics.get("files_analyzed_per_hour", 0) < 2.0:
+            goals.append({
+                "id": f"goal_{uuid.uuid4().hex[:8]}",
+                "type": "analysis_rate",
+                "description": "Increase number of files analyzed per hour",
+                "target": 3.0,  # Target 3 files per hour
+                "current": current_metrics.get("files_analyzed_per_hour", 0),
+                "timeframe_days": 7,
+                "priority": "medium",
+                "strategies": [
+                    "Optimize file analysis algorithms",
+                    "Implement more efficient change detection",
+                    "Focus analysis on higher-value files"
+                ]
+            })
+        
+        # Add any strategic goals based on system needs
+        strategic_goals = await self._identify_strategic_goals()
+        goals.extend(strategic_goals)
+        
+        return goals
+
+    async def _identify_strategic_goals(self) -> List[Dict[str, Any]]:
+        """Identify strategic improvement goals based on system needs"""
+        try:
+            # This would involve deeper analysis of the system to identify strategic needs
+            # For now, we'll return some common strategic goals
+            
+            strategic_goals = []
+            
+            # Goal: Enhance specific capabilities based on system usage
+            strategic_goals.append({
+                "id": f"strategic_goal_{uuid.uuid4().hex[:8]}",
+                "type": "capability_enhancement",
+                "description": "Enhance code analysis capabilities for specific improvement areas",
+                "target": "implemented",
+                "current": "planned",
+                "timeframe_days": 14,
+                "priority": "medium",
+                "strategies": [
+                    "Improve detection of performance bottlenecks",
+                    "Enhance refactoring suggestion algorithms",
+                    "Add domain-specific analysis for RAVANA components"
+                ]
+            })
+            
+            # Goal: Improve learning from experiments
+            strategic_goals.append({
+                "id": f"strategic_goal_{uuid.uuid4().hex[:8]}",
+                "type": "learning_enhancement",
+                "description": "Improve learning from experiment results to enhance future suggestions",
+                "target": "implemented",
+                "current": "planned",
+                "timeframe_days": 21,
+                "priority": "high",
+                "strategies": [
+                    "Implement better result analysis algorithms",
+                    "Create feedback loops from improvement outcomes",
+                    "Build knowledge graphs of improvement relationships"
+                ]
+            })
+            
+            return strategic_goals
+        except Exception as e:
+            logger.error(f"Error identifying strategic goals: {e}")
+            return []
 
     def _handle_file_change(self, file_event: FileChangeEvent):
         """Handle file change events from file monitor"""
@@ -517,17 +866,21 @@ class EnhancedSnakeAgent:
             ))
 
     def _process_analysis_task(self, analysis_task: AnalysisTask):
-        """Process analysis task in threading context"""
+        """Process analysis task in threading context with enhanced self-analysis"""
         try:
+            # Perform deeper analysis of the code or file
+            improvement_opportunities = self._identify_improvement_opportunities(analysis_task)
+            
             # For significant findings, create experiment task
-            if analysis_task.priority in [TaskPriority.HIGH, TaskPriority.CRITICAL]:
+            if analysis_task.priority in [TaskPriority.HIGH, TaskPriority.CRITICAL] or improvement_opportunities:
                 experiment_task = {
                     "type": "experiment",
                     "task_id": f"exp_{uuid.uuid4().hex[:8]}",
                     "data": {
                         "file_path": analysis_task.file_path,
                         "analysis_type": analysis_task.analysis_type,
-                        "priority": analysis_task.priority.value
+                        "priority": analysis_task.priority.value,
+                        "improvement_opportunities": improvement_opportunities
                     }
                 }
 
@@ -540,7 +893,8 @@ class EnhancedSnakeAgent:
                 {
                     "task_id": analysis_task.task_id,
                     "file_path": analysis_task.file_path,
-                    "experiment_created": analysis_task.priority in [TaskPriority.HIGH, TaskPriority.CRITICAL]
+                    "experiment_created": analysis_task.priority in [TaskPriority.HIGH, TaskPriority.CRITICAL] or bool(improvement_opportunities),
+                    "improvement_opportunities_found": len(improvement_opportunities)
                 },
                 worker_id="analysis_processor"
             ))
@@ -552,6 +906,379 @@ class EnhancedSnakeAgent:
                 level="error",
                 worker_id="analysis_processor"
             ))
+
+    def _identify_improvement_opportunities(self, analysis_task: AnalysisTask) -> List[Dict[str, Any]]:
+        """
+        Identify potential improvement opportunities in the analyzed code.
+        
+        Args:
+            analysis_task: The analysis task containing file information
+            
+        Returns:
+            List of improvement opportunities found
+        """
+        opportunities = []
+        
+        try:
+            # Read the file to analyze
+            if os.path.exists(analysis_task.file_path):
+                with open(analysis_task.file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                # Analyze for common improvement opportunities
+                opportunities.extend(self._analyze_code_for_improvements(content, analysis_task.file_path))
+            
+        except Exception as e:
+            logger.warning(f"Could not analyze file for improvements: {e}")
+        
+        return opportunities
+
+    def _analyze_code_for_improvements(self, content: str, file_path: str) -> List[Dict[str, Any]]:
+        """
+        Analyze code content for improvement opportunities.
+        
+        Args:
+            content: The content of the file to analyze
+            file_path: Path to the file being analyzed
+            
+        Returns:
+            List of identified improvement opportunities
+        """
+        opportunities = []
+        
+        # Check for various improvement opportunities
+        lines = content.split('\n')
+        
+        # Look for functions that are too long (potential refactoring opportunity)
+        long_functions = self._find_long_functions(lines)
+        for func_info in long_functions:
+            opportunities.append({
+                "type": "refactoring",
+                "category": "function_length",
+                "description": f"Function '{func_info['name']}' is too long ({func_info['lines']} lines) and should be split",
+                "location": f"{file_path}:{func_info['line_num']}",
+                "severity": "medium",
+                "suggestion": "Break down the function into smaller, more manageable functions"
+            })
+        
+        # Look for duplicated code blocks
+        duplicate_blocks = self._find_duplicate_blocks(lines)
+        for block_info in duplicate_blocks:
+            opportunities.append({
+                "type": "refactoring",
+                "category": "code_duplication",
+                "description": f"Code block duplicated {block_info['count']} times",
+                "location": f"{file_path}:{block_info['line_num']}",
+                "severity": "high",
+                "suggestion": "Extract duplicated code into a reusable function"
+            })
+        
+        # Look for complex functions that could benefit from optimization
+        complex_functions = self._find_complex_functions(lines)
+        for func_info in complex_functions:
+            opportunities.append({
+                "type": "optimization",
+                "category": "complexity",
+                "description": f"Function '{func_info['name']}' has high cyclomatic complexity ({func_info['complexity']})",
+                "location": f"{file_path}:{func_info['line_num']}",
+                "severity": "medium",
+                "suggestion": "Simplify the function logic or split into smaller functions"
+            })
+        
+        # Look for performance improvements
+        performance_issues = self._find_performance_issues(lines)
+        for issue_info in performance_issues:
+            opportunities.append({
+                "type": "optimization",
+                "category": "performance",
+                "description": issue_info['description'],
+                "location": f"{file_path}:{issue_info['line_num']}",
+                "severity": issue_info['severity'],
+                "suggestion": issue_info['suggestion']
+            })
+        
+        # Look for potential bugs
+        potential_bugs = self._find_potential_bugs(lines)
+        for bug_info in potential_bugs:
+            opportunities.append({
+                "type": "bug_fix",
+                "category": "potential_bug",
+                "description": bug_info['description'],
+                "location": f"{file_path}:{bug_info['line_num']}",
+                "severity": bug_info['severity'],
+                "suggestion": bug_info['suggestion']
+            })
+        
+        return opportunities
+
+    def _find_long_functions(self, lines: List[str]) -> List[Dict[str, Any]]:
+        """Find functions that are too long."""
+        long_functions = []
+        current_function = None
+        function_start_line = 0
+        line_count = 0
+        
+        for i, line in enumerate(lines):
+            stripped_line = line.strip()
+            
+            # Check if this line starts a function definition
+            if stripped_line.startswith('def ') and not stripped_line.startswith('class '):
+                # If we were tracking a previous function, check if it was too long
+                if current_function and line_count > 50:  # Threshold: 50 lines
+                    long_functions.append({
+                        "name": current_function,
+                        "line_num": function_start_line + 1,
+                        "lines": line_count
+                    })
+                
+                # Start tracking the new function
+                current_function = stripped_line[4:stripped_line.find('(')]  # Extract function name
+                function_start_line = i
+                line_count = 1
+            elif current_function is not None:
+                # Count lines in the current function (ignoring empty lines and comments)
+                if stripped_line and not stripped_line.startswith('#'):
+                    line_count += 1
+                # Check if we've exited the function (when indentation drops to 0 or function definition level)
+                elif line_count > 0:
+                    # Check if this line has less indentation than the function definition
+                    if len(line) - len(line.lstrip()) <= len(lines[function_start_line]) - len(lines[function_start_line].lstrip()):
+                        # Check if we're at class or module level again
+                        if (stripped_line.startswith('def ') or 
+                            stripped_line.startswith('class ') or 
+                            stripped_line.startswith('@') or 
+                            not stripped_line.startswith(' ')):
+                            # This is the end of the function
+                            if line_count > 50:
+                                long_functions.append({
+                                    "name": current_function,
+                                    "line_num": function_start_line + 1,
+                                    "lines": line_count
+                                })
+                            current_function = None
+        
+        # Check the last function
+        if current_function and line_count > 50:
+            long_functions.append({
+                "name": current_function,
+                "line_num": function_start_line + 1,
+                "lines": line_count
+            })
+        
+        return long_functions
+
+    def _find_duplicate_blocks(self, lines: List[str]) -> List[Dict[str, Any]]:
+        """Find duplicated code blocks."""
+        import ast
+        import hashlib
+        from difflib import SequenceMatcher
+        
+        blocks = {}
+        duplicate_blocks = []
+        
+        # First, try to find blocks using AST for more accurate detection
+        try:
+            # Join lines to form the code string
+            code_text = '\n'.join(lines)
+            
+            # Parse the code to get AST
+            try:
+                tree = ast.parse(code_text)
+            except SyntaxError:
+                # If parsing fails, fall back to the simpler line-based approach
+                raise ValueError("Syntax error in code, using fallback method")
+            
+            # For line-based duplicate detection with fuzzy matching
+            # Group similar lines into potential blocks with similarity check
+            for i in range(len(lines) - 5):  # Minimum block size of 5 lines
+                # Create a normalized version of the block (remove whitespace, comments, etc.)
+                block_text = '\n'.join(lines[i:i+5]).strip()
+                # Create a hash of the normalized block as the signature
+                block_key = hashlib.md5(block_text.encode()).hexdigest()
+                
+                if block_key not in blocks:
+                    blocks[block_key] = []
+                blocks[block_key].append({
+                    'start_line': i,
+                    'block': lines[i:i+5]
+                })
+            
+            # Find blocks that appear more than once with similarity
+            for block_key, occurrences in blocks.items():
+                if len(occurrences) > 1:
+                    # Calculate similarity between occurrences
+                    reference_block = occurrences[0]['block']
+                    similar_occurrences = [occurrences[0]]
+                    
+                    for occurrence in occurrences[1:]:
+                        similarity = SequenceMatcher(None, reference_block, occurrence['block']).ratio()
+                        if similarity > 0.8:  # 80% similarity threshold
+                            similar_occurrences.append(occurrence)
+                    
+                    if len(similar_occurrences) > 1:
+                        duplicate_blocks.append({
+                            "count": len(similar_occurrences),
+                            "line_num": similar_occurrences[0]['start_line'] + 1,
+                            "size": len(similar_occurrences[0]['block']),
+                            "similarity": f"{similarity*100:.1f}%"
+                        })
+        except Exception as e:
+            # Fallback to the original implementation if AST approach fails
+            logger.warning(f"Using fallback duplicate detection due to: {e}")
+            blocks = {}
+            duplicate_blocks = []
+            
+            # Group similar lines into potential blocks
+            for i in range(len(lines) - 10):  # Minimum block size of 10 lines
+                block_key = tuple(lines[i:i+10])  # Use 10 lines as a signature
+                if block_key not in blocks:
+                    blocks[block_key] = []
+                blocks[block_key].append(i)
+            
+            # Find blocks that appear more than once
+            for block_key, positions in blocks.items():
+                if len(positions) > 1:
+                    duplicate_blocks.append({
+                        "count": len(positions),
+                        "line_num": positions[0] + 1,
+                        "size": len(block_key)
+                    })
+        
+        return duplicate_blocks
+
+    def _find_complex_functions(self, lines: List[str]) -> List[Dict[str, Any]]:
+        """Find functions with high cyclomatic complexity."""
+        import ast
+        
+        complex_functions = []
+        
+        try:
+            # Try to parse the code using AST for accurate complexity calculation
+            code_text = '\n'.join(lines)
+            tree = ast.parse(code_text)
+            
+            # Walk through the AST to find function definitions and calculate complexity
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef):
+                    complexity = self._calculate_cyclomatic_complexity(node)
+                    
+                    if complexity > 10:  # Threshold: complexity of 10
+                        complex_functions.append({
+                            "name": node.name,
+                            "line_num": node.lineno,
+                            "complexity": complexity
+                        })
+        except Exception as e:
+            # Fallback to the original implementation if AST approach fails
+            logger.warning(f"Using fallback complexity detection due to: {e}")
+            
+            # Original implementation
+            current_function = None
+            function_start_line = 0
+            complexity = 4  # Base complexity (function entry, exit, etc.)
+            
+            for i, line in enumerate(lines):
+                stripped_line = line.strip()
+                
+                if stripped_line.startswith('def '):
+                    # If we were tracking a previous function, check if it was too complex
+                    if current_function and complexity > 10:  # Threshold: complexity of 10
+                        complex_functions.append({
+                            "name": current_function,
+                            "line_num": function_start_line + 1,
+                            "complexity": complexity
+                        })
+                    
+                    # Start tracking the new function
+                    current_function = stripped_line[4:stripped_line.find('(')]
+                    function_start_line = i
+                    complexity = 4  # Reset complexity for new function
+                elif current_function is not None:
+                    # Add complexity for control flow statements
+                    if any(keyword in line for keyword in ['if ', 'elif ', 'else:', 'for ', 'while ', 'try:', 'except ', 'finally:']):
+                        complexity += 1
+                    # Add complexity for logical operators
+                    complexity += line.count(' and ') + line.count(' or ')
+            
+            # Check the last function
+            if current_function and complexity > 10:
+                complex_functions.append({
+                    "name": current_function,
+                    "line_num": function_start_line + 1,
+                    "complexity": complexity
+                })
+        
+        return complex_functions
+
+    def _calculate_cyclomatic_complexity(self, func_node) -> int:
+        """Calculate the cyclomatic complexity of a function node."""
+        complexity = 1  # Base complexity: main path
+        
+        for child in ast.walk(func_node):
+            # Add complexity for control flow statements
+            if isinstance(child, (ast.If, ast.While, ast.For, ast.AsyncFor, ast.And, ast.Or)):
+                complexity += 1
+            elif isinstance(child, ast.ExceptHandler):
+                complexity += 1  # Each except block adds complexity
+            elif isinstance(child, ast.BoolOp):
+                # For boolean operations like 'a and b or c', add complexity for each operand after the first
+                complexity += len(child.values) - 1
+        
+        return complexity
+
+    def _find_performance_issues(self, lines: List[str]) -> List[Dict[str, Any]]:
+        """Find potential performance issues."""
+        issues = []
+        
+        for i, line in enumerate(lines):
+            stripped_line = line.strip()
+            
+            # Look for inefficient operations
+            if 'for ' in line and ' in ' in line and 'range(0, len(' in line:
+                issues.append({
+                    "description": "Inefficient iteration using range(len()) instead of direct iteration",
+                    "line_num": i + 1,
+                    "severity": "medium",
+                    "suggestion": "Use 'for item in list' instead of 'for i in range(len(list))'"
+                })
+            
+            if stripped_line.startswith('import ') and 'from ' not in line and len(stripped_line.split('.')) > 3:
+                issues.append({
+                    "description": "Deep import that could affect startup performance",
+                    "line_num": i + 1,
+                    "severity": "low",
+                    "suggestion": "Consider optimizing import structure or lazy loading"
+                })
+        
+        return issues
+
+    def _find_potential_bugs(self, lines: List[str]) -> List[Dict[str, Any]]:
+        """Find potential bugs."""
+        issues = []
+        
+        for i, line in enumerate(lines):
+            stripped_line = line.strip()
+            
+            # Look for potential bugs
+            if stripped_line.startswith('if ') and stripped_line.endswith(':') and '==' not in line and '!=' not in line:
+                # Check for potential assignment instead of comparison (though in Python this would cause an error)
+                if '=' in stripped_line[3:-1] and not 'is ' in stripped_line:  # Basic check
+                    issues.append({
+                        "description": "Potential logic issue in if statement",
+                        "line_num": i + 1,
+                        "severity": "high",
+                        "suggestion": "Review the condition for correct logical operators"
+                    })
+            
+            if 'except:' in stripped_line or stripped_line.startswith('except :'):
+                issues.append({
+                    "description": "Broad exception handling that may hide errors",
+                    "line_num": i + 1,
+                    "severity": "medium",
+                    "suggestion": "Use specific exception types instead of bare 'except:'"
+                })
+        
+        return issues
 
     def _process_communication(self, comm_message: CommunicationMessage):
         """Process communication message in threading context"""
@@ -578,7 +1305,7 @@ class EnhancedSnakeAgent:
             ))
 
     async def _handle_experiment_result(self, result: Dict[str, Any]):
-        """Handle experiment results from process manager"""
+        """Handle experiment results from process manager with enhanced improvement proposal system"""
         try:
             self.experiments_completed += 1
 
@@ -587,25 +1314,35 @@ class EnhancedSnakeAgent:
                 await self._store_experiment_memory(result)
 
             # If experiment was successful, create improvement proposal
+            improvement_opportunities = []
             if result.get("success", False):
-                improvement_task = {
-                    "type": "improvement",
-                    "task_id": f"imp_{uuid.uuid4().hex[:8]}",
-                    "data": {
-                        "experiment_result": result,
-                        "priority": TaskPriority.MEDIUM.value
+                # Analyze the experiment result for improvement opportunities
+                improvement_opportunities = await self._analyze_improvement_opportunities_from_result(result)
+                
+                if improvement_opportunities or result.get("data", {}).get("improvement_opportunities"):
+                    # Combine opportunities from result and analysis
+                    all_opportunities = improvement_opportunities + result.get("data", {}).get("improvement_opportunities", [])
+                    
+                    improvement_task = {
+                        "type": "improvement",
+                        "task_id": f"imp_{uuid.uuid4().hex[:8]}",
+                        "data": {
+                            "experiment_result": result,
+                            "improvement_opportunities": all_opportunities,
+                            "priority": TaskPriority.MEDIUM.value
+                        }
                     }
-                }
 
-                # Queue improvement processing
-                self.process_manager.distribute_task(improvement_task)
+                    # Queue improvement processing
+                    self.process_manager.distribute_task(improvement_task)
 
             await self.log_manager.log_system_event(
                 "experiment_result_handled",
                 {
                     "task_id": result.get("task_id"),
                     "success": result.get("success", False),
-                    "improvement_queued": result.get("success", False)
+                    "improvement_queued": result.get("success", False),
+                    "improvement_opportunities_found": len(improvement_opportunities)
                 },
                 worker_id="enhanced_snake"
             )
@@ -617,6 +1354,77 @@ class EnhancedSnakeAgent:
                 level="error",
                 worker_id="enhanced_snake"
             )
+
+    async def _analyze_improvement_opportunities_from_result(self, result: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Analyze experiment results for improvement opportunities.
+        
+        Args:
+            result: The experiment result to analyze
+            
+        Returns:
+            List of improvement opportunities identified from the result
+        """
+        opportunities = []
+        
+        try:
+            # Use LLM to analyze the results and suggest improvements
+            experiment_data = result.get("data", {})
+            experiment_result = result.get("results", {})
+            
+            # Prepare an analysis prompt
+            analysis_prompt = f"""
+            Analyze the following experiment result and identify potential improvement opportunities:
+            
+            Experiment Hypothesis: {result.get('hypothesis', 'N/A')}
+            Experiment Findings: {result.get('findings', 'N/A')}
+            Experiment Success: {result.get('success', 'N/A')}
+            Experiment Confidence: {result.get('confidence', 'N/A')}
+            Results Data: {experiment_result}
+            
+            Based on this experiment, identify specific improvement opportunities.
+            Focus on:
+            1. Code improvements
+            2. Process improvements
+            3. Architectural improvements
+            
+            Return a list of improvement opportunities with descriptions.
+            """
+            
+            if self.reasoning_llm:
+                try:
+                    # This is a placeholder - in a real implementation, we'd call the reasoning LLM
+                    pass
+                except:
+                    pass
+            
+            # For now, we'll use a simple heuristic-based approach
+            # In a full implementation, this would use the LLM to generate insights
+            if result.get('success', False) and result.get('confidence', 0.0) > 0.7:
+                # If experiment was successful and high confidence, suggest implementing the findings
+                opportunities.append({
+                    "type": "implementation",
+                    "category": "successful_experiment",
+                    "description": f"Successfully validated hypothesis: {result.get('hypothesis', 'N/A')}. Implementation recommended.",
+                    "location": "system-wide",
+                    "severity": "medium",
+                    "suggestion": "Implement the successful approach in the main codebase"
+                })
+            elif not result.get('success', False):
+                # If experiment failed, suggest alternative approaches
+                opportunities.append({
+                    "type": "alternative_approach",
+                    "category": "failed_experiment",
+                    "description": f"Experiment hypothesis not validated: {result.get('hypothesis', 'N/A')}. Alternative approach needed.",
+                    "location": "system-wide",
+                    "severity": "medium",
+                    "suggestion": "Design a new experiment with an alternative approach"
+                })
+        
+        except Exception as e:
+            logger.warning(f"Could not analyze experiment result for improvements: {e}")
+        
+        return opportunities
 
     async def _handle_analysis_result(self, result: Dict[str, Any]):
         """Handle analysis results from process manager"""
@@ -638,14 +1446,54 @@ class EnhancedSnakeAgent:
     async def _handle_improvement_result(self, result: Dict[str, Any]):
         """Handle improvement results from process manager"""
         try:
-            if result.get("success", False):
+            success = result.get("success", False)
+            if success:
                 self.improvements_applied += 1
+
+            # Record improvement metrics for performance tracking
+            if hasattr(self.agi_system, 'performance_tracker'):
+                # Calculate impact score based on various factors
+                impact_score = self._calculate_improvement_impact(result)
+                confidence = result.get("confidence", 0.5)  # Default confidence
+                
+                # Get implementation time if available
+                start_time_str = result.get("start_time")
+                if start_time_str:
+                    try:
+                        start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+                        implementation_time = (datetime.now() - start_time).total_seconds()
+                    except:
+                        implementation_time = 0
+                else:
+                    implementation_time = 0
+                
+                # Record the improvement with the performance tracker
+                self.agi_system.performance_tracker.record_improvement(
+                    improvement_id=result.get("task_id", "unknown"),
+                    improvement_type=result.get("type", "general"),
+                    impact_score=impact_score,
+                    confidence=confidence,
+                    implementation_time=implementation_time,
+                    success=success
+                )
+                
+                # Record additional metrics
+                await self.agi_system.performance_tracker.record_metric(
+                    name="improvement_impact",
+                    value=impact_score,
+                    unit="score",
+                    source="snake_agent",
+                    tags=["improvement", "impact"]
+                )
+                
+                # Increment improvement counter in tracker
+                self.agi_system.performance_tracker.increment_improvement_count()
 
             await self.log_manager.log_system_event(
                 "improvement_result_handled",
                 {
                     "task_id": result.get("task_id"),
-                    "success": result.get("success", False)
+                    "success": success
                 },
                 worker_id="enhanced_snake"
             )
@@ -658,24 +1506,57 @@ class EnhancedSnakeAgent:
                 worker_id="enhanced_snake"
             )
 
+    def _calculate_improvement_impact(self, result: Dict[str, Any]) -> float:
+        """
+        Calculate the impact score of an improvement based on various factors.
+        
+        Args:
+            result: The improvement result data
+            
+        Returns:
+            Impact score between 0 and 1
+        """
+        # Default impact calculation - in a real system, this would be more sophisticated
+        base_impact = 0.5  # Base impact
+        
+        # Increase impact if the improvement was successful
+        if result.get("success", False):
+            base_impact += 0.3
+        
+        # Consider the confidence in the improvement
+        confidence = result.get("confidence", 0.5)
+        base_impact += (confidence - 0.5) * 0.4  # Adjust by up to 0.2 based on confidence
+        
+        # Consider the type of improvement
+        imp_type = result.get("type", "")
+        if "performance" in imp_type.lower():
+            base_impact += 0.1
+        elif "efficiency" in imp_type.lower():
+            base_impact += 0.1
+        elif "bug" in imp_type.lower():
+            base_impact += 0.05  # Bug fixes have moderate impact
+        
+        # Ensure impact is between 0 and 1
+        return max(0.0, min(1.0, base_impact))
+
     async def _perform_health_check(self):
         """Perform system health check"""
         try:
             health_status = {
-                "threading_manager": {
+                "threading_manager": json.dumps({
                     "active": bool(self.threading_manager),
                     "threads": self.threading_manager.get_thread_status() if self.threading_manager else {},
                     "queues": self.threading_manager.get_queue_status() if self.threading_manager else {}
-                },
-                "process_manager": {
+                }),
+                "process_manager": json.dumps({
                     "active": bool(self.process_manager),
                     "processes": self.process_manager.get_process_status() if self.process_manager else {},
                     "queues": self.process_manager.get_queue_status() if self.process_manager else {}
-                },
-                "file_monitor": {
+                }),
+                "file_monitor": json.dumps({
                     "active": bool(self.file_monitor),
                     "status": self.file_monitor.get_monitoring_status() if self.file_monitor else {}
-                }
+                })
             }
 
             await self.log_manager.log_system_event(
@@ -801,7 +1682,13 @@ class EnhancedSnakeAgent:
             logger.info("Enhanced Snake Agent stopped successfully")
 
         except Exception as e:
-            logger.error(f"Error during Enhanced Snake Agent shutdown: {e}")
+            if self.log_manager:
+                # Log with full traceback to snake_errors.log
+                self.log_manager.log_error_with_traceback(e, "Error during Enhanced Snake Agent shutdown", 
+                    {"component": "enhanced_snake_agent", "phase": "shutdown"})
+            else:
+                # Fallback logging if log_manager is not set up
+                logger.error(f"Error during Enhanced Snake Agent shutdown: {e}", exc_info=True)
 
     async def _cleanup(self):
         """Cleanup resources"""

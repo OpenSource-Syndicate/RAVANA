@@ -29,6 +29,7 @@ class ReflectionModule:
     def reflect_on_experiment(self, experiment_results: dict):
         """
         Analyzes the results of an experiment and generates insights.
+        Enhanced to consider self-improvement goals.
         """
         logger.info(
             f"Reflecting on experiment: {experiment_results.get('hypothesis')}")
@@ -57,14 +58,58 @@ class ReflectionModule:
             # Check if this warrants a blog post
             self._check_experiment_reflection_blog_trigger(
                 insight, experiment_results)
+            
+            # Update self-improvement goals based on experiment results
+            self._update_self_improvement_goals_from_experiment(experiment_results)
 
         else:
             logger.info(
                 "No significant findings from the experiment to reflect on.")
+    
+    def _update_self_improvement_goals_from_experiment(self, experiment_results: dict):
+        """
+        Update self-improvement goals based on experiment results.
+        """
+        try:
+            # Access the AGI system's goal manager if available
+            if hasattr(self.agi_system, 'self_goal_manager'):
+                success = experiment_results.get('success', False)
+                hypothesis = experiment_results.get('hypothesis', '')
+                
+                # If the experiment was successful, make progress on related goals
+                goals_to_update = []
+                for goal_id, goal in self.agi_system.self_goal_manager.goals.items():
+                    # Check if the experiment hypothesis is related to this goal
+                    if hypothesis.lower() in goal.description.lower() or goal.category in ['experimentation', 'learning']:
+                        goals_to_update.append((goal_id, goal))
+                
+                # Update progress for related goals
+                for goal_id, goal in goals_to_update:
+                    # Calculate progress update based on success
+                    progress_increase = 0.1 if success else 0.05  # More progress for successful experiments
+                    new_progress = min(1.0, goal.current_progress + progress_increase)
+                    
+                    # Update the goal's progress
+                    self.agi_system.self_goal_manager.update_goal_progress(
+                        goal_id, 
+                        new_progress, 
+                        details={
+                            'type': 'experiment_result',
+                            'experiment_hypothesis': hypothesis,
+                            'success': success,
+                            'experiment_id': experiment_results.get('experiment_id', 'unknown')
+                        }
+                    )
+                    
+                    logger.info(f"Updated goal '{goal.title}' progress to {new_progress:.2f} based on experiment result")
+        
+        except Exception as e:
+            logger.error(f"Error updating self-improvement goals from experiment: {e}")
 
     def reflect(self, shared_state: SharedState):
         """
         General reflection method. For now, it will look at the mood history.
+        Enhanced to consider self-improvement goals.
         """
         logger.info("Performing general reflection...")
         self.reflection_count += 1
@@ -77,6 +122,59 @@ class ReflectionModule:
 
             # Check for significant patterns that might warrant blogging
             self._check_general_reflection_blog_trigger(shared_state)
+        
+        # Evaluate self-improvement goals during reflection
+        self._evaluate_self_improvement_goals(shared_state)
+    
+    def _evaluate_self_improvement_goals(self, shared_state: SharedState):
+        """
+        Evaluate progress on self-improvement goals during reflection.
+        """
+        try:
+            # Access the AGI system's goal manager if available
+            if hasattr(self.agi_system, 'self_goal_manager'):
+                goal_manager = self.agi_system.self_goal_manager
+                
+                # Check for overdue goals
+                overdue_goals = goal_manager.get_overdue_goals()
+                for goal in overdue_goals:
+                    logger.info(f"Goal overdue: {goal.title}")
+                    # Consider adjusting the goal or changing approach
+                
+                # Check progress on active goals
+                active_goals = goal_manager.get_goals_by_status(GoalStatus.IN_PROGRESS)
+                for goal in active_goals:
+                    # Evaluate progress based on system state
+                    if goal.category in ['performance', 'efficiency']:
+                        # For performance goals, check performance metrics
+                        if hasattr(self.agi_system, 'performance_tracker'):
+                            perf_summary = self.agi_system.performance_tracker.get_performance_summary()
+                            
+                            # Check if we're meeting targets
+                            if goal.metrics.get('improvements_per_hour_target'):
+                                actual_rate = perf_summary.get('improvements_per_hour', 0)
+                                target_rate = goal.metrics['improvements_per_hour_target']
+                                
+                                # Update progress based on achievement of target
+                                progress_update = min(1.0, actual_rate / target_rate if target_rate > 0 else 1.0)
+                                goal_manager.update_goal_progress(
+                                    goal.id,
+                                    progress_update,
+                                    details={
+                                        'type': 'performance_evaluation',
+                                        'metric': 'improvements_per_hour',
+                                        'actual': actual_rate,
+                                        'target': target_rate
+                                    }
+                                )
+            
+            # Check goal achievement insights
+            if hasattr(self.agi_system, 'self_goal_manager'):
+                insights = self.agi_system.self_goal_manager.get_performance_insights()
+                logger.info(f"Goal achievement insights: {insights}")
+                
+        except Exception as e:
+            logger.error(f"Error evaluating self-improvement goals: {e}")
 
     def _check_experiment_reflection_blog_trigger(self, insight: str, experiment_results: dict):
         """Check if an experiment reflection should trigger a blog post."""

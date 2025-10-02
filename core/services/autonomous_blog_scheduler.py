@@ -92,14 +92,15 @@ class AutonomousBlogScheduler:
             self.learning_generator = None
 
         # Configuration from environment
-        self.enabled = Config.BLOG_ENABLED and getattr(
-            Config, 'BLOG_AUTO_PUBLISH_ENABLED', False)
+        config = Config()
+        self.enabled = config.BLOG_ENABLED and getattr(
+            config, 'BLOG_AUTO_PUBLISH_ENABLED', False)
         self.min_post_interval_hours = getattr(
-            Config, 'BLOG_PUBLISH_FREQUENCY_HOURS', 24)
+            config, 'BLOG_PUBLISH_FREQUENCY_HOURS', 24)
         self.max_pending_events = getattr(
-            Config, 'BLOG_MAX_PENDING_EVENTS', 10)
+            config, 'BLOG_MAX_PENDING_EVENTS', 10)
         self.min_importance_threshold = getattr(
-            Config, 'BLOG_MIN_IMPORTANCE_THRESHOLD', 0.6)
+            config, 'BLOG_MIN_IMPORTANCE_THRESHOLD', 0.6)
 
         logger.info(
             f"AutonomousBlogScheduler initialized: enabled={self.enabled}, learning_generator={'available' if self.learning_generator else 'not available'}")

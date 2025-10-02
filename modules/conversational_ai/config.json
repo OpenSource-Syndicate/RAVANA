@@ -1,6 +1,6 @@
 {
-  "discord_token": "MTQwODY4Nzk2NjgwODk2OTIxOA.GAH1_i.3slf5vQegHTxhTs5k_uFhgDQ2JFpprg2S1njSI",
-  "telegram_token": "8210359732:AAFSrU94MscB38WLmius8TiRAgnvkwaKJiI",
+  "discord_token": "",
+  "telegram_token": "",
   "memory_path": "shared_memory",
   "user_data_path": "profiles",
   "log_level": "INFO",

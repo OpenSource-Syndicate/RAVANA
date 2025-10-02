@@ -1,9 +1,9 @@
 from typing import List, Dict, Any
-from sentence_transformers import SentenceTransformer
 from sklearn.cluster import AgglomerativeClustering
 import numpy as np
 from transformers import pipeline
 import logging
+from core.embeddings_manager import embeddings_manager, ModelPurpose
 
 # Placeholder for a more sophisticated data structure
 
@@ -53,11 +53,15 @@ logger = logging.getLogger(__name__)
 # --- Core Functions ---
 
 
-def get_embeddings(texts: List[str], embedding_model) -> np.ndarray:
+def get_embeddings(texts: List[str], embedding_model=None) -> np.ndarray:
     """Generate embeddings for a list of texts."""
-    if not embedding_model:
-        raise ValueError("Embedding model not loaded.")
-    return embedding_model.encode(texts, show_progress_bar=False)
+    # Use the shared embeddings manager if no model is provided
+    if embedding_model is None:
+        embedding_model = embeddings_manager
+    
+    # Use the embeddings manager to generate embeddings
+    embeddings = embedding_model.get_embedding(texts, purpose=ModelPurpose.GENERAL)
+    return np.array(embeddings)
 
 
 def cluster_documents(embeddings: np.ndarray, distance_threshold=0.5) -> np.ndarray:
@@ -123,13 +127,9 @@ def process_data_for_events(texts: List[str], embedding_model=None, sentiment_cl
     embedding_model_to_use = embedding_model or embedding_model_global
     sentiment_classifier_to_use = sentiment_classifier or sentiment_classifier_global
 
-    if not embedding_model_to_use or not sentiment_classifier_to_use:
+    if not sentiment_classifier_to_use:
         logger.warning(
-            "Models not available. Loading them now. For production, pass pre-loaded models.")
-        # Lazy load if not provided
-        if not embedding_model_to_use:
-            embedding_model_to_use = SentenceTransformer('all-MiniLM-L6-v2')
-            embedding_model_global = embedding_model_to_use
+            "Sentiment classifier not available. Loading it now. For production, pass pre-loaded models.")
         if not sentiment_classifier_to_use:
             sentiment_classifier_to_use = pipeline('sentiment-analysis')
             sentiment_classifier_global = sentiment_classifier_to_use
@@ -147,7 +147,7 @@ def process_data_for_events(texts: List[str], embedding_model=None, sentiment_cl
     relevant_texts = [doc.text for doc in relevant_documents]
 
     # 3. Event Tracking & Filtering Topic Detection
-    # Generate embeddings
+    # Generate embeddings using the shared embeddings manager
     embeddings = get_embeddings(relevant_texts, embedding_model_to_use)
     for doc, emb in zip(relevant_documents, embeddings):
         doc.embedding = emb

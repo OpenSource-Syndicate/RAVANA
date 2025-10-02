@@ -11,11 +11,11 @@ from core.llm import call_llm
 from core.config import Config
 import json  # For storing embeddings as JSON strings
 import numpy as np
-from sentence_transformers import SentenceTransformer  # For generating embeddings
 import logging
 import chromadb
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
+from core.embeddings_manager import embeddings_manager, ModelPurpose
 import tempfile
 from pathlib import Path
 
@@ -45,7 +45,8 @@ app = FastAPI(
 )
 
 # The embedding model will be set by the main AGI system.
-embedding_model: Optional[SentenceTransformer] = None
+# For now, we use the global embeddings_manager
+embedding_model = None
 
 PROMPT_FOR_EXTRACTING_MEMORIES_CONVO = """
 You are a memory extraction module for an AGI. Your task is to analyze a conversation and identify key pieces of information to be stored in the AGI's long-term memory. These memories help the AGI build a consistent understanding of its interactions and the world.
@@ -221,10 +222,24 @@ async def startup_event():
         logging.info("Initializing ChromaDB client and collection...")
         global chroma_client, chroma_collection, sentence_transformer_ef
 
-        # Initialize embedding function
-        sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name=Config.EMBEDDING_MODEL
-        )
+        # Initialize embedding function using the shared embeddings manager
+        # We create a custom embedding function that uses our shared embeddings manager
+        class SharedEmbeddingFunction:
+            def __call__(self, texts):
+                # Use the shared embeddings manager to generate embeddings
+                from core.embeddings_manager import embeddings_manager, ModelPurpose
+                embeddings = embeddings_manager.get_embedding(texts, purpose=ModelPurpose.GENERAL)
+                
+                # If we have a single text, embeddings will be 1D, need to make 2D
+                if len(texts) == 1 and len(embeddings) > 0 and isinstance(embeddings[0], (int, float)):
+                    embeddings = [embeddings]
+                # If we have multiple texts, make sure embeddings is 2D
+                elif len(texts) > 1 and len(embeddings) > 0 and isinstance(embeddings[0], (int, float)):
+                    embeddings = [embeddings]
+                
+                return embeddings
+
+        sentence_transformer_ef = SharedEmbeddingFunction()
 
         # Initialize ChromaDB client with better error handling
         chroma_client = chromadb.Client(Settings(
@@ -843,7 +858,8 @@ async def shutdown_event():
 
     try:
         # Persist ChromaDB if enabled
-        if Config.CHROMADB_PERSIST_ON_SHUTDOWN and chroma_collection:
+        config = Config()
+        if config.CHROMADB_PERSIST_ON_SHUTDOWN and chroma_collection:
             logger.info("Persisting ChromaDB collections...")
             # ChromaDB automatically persists with persistent client
             # But we can ensure any pending operations are completed
@@ -904,9 +920,10 @@ async def _cleanup_temp_files():
 
 # This allows running the memory service independently for debugging or as a microservice
 if __name__ == "__main__":
-    # For standalone execution, we need to load a model.
-    # In the integrated AGI, the model is passed via app state.
-    app.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+    # For standalone execution, we need to initialize the embeddings manager.
+    # In the integrated AGI, the embeddings manager is already loaded.
+    from core.embeddings_manager import embeddings_manager, ModelPurpose
+    embeddings_manager.select_and_load_model(ModelPurpose.GENERAL)
 
     # Set up environment for multi-modal service
     if not os.getenv("POSTGRES_URL"):

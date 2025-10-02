@@ -10,7 +10,7 @@ import logging
 import gzip
 import shutil
 from typing import Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from core.config import Config

@@ -8,6 +8,7 @@ from typing import List, Dict, Any
 from modules.knowledge_compression.main import compress_knowledge
 from sqlmodel import Session, select
 from database.models import Summary
+from core.embeddings_manager import embeddings_manager, ModelPurpose
 from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
@@ -16,9 +17,26 @@ logger = logging.getLogger(__name__)
 class KnowledgeService:
     def __init__(self, engine, embedding_model=None):
         self.engine = engine
-        self.embedding_model = embedding_model or SentenceTransformer(
-            'all-MiniLM-L6-v2')
-        self.embedding_dim = self.embedding_model.get_sentence_embedding_dimension()
+        # Use the shared embeddings manager instead of loading our own model
+        if embedding_model is not None:
+            # If an external embedding model is provided, use it
+            self.embedding_model = embedding_model
+            # Attempt to get embedding dimension from the provided model
+            try:
+                self.embedding_dim = self.embedding_model.get_sentence_embedding_dimension()
+            except AttributeError:
+                # If it's not a SentenceTransformer model, try the embeddings manager
+                self.embedding_model = embeddings_manager  # Use shared manager
+                self.embedding_dim = embeddings_manager.select_and_load_model(ModelPurpose.SEMANTIC_SEARCH)
+                model_info = embeddings_manager.get_current_model_info()
+                self.embedding_dim = model_info.get('dimension', 384)  # Default to 384 if not available
+        else:
+            # Use the shared embeddings manager
+            self.embedding_model = embeddings_manager
+            # Initialize model to get dimensions
+            embeddings_manager.select_and_load_model(ModelPurpose.SEMANTIC_SEARCH)
+            model_info = embeddings_manager.get_current_model_info()
+            self.embedding_dim = model_info.get('dimension', 384)  # Default to 384 if not available
 
         # Initialize FAISS index for semantic search
         self.faiss_index = None
@@ -63,8 +81,10 @@ class KnowledgeService:
                     all_summaries = session.exec(select(Summary)).all()
                 if all_summaries:
                     texts = [s.summary_text for s in all_summaries]
-                    embeddings = self.embedding_model.encode(
-                        texts, convert_to_numpy=True)
+                    # Use embeddings manager to generate embeddings
+                    from core.embeddings_manager import ModelPurpose
+                    embeddings = self.embedding_model.get_embedding(
+                        texts, purpose=ModelPurpose.SEMANTIC_SEARCH)
                     # ensure dtype float32
                     embeddings = np.array(embeddings, dtype=np.float32)
                     self.faiss_index.add(embeddings)

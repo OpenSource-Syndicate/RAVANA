@@ -1,7 +1,9 @@
 from core.llm import agi_experimentation_engine
 from scripts.physics_experiment_prompts import ADVANCED_PHYSICS_EXPERIMENTS, DISCOVERY_PROMPTS
 from core.config import Config
-from database.engine import create_db_and_tables, engine
+from database.engine import create_db_and_tables, get_engine
+
+engine = get_engine()
 from core.system import AGISystem
 import asyncio
 import logging
@@ -62,6 +64,77 @@ def setup_logging():
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
+
+def pull_required_models():
+    """Pull required models before system initialization."""
+    logger.info("Pulling required models...")
+    
+    # Use the main system local model settings from Config
+    local_model_config = Config.MAIN_SYSTEM_LOCAL_MODEL
+    
+    # Check if we can connect to Ollama server
+    base_url = local_model_config['base_url']
+    model_to_pull = local_model_config['model_name']
+    
+    try:
+        import requests  # Import here to make sure it's available
+        # Check if Ollama server is available
+        response = requests.get(f"{base_url}/api/tags", timeout=10)
+        if response.status_code == 200:
+            available_models = [m['name'] for m in response.json().get('models', [])]
+            
+            # Check if the required model is already available
+            if model_to_pull not in available_models:
+                logger.info(f"Pulling model: {model_to_pull}")
+                pull_response = requests.post(f"{base_url}/api/pull", 
+                                            json={"name": model_to_pull}, 
+                                            timeout=local_model_config.get('timeout', 300))
+                
+                if pull_response.status_code == 200:
+                    logger.info(f"Successfully pulled model: {model_to_pull}")
+                else:
+                    logger.error(f"Failed to pull model: {model_to_pull}. Status: {pull_response.status_code}")
+            else:
+                logger.info(f"Model {model_to_pull} already exists locally")
+        else:
+            logger.error(f"Failed to connect to Ollama server: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to connect to Ollama server at {base_url}: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error while pulling models: {e}")
+    
+    # Also check for any additional models that might be needed
+    additional_models = [
+        "all-MiniLM-L6-v2",  # For embeddings
+        "llama3.1:8b",       # Alternative model
+        "mistral:7b"         # Alternative model
+    ]
+    
+    try:
+        import requests  # Import here to make sure it's available
+        # Check if Ollama server is available
+        response = requests.get(f"{base_url}/api/tags", timeout=10)
+        if response.status_code == 200:
+            available_models = [m['name'] for m in response.json().get('models', [])]
+            
+            for model in additional_models:
+                if model not in available_models:
+                    logger.info(f"Pulling additional model: {model}")
+                    pull_response = requests.post(f"{base_url}/api/pull", 
+                                               json={"name": model}, 
+                                               timeout=local_model_config.get('timeout', 300))
+                    
+                    if pull_response.status_code == 200:
+                        logger.info(f"Successfully pulled model: {model}")
+                    else:
+                        logger.error(f"Failed to pull model: {model}. Status: {pull_response.status_code}")
+                else:
+                    logger.info(f"Model {model} already exists locally")
+    except Exception as e:
+        logger.error(f"Error checking/pulling additional models: {e}")
+    
+    logger.info("Model pulling process completed")
 
 # Global shutdown event for cross-platform signal handling
 shutdown_event = asyncio.Event()
@@ -254,6 +327,10 @@ async def main():
     logger.info("🚀 Starting RAVANA AGI System")
     logger.info(f"🧠 Using model: {Config.EMBEDDING_MODEL}")
     logger.info(f"📊 Log level: {Config.LOG_LEVEL}")
+
+    # Pull required models before initializing the system
+    logger.info("📦 Pulling required models before system initialization...")
+    pull_required_models()
 
     try:
         # Create database and tables

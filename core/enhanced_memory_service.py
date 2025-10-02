@@ -1,6 +1,6 @@
 import logging
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
@@ -21,6 +21,9 @@ class MemoryType(Enum):
     REFLECTIVE = "reflective"  # Reflections and insights
     CONVERSATIONAL = "conversational"  # Interaction memories
     LEARNING = "learning"  # Learning experiences and knowledge gained
+    SHORT_TERM = "short_term"  # Temporary memories, recently formed
+    WORKING = "working"  # Active memories in current thought processes
+    LONG_TERM = "long_term"  # Consolidated memories, stable storage
 
 
 @dataclass
@@ -111,9 +114,24 @@ class MemoryStorageService:
     def __init__(self):
         self.embeddings_mgr = embeddings_manager
         self.summary_service = MemorySummaryService()
-        self.memory_store = {}  # In real implementation, this would be a persistent store
+        # Hierarchical memory stores
+        self.short_term_memory = {}  # Temporary memories (last few minutes)
+        self.working_memory = {}    # Active memories in current thought processes (last few hours)
+        self.long_term_memory = {}  # Consolidated memories (persisted long-term)
+        self.episodic_memory = {}   # Personal experiences and events
+        self.semantic_memory = {}   # Factual knowledge and concepts
+        self.procedural_memory = {} # Skills and how-to knowledge
+        self.emotional_memory = {}  # Emotionally tagged experiences
         self.memory_tags = {}  # Inverted index for tag-based retrieval
         self.memory_embeddings = {}
+        
+        # Configuration for memory management
+        self.short_term_duration = 300  # 5 minutes in seconds
+        self.working_memory_duration = 7200  # 2 hours in seconds
+        
+        # Memory consolidation settings
+        self.consolidation_threshold = 0.6  # Minimum importance for consolidation
+        self.consolidation_interval_hours = 2  # How often to trigger consolidation
 
     def _generate_memory_id(self, content: str, timestamp: datetime) -> str:
         """Generate a unique ID for a memory."""
@@ -142,7 +160,7 @@ class MemoryStorageService:
         Returns:
             Created Memory object
         """
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
         memory_id = self._generate_memory_id(content, timestamp)
 
         # Generate summary
@@ -176,9 +194,8 @@ class MemoryStorageService:
             embedding_purpose=embedding_purpose
         )
 
-        # Store in memory store
-        self.memory_store[memory_id] = memory
-        self.memory_embeddings[memory_id] = embedding_list
+        # Store in appropriate memory tier based on type and importance
+        await self._store_memory_in_hierarchy(memory)
 
         # Update tag index
         for tag in memory.tags:
@@ -189,13 +206,67 @@ class MemoryStorageService:
         logger.info(f"Created memory {memory_id} of type {memory_type.value}")
         return memory
 
+    async def _store_memory_in_hierarchy(self, memory: Memory):
+        """Store memory in the appropriate hierarchical level based on type and importance."""
+        # Determine memory tier based on type and importance
+        if memory.memory_type in [MemoryType.SHORT_TERM] or memory.importance_score < 0.3:
+            # Short-term memories: recently formed, low importance, or explicitly short-term
+            self.short_term_memory[memory.id] = memory
+            self.memory_embeddings[memory.id] = memory.embedding
+        elif memory.memory_type in [MemoryType.WORKING] or memory.importance_score > 0.7:
+            # Working memories: high importance, or explicitly working memory
+            self.working_memory[memory.id] = memory
+            self.memory_embeddings[memory.id] = memory.embedding
+        elif memory.memory_type == MemoryType.EPISODIC:
+            # Episodic memories: personal events and experiences
+            self.episodic_memory[memory.id] = memory
+            self.memory_embeddings[memory.id] = memory.embedding
+        elif memory.memory_type == MemoryType.SEMANTIC:
+            # Semantic memories: facts, concepts, and general knowledge
+            self.semantic_memory[memory.id] = memory
+            self.memory_embeddings[memory.id] = memory.embedding
+        elif memory.memory_type == MemoryType.PROCEDURAL:
+            # Procedural memories: skills and how-to knowledge
+            self.procedural_memory[memory.id] = memory
+            self.memory_embeddings[memory.id] = memory.embedding
+        elif memory.memory_type == MemoryType.EMOTIONAL:
+            # Emotional memories: experiences tagged with emotional context
+            self.emotional_memory[memory.id] = memory
+            self.memory_embeddings[memory.id] = memory.embedding
+        else:
+            # Default to long-term memory for other types
+            self.long_term_memory[memory.id] = memory
+            self.memory_embeddings[memory.id] = memory.embedding
+
     def get_memory(self, memory_id: str) -> Optional[Memory]:
-        """Retrieve a memory by ID."""
-        return self.memory_store.get(memory_id)
+        """Retrieve a memory by ID from any tier."""
+        # Search in all memory tiers
+        for memory_store in [self.short_term_memory, self.working_memory, self.long_term_memory, 
+                             self.episodic_memory, self.semantic_memory, self.procedural_memory, 
+                             self.emotional_memory]:
+            if memory_id in memory_store:
+                return memory_store[memory_id]
+        return None
 
     def get_memories_by_type(self, memory_type: MemoryType) -> List[Memory]:
         """Retrieve all memories of a specific type."""
-        return [mem for mem in self.memory_store.values() if mem.memory_type == memory_type]
+        # Special handling for each memory type to use dedicated storage
+        if memory_type == MemoryType.EPISODIC:
+            return list(self.episodic_memory.values())
+        elif memory_type == MemoryType.SEMANTIC:
+            return list(self.semantic_memory.values())
+        elif memory_type == MemoryType.PROCEDURAL:
+            return list(self.procedural_memory.values())
+        elif memory_type == MemoryType.EMOTIONAL:
+            return list(self.emotional_memory.values())
+        elif memory_type == MemoryType.WORKING:
+            return list(self.working_memory.values())
+        elif memory_type == MemoryType.SHORT_TERM:
+            return list(self.short_term_memory.values())
+        else:
+            # For other types, check all general storage
+            all_memories = {**self.short_term_memory, **self.working_memory, **self.long_term_memory}
+            return [mem for mem in all_memories.values() if mem.memory_type == memory_type]
 
     def get_memories_by_tags(self, tags: List[str]) -> List[Memory]:
         """Retrieve memories that match any of the given tags."""
@@ -204,7 +275,8 @@ class MemoryStorageService:
             if tag in self.memory_tags:
                 matching_ids.update(self.memory_tags[tag])
 
-        return [self.memory_store[mid] for mid in matching_ids if mid in self.memory_store]
+        all_memories = {**self.short_term_memory, **self.working_memory, **self.long_term_memory}
+        return [all_memories[mid] for mid in matching_ids if mid in all_memories]
 
     async def find_similar_memories(self,
                                     query: str,
@@ -235,16 +307,27 @@ class MemoryStorageService:
             logger.error(f"Error generating query embedding: {e}")
             return []
 
+        # Get all memories from all tiers - include specialized memory types
+        all_memories = {
+            **self.short_term_memory, 
+            **self.working_memory, 
+            **self.long_term_memory,
+            **self.episodic_memory,
+            **self.semantic_memory,
+            **self.procedural_memory,
+            **self.emotional_memory
+        }
+
         # Filter memories based on criteria
         candidate_memories = []
-        for memory in self.memory_store.values():
+        for memory in all_memories.values():
             # Apply filters
             if memory_types and memory.memory_type not in memory_types:
                 continue
             if memory.importance_score < min_importance:
                 continue
             if time_range_days:
-                time_diff = datetime.utcnow() - memory.timestamp
+                time_diff = datetime.now(timezone.utc) - memory.timestamp
                 if time_diff.days > time_range_days:
                     continue
 
@@ -282,6 +365,81 @@ class MemoryStorageService:
         similarities.sort(key=lambda x: x[1], reverse=True)
         return similarities[:top_k]
 
+    async def transfer_memory_to_working(self, memory_id: str) -> bool:
+        """Transfer a memory from long-term to working memory."""
+        if memory_id in self.long_term_memory:
+            memory = self.long_term_memory.pop(memory_id)
+            self.working_memory[memory_id] = memory
+            logger.info(f"Transferred memory {memory_id} from long-term to working memory")
+            return True
+        elif memory_id in self.short_term_memory:
+            memory = self.short_term_memory.pop(memory_id)
+            self.working_memory[memory_id] = memory
+            logger.info(f"Transferred memory {memory_id} from short-term to working memory")
+            return True
+        return False
+
+    async def transfer_memory_to_long_term(self, memory_id: str) -> bool:
+        """Transfer a memory from working to long-term memory (consolidation)."""
+        if memory_id in self.working_memory:
+            memory = self.working_memory.pop(memory_id)
+            self.long_term_memory[memory_id] = memory
+            logger.info(f"Transferred memory {memory_id} from working to long-term memory")
+            return True
+        elif memory_id in self.short_term_memory:
+            memory = self.short_term_memory.pop(memory_id)
+            self.long_term_memory[memory_id] = memory
+            logger.info(f"Transferred memory {memory_id} from short-term to long-term memory")
+            return True
+        return False
+
+    async def cleanup_expired_memories(self):
+        """Remove expired memories from short-term and working memory."""
+        current_time = datetime.now(timezone.utc)
+        expired_count = 0
+
+        # Check short-term memory for expired items
+        expired_ids = []
+        for memory_id, memory in self.short_term_memory.items():
+            time_diff = (current_time - memory.timestamp).total_seconds()
+            if time_diff > self.short_term_duration:
+                expired_ids.append(memory_id)
+
+        for memory_id in expired_ids:
+            del self.short_term_memory[memory_id]
+            if memory_id in self.memory_embeddings:
+                del self.memory_embeddings[memory_id]
+            # Remove from tag index
+            memory = self.get_memory(memory_id)  # Need to get the memory object to access tags
+            if memory:
+                for tag in memory.tags:
+                    if tag in self.memory_tags and memory_id in self.memory_tags[tag]:
+                        self.memory_tags[tag].remove(memory_id)
+            expired_count += 1
+
+        # Check working memory for expired items
+        expired_ids = []
+        for memory_id, memory in self.working_memory.items():
+            time_diff = (current_time - memory.timestamp).total_seconds()
+            if time_diff > self.working_memory_duration:
+                expired_ids.append(memory_id)
+
+        for memory_id in expired_ids:
+            # Only remove if importance is low (important memories should be preserved)
+            memory = self.working_memory[memory_id]
+            if memory.importance_score < 0.5:
+                del self.working_memory[memory_id]
+                if memory_id in self.memory_embeddings:
+                    del self.memory_embeddings[memory_id]
+                # Remove from tag index
+                for tag in memory.tags:
+                    if tag in self.memory_tags and memory_id in self.memory_tags[tag]:
+                        self.memory_tags[tag].remove(memory_id)
+                expired_count += 1
+
+        if expired_count > 0:
+            logger.info(f"Cleaned up {expired_count} expired memories")
+
     async def consolidate_memories(self,
                                    days_to_consolidate: int = 30,
                                    min_importance: float = 0.3) -> Dict[str, Any]:
@@ -295,13 +453,17 @@ class MemoryStorageService:
         Returns:
             Summary of consolidation operation
         """
-        cutoff_time = datetime.utcnow() - timedelta(days=days_to_consolidate)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(days=days_to_consolidate)
+        
+        # Get all memories from all tiers
+        all_memories = {**self.short_term_memory, **self.working_memory, **self.long_term_memory}
+        
         memories_to_consolidate = [
-            mem for mem in self.memory_store.values()
+            mem for mem in all_memories.values()
             if (mem.timestamp < cutoff_time and
                 mem.importance_score >= min_importance and
                 # Only consolidate certain types
-                mem.memory_type in [MemoryType.EPISODIC, MemoryType.REFLECTIVE])
+                mem.memory_type in [MemoryType.EPISODIC, MemoryType.REFLECTIVE, MemoryType.SHORT_TERM, MemoryType.WORKING])
         ]
 
         if not memories_to_consolidate:
@@ -310,77 +472,237 @@ class MemoryStorageService:
                 "message": "No memories eligible for consolidation"
             }
 
-        # Group similar memories for consolidation
-        consolidated_groups = {}
-        for memory in memories_to_consolidate:
-            # Create a simple grouping key based on content themes
-            # In a real implementation, this would use semantic clustering
-            content_start = memory.content[:50].lower()
-            group_key = content_start.split(
-            )[0] if content_start.split() else "unknown"
-
-            if group_key not in consolidated_groups:
-                consolidated_groups[group_key] = []
-            consolidated_groups[group_key].append(memory)
+        # Group similar memories using semantic clustering
+        # This enhanced version uses embeddings to find semantically similar memories
+        consolidated_groups = await self._semantic_clustering(memories_to_consolidate)
 
         # Consolidate each group
         consolidated_count = 0
-        for group_key, group_memories in consolidated_groups.items():
+        for group_memories in consolidated_groups:
             if len(group_memories) > 1:  # Only consolidate groups with multiple memories
-                # Create consolidated content
-                consolidated_content = "Consolidated memories about " + group_key + ": "
-                # Limit to first 5 summaries
-                consolidated_content += " ".join(
-                    [mem.summary for mem in group_memories[:5]])
+                # Create consolidated content using semantic summarization
+                consolidated_content = await self._create_semantic_summary(group_memories)
+                
+                # Calculate importance based on the importance of individual memories and group size
+                avg_importance = sum(m.importance_score for m in group_memories) / len(group_memories)
+                max_importance = max(m.importance_score for m in group_memories)
+                consolidated_importance = min(0.9, (avg_importance + max_importance) / 2)
 
                 # Create new consolidated memory
                 consolidated_memory = await self.create_memory(
                     content=consolidated_content,
-                    memory_type=MemoryType.SEMANTIC,  # Change type to semantic
-                    # Keep max importance
-                    importance_score=min(
-                        0.8, max(m.importance_score for m in group_memories)),
-                    # Combine tags
-                    tags=list(
-                        set(tag for mem in group_memories for tag in mem.tags)),
+                    memory_type=MemoryType.LONG_TERM,  # Change type to long-term
+                    # Calculate importance based on the individual memories
+                    importance_score=consolidated_importance,
+                    # Combine and extend tags
+                    tags=self._consolidate_tags(group_memories),
                     embedding_purpose=ModelPurpose.GENERAL
                 )
 
-                # Remove original memories
+                # Remove original memories from their respective stores
                 for old_memory in group_memories:
-                    if old_memory.id in self.memory_store:
-                        del self.memory_store[old_memory.id]
-                        if old_memory.id in self.memory_embeddings:
-                            del self.memory_embeddings[old_memory.id]
-                        # Update tag index
-                        for tag in old_memory.tags:
-                            if tag in self.memory_tags and old_memory.id in self.memory_tags[tag]:
-                                self.memory_tags[tag].remove(old_memory.id)
+                    # Remove from short-term memory if it exists there
+                    if old_memory.id in self.short_term_memory:
+                        del self.short_term_memory[old_memory.id]
+                    # Remove from working memory if it exists there
+                    elif old_memory.id in self.working_memory:
+                        del self.working_memory[old_memory.id]
+                    # Remove from long-term memory if it exists there
+                    elif old_memory.id in self.long_term_memory:
+                        del self.long_term_memory[old_memory.id]
+                    
+                    if old_memory.id in self.memory_embeddings:
+                        del self.memory_embeddings[old_memory.id]
+                    # Update tag index
+                    for tag in old_memory.tags:
+                        if tag in self.memory_tags and old_memory.id in self.memory_tags[tag]:
+                            self.memory_tags[tag].remove(old_memory.id)
 
                 consolidated_count += len(group_memories)
 
         return {
             "consolidated_count": consolidated_count,
             "groups_created": len(consolidated_groups),
-            "message": f"Consolidated {consolidated_count} memories into {len(consolidated_groups)} groups"
+            "message": f"Consolidated {consolidated_count} memories into {len(consolidated_groups)} semantically coherent groups"
         }
+
+    async def _semantic_clustering(self, memories: List[Memory], threshold: float = 0.7) -> List[List[Memory]]:
+        """
+        Group memories based on semantic similarity using embeddings.
+        
+        Args:
+            memories: List of memories to cluster
+            threshold: Similarity threshold for clustering
+            
+        Returns:
+            List of memory clusters (each cluster is a list of memories)
+        """
+        if not memories:
+            return []
+
+        # Get embeddings for all memories
+        memory_embeddings = []
+        for mem in memories:
+            # Use the stored embedding if available
+            stored_emb = self.memory_embeddings.get(mem.id)
+            if stored_emb is not None:
+                memory_embeddings.append((mem, stored_emb))
+            else:
+                # Generate embedding if not stored
+                try:
+                    emb = self.embeddings_mgr.get_embedding(mem.content, purpose=ModelPurpose.SEMANTIC_SEARCH)
+                    emb_list = emb.tolist() if hasattr(emb, 'tolist') else list(emb)
+                    memory_embeddings.append((mem, emb_list))
+                except Exception as e:
+                    logger.warning(f"Failed to get embedding for memory {mem.id}: {e}")
+                    continue
+
+        # Perform semantic clustering
+        clusters = []
+        used_memories = set()
+
+        for i, (mem1, emb1) in enumerate(memory_embeddings):
+            if mem1.id in used_memories:
+                continue
+
+            cluster = [mem1]
+            used_memories.add(mem1.id)
+
+            for j, (mem2, emb2) in enumerate(memory_embeddings[i+1:], i+1):
+                if mem2.id in used_memories:
+                    continue
+
+                # Calculate cosine similarity
+                try:
+                    dot_product = sum(a * b for a, b in zip(emb1, emb2))
+                    norm1 = sum(a * a for a in emb1) ** 0.5
+                    norm2 = sum(a * a for a in emb2) ** 0.5
+
+                    if norm1 == 0 or norm2 == 0:
+                        similarity = 0.0
+                    else:
+                        similarity = dot_product / (norm1 * norm2)
+
+                    if similarity >= threshold:
+                        cluster.append(mem2)
+                        used_memories.add(mem2.id)
+                except Exception as e:
+                    logger.warning(f"Error calculating similarity between {mem1.id} and {mem2.id}: {e}")
+
+            if len(cluster) > 0:
+                clusters.append(cluster)
+
+        return clusters
+
+    async def _create_semantic_summary(self, group_memories: List[Memory]) -> str:
+        """
+        Create a semantic summary of a group of related memories.
+        
+        Args:
+            group_memories: List of semantically related memories
+            
+        Returns:
+            Consolidated content summary
+        """
+        if not group_memories:
+            return ""
+
+        # Sort by importance to prioritize important memories in summary
+        sorted_memories = sorted(group_memories, key=lambda m: m.importance_score, reverse=True)
+
+        # Extract key themes and concepts from the memories
+        theme_prompt = f"""
+        Below are several related memories that should be consolidated into a single semantic memory.
+        
+        Memories:
+        {chr(10).join([f"- {mem.summary}" for mem in sorted_memories[:5]])}
+        
+        Please create a comprehensive summary that captures the key themes, insights, and
+        important information from these related memories. The summary should be concise
+        but preserve the essential meaning and context.
+        
+        Consolidated Summary:
+        """
+
+        # Use LLM to generate a semantic summary
+        try:
+            from core.llm import call_llm
+            summary = await asyncio.to_thread(call_llm, theme_prompt)
+            if summary and summary.strip():
+                return summary.strip()
+        except Exception as e:
+            logger.warning(f"Failed to generate semantic summary using LLM: {e}")
+
+        # Fallback: simple concatenation with key points
+        title = f"Consolidated memory group: {sorted_memories[0].summary[:50]}..."
+        content_parts = [title]
+        
+        # Add important content from each memory
+        for mem in sorted_memories[:5]:  # Limit to top 5 memories
+            content_parts.append(f"Key point: {mem.summary}")
+        
+        return "\n".join(content_parts)
+
+    def _consolidate_tags(self, group_memories: List[Memory]) -> List[str]:
+        """
+        Consolidate tags from a group of memories, preserving the most relevant ones.
+        
+        Args:
+            group_memories: List of memories to consolidate tags from
+            
+        Returns:
+            Consolidated list of tags
+        """
+        # Count tag occurrences and importance-weighted scores
+        tag_scores = {}
+        for mem in group_memories:
+            for tag in mem.tags:
+                # Weight by memory importance
+                current_score = tag_scores.get(tag, 0)
+                tag_scores[tag] = current_score + mem.importance_score
+
+        # Sort by score and return top tags (with a minimum threshold)
+        sorted_tags = sorted(tag_scores.items(), key=lambda x: x[1], reverse=True)
+        return [tag for tag, score in sorted_tags if score >= 0.5]  # Minimum threshold
 
     def get_memory_stats(self) -> Dict[str, Any]:
         """Get statistics about stored memories."""
-        total_memories = len(self.memory_store)
+        # Combined memory counts
+        all_memories = {
+            **self.short_term_memory, 
+            **self.working_memory, 
+            **self.long_term_memory,
+            **self.episodic_memory,
+            **self.semantic_memory,
+            **self.procedural_memory,
+            **self.emotional_memory
+        }
+        total_memories = len(all_memories)
         type_counts = {}
         total_size = 0
 
-        for memory in self.memory_store.values():
+        for memory in all_memories.values():
             type_name = memory.memory_type.value
             type_counts[type_name] = type_counts.get(type_name, 0) + 1
             total_size += len(memory.content)
 
+        # Tier-specific counts
+        tier_counts = {
+            "short_term": len(self.short_term_memory),
+            "working": len(self.working_memory),
+            "long_term": len(self.long_term_memory),
+            "episodic": len(self.episodic_memory),
+            "semantic": len(self.semantic_memory),
+            "procedural": len(self.procedural_memory),
+            "emotional": len(self.emotional_memory)
+        }
+
         return {
             "total_memories": total_memories,
+            "tier_distribution": tier_counts,
             "type_distribution": type_counts,
             "total_content_size": total_size,
-            "average_content_length": total_size / max(1, total_memories),
+            "average_content_length": total_size / max(1, total_memories) if total_memories > 0 else 0,
             "tag_count": len(self.memory_tags)
         }
 
@@ -392,6 +714,10 @@ class EnhancedMemoryService:
         self.storage_service = MemoryStorageService()
         self.summary_service = self.storage_service.summary_service
         self.embeddings_mgr = self.storage_service.embeddings_mgr
+
+    async def cleanup_expired_memories(self):
+        """Clean up expired memories from short-term and working memory."""
+        await self.storage_service.cleanup_expired_memories()
 
     async def create_memory_from_content(self,
                                          content: str,
@@ -512,7 +838,7 @@ class EnhancedMemoryService:
                     if (memory_types and memory.memory_type not in memory_types) or \
                        memory.importance_score < min_importance or \
                        (time_range_days and
-                            (datetime.utcnow() - memory.timestamp).days > time_range_days):
+                            (datetime.now(timezone.utc) - memory.timestamp).days > time_range_days):
                         continue
 
                     # Calculate similarity with memory content
@@ -604,9 +930,11 @@ class EnhancedMemoryService:
 
             # Process each memory in the list
             for memory_data in memories:
-                # If memory_data is already a Memory object, save it directly
+                # If memory_data is already a Memory object, save it by storing in appropriate hierarchy
                 if isinstance(memory_data, Memory):
-                    self.storage_service.memory_store[memory_data.id] = memory_data
+                    await self.storage_service._store_memory_in_hierarchy(memory_data)
+                    
+                    # Update embedding cache
                     self.storage_service.memory_embeddings[memory_data.id] = memory_data.embedding
 
                     # Update tag index
@@ -618,10 +946,11 @@ class EnhancedMemoryService:
                                 memory_data.id)
                 else:
                     # If it's a dict or other format, create a memory from it
-                    # For now, we'll treat it as content and create a reflective memory
+                    # For now, we'll treat it as content and create a memory from the specified type
                     if isinstance(memory_data, dict):
                         content = memory_data.get('content', str(memory_data))
-                        memory_type = MemoryType.REFLECTIVE
+                        # Check if a memory type is specified in the dict
+                        memory_type = memory_data.get('type', MemoryType.REFLECTIVE)
                         context = memory_data.get('context', {})
                         tags = memory_data.get('tags', [])
                     else:
@@ -642,6 +971,330 @@ class EnhancedMemoryService:
         except Exception as e:
             logger.error(f"Error saving memories: {e}")
             return False
+
+    async def link_memories_by_context(self, memory_id: str, related_memory_ids: List[str], 
+                                      strength: float = 0.5) -> bool:
+        """
+        Create contextual links between memories based on shared context.
+        
+        Args:
+            memory_id: ID of the primary memory
+            related_memory_ids: List of IDs of related memories
+            strength: Strength of the contextual link (0.0-1.0)
+            
+        Returns:
+            True if linking was successful
+        """
+        try:
+            # For now, we'll enhance the memory's context field to note the relationships
+            primary_memory = self.storage_service.get_memory(memory_id)
+            if not primary_memory:
+                return False
+                
+            # Update the context of the primary memory to include links
+            if 'related_memories' not in primary_memory.context:
+                primary_memory.context['related_memories'] = {}
+            
+            for related_id in related_memory_ids:
+                primary_memory.context['related_memories'][related_id] = {
+                    'relationship_type': 'contextual',
+                    'strength': strength,
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+                
+            # Also update the related memory to reference back to the primary
+            for related_id in related_memory_ids:
+                related_memory = self.storage_service.get_memory(related_id)
+                if related_memory:
+                    if 'related_memories' not in related_memory.context:
+                        related_memory.context['related_memories'] = {}
+                    related_memory.context['related_memories'][memory_id] = {
+                        'relationship_type': 'contextual',
+                        'strength': strength,
+                        'timestamp': datetime.utcnow().isoformat()
+                    }
+                    
+            logger.info(f"Created contextual links between memory {memory_id} and {len(related_memory_ids)} other memories")
+            return True
+        except Exception as e:
+            logger.error(f"Error linking memories by context: {e}")
+            return False
+
+    async def link_memories_by_emotion(self, memory_id: str, related_memory_ids: List[str], 
+                                      emotion_type: str, strength: float = 0.5) -> bool:
+        """
+        Create emotional links between memories based on shared emotional content.
+        
+        Args:
+            memory_id: ID of the primary memory
+            related_memory_ids: List of IDs of related memories
+            emotion_type: Type of emotion that links these memories
+            strength: Strength of the emotional link (0.0-1.0)
+            
+        Returns:
+            True if linking was successful
+        """
+        try:
+            # Update the context of the primary memory to include emotional links
+            primary_memory = self.storage_service.get_memory(memory_id)
+            if not primary_memory:
+                return False
+                
+            if 'emotional_links' not in primary_memory.context:
+                primary_memory.context['emotional_links'] = {}
+            
+            for related_id in related_memory_ids:
+                primary_memory.context['emotional_links'][related_id] = {
+                    'emotion_type': emotion_type,
+                    'strength': strength,
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+                
+            # Also update the related memory to reference back to the primary
+            for related_id in related_memory_ids:
+                related_memory = self.storage_service.get_memory(related_id)
+                if related_memory:
+                    if 'emotional_links' not in related_memory.context:
+                        related_memory.context['emotional_links'] = {}
+                    related_memory.context['emotional_links'][memory_id] = {
+                        'emotion_type': emotion_type,
+                        'strength': strength,
+                        'timestamp': datetime.utcnow().isoformat()
+                    }
+                    
+            logger.info(f"Created emotional links based on '{emotion_type}' between memory {memory_id} and {len(related_memory_ids)} other memories")
+            return True
+        except Exception as e:
+            logger.error(f"Error linking memories by emotion: {e}")
+            return False
+
+    async def find_temporally_linked_memories(self, memory_id: str, time_window_minutes: int = 60) -> List[Memory]:
+        """
+        Find memories that occurred within a specific time window of the given memory.
+        
+        Args:
+            memory_id: ID of the reference memory
+            time_window_minutes: Time window in minutes to search for related memories
+            
+        Returns:
+            List of temporally related memories
+        """
+        try:
+            reference_memory = self.storage_service.get_memory(memory_id)
+            if not reference_memory:
+                return []
+                
+            reference_time = reference_memory.timestamp
+            time_start = reference_time - timedelta(minutes=time_window_minutes/2)
+            time_end = reference_time + timedelta(minutes=time_window_minutes/2)
+            
+            # Get all memories from all tiers
+            all_memories = {**self.storage_service.short_term_memory, 
+                           **self.storage_service.working_memory, 
+                           **self.storage_service.long_term_memory}
+            
+            temporally_related = []
+            for memory in all_memories.values():
+                if time_start <= memory.timestamp <= time_end and memory.id != memory_id:
+                    temporally_related.append(memory)
+                    
+            logger.info(f"Found {len(temporally_related)} temporally related memories for memory {memory_id}")
+            return temporally_related
+        except Exception as e:
+            logger.error(f"Error finding temporally linked memories: {e}")
+            return []
+
+    async def retrieve_contextually_relevant_memories(self, 
+                                                     query: str, 
+                                                     emotion_context: Dict[str, float] = None,
+                                                     time_range_minutes: int = 1440,  # 24 hours default
+                                                     top_k: int = 10) -> List[Tuple[Memory, float]]:
+        """
+        Retrieve memories using multiple relevance criteria: semantic, emotional, and temporal.
+        
+        Args:
+            query: Query text for semantic relevance
+            emotion_context: Current emotional state to match against emotional memories
+            time_range_minutes: Time range to consider for temporal relevance
+            top_k: Maximum number of memories to return
+            
+        Returns:
+            List of tuples (memory, relevance_score) sorted by combined relevance
+        """
+        try:
+            # Get semantically similar memories
+            semantic_memories = await self.retrieve_relevant_memories(
+                query=query,
+                top_k=top_k*2,  # Get more than needed for combination
+                time_range_days=time_range_minutes/1440  # Convert minutes to days
+            )
+            
+            # If emotion context is provided, factor emotional relevance
+            if emotion_context:
+                # Enhance semantic results with emotional relevance
+                enhanced_results = []
+                for memory, semantic_score in semantic_memories:
+                    # Calculate emotional relevance if memory has emotional context
+                    emotional_relevance = 0.0
+                    if hasattr(memory, 'context') and 'emotions' in memory.context:
+                        memory_emotions = memory.context.get('emotions', {})
+                        # Calculate similarity between current emotion context and memory's emotional content
+                        for emotion, current_intensity in emotion_context.items():
+                            memory_intensity = memory_emotions.get(emotion, 0.0)
+                            # Weight by both intensities
+                            emotional_relevance += current_intensity * memory_intensity
+                        # Normalize emotional relevance (assuming emotional_relevance can be up to number of emotions * 1.0)
+                        emotional_relevance = min(1.0, emotional_relevance / len(emotion_context))
+                    
+                    # Combine semantic and emotional scores
+                    combined_score = 0.7 * semantic_score + 0.3 * emotional_relevance
+                    enhanced_results.append((memory, combined_score))
+                
+                # Sort by combined score and return top_k
+                enhanced_results.sort(key=lambda x: x[1], reverse=True)
+                return enhanced_results[:top_k]
+            else:
+                # Return just semantic results if no emotion context provided
+                return semantic_memories[:top_k]
+                
+        except Exception as e:
+            logger.error(f"Error retrieving contextually relevant memories: {e}")
+            # Fallback to just semantic search
+            return await self.retrieve_relevant_memories(
+                query=query,
+                top_k=top_k,
+                time_range_days=time_range_minutes/1440
+            )
+
+    async def update_working_memory(self, 
+                                  new_content: str = None, 
+                                  memory_id: str = None,
+                                  content_override: str = None,
+                                  tags: List[str] = None) -> Optional[Memory]:
+        """
+        Update the working memory with new information or modify existing working memory.
+        
+        Args:
+            new_content: New content to add to working memory
+            memory_id: ID of existing memory to update
+            content_override: New content for existing memory
+            tags: Tags to associate with the working memory
+            
+        Returns:
+            Updated or created Memory object
+        """
+        try:
+            # If updating existing memory
+            if memory_id and content_override:
+                existing_memory = self.working_memory.get(memory_id)
+                if existing_memory:
+                    # Update content and re-embed
+                    updated_memory = Memory(
+                        id=existing_memory.id,
+                        content=content_override,
+                        summary=await self.summary_service.generate_summary(content_override),
+                        embedding=self.embeddings_mgr.get_embedding(content_override, purpose=ModelPurpose.GENERAL).tolist() if content_override else existing_memory.embedding,
+                        memory_type=MemoryType.WORKING,
+                        timestamp=datetime.now(timezone.utc),
+                        tags=tags or existing_memory.tags,
+                        importance_score=existing_memory.importance_score,
+                        context=existing_memory.context,
+                        embedding_purpose=ModelPurpose.GENERAL
+                    )
+                    self.working_memory[memory_id] = updated_memory
+                    self.memory_embeddings[memory_id] = updated_memory.embedding
+                    logger.info(f"Updated working memory {memory_id}")
+                    return updated_memory
+            # If adding new content
+            elif new_content:
+                new_memory = await self._create_working_memory(new_content, tags or [])
+                logger.info(f"Added new content to working memory: {new_memory.id}")
+                return new_memory
+            # If just retrieving
+            else:
+                return self.working_memory.get(memory_id) if memory_id else None
+        except Exception as e:
+            logger.error(f"Error updating working memory: {e}")
+            return None
+
+    async def _create_working_memory(self, content: str, tags: List[str] = None) -> Memory:
+        """Create a new working memory item."""
+        memory_id = self._generate_memory_id(content, datetime.now(timezone.utc))
+        
+        # Generate embedding and summary
+        embedding = self.embeddings_mgr.get_embedding(content, purpose=ModelPurpose.GENERAL)
+        embedding_list = embedding.tolist() if hasattr(embedding, 'tolist') else list(embedding)
+        summary = await self.summary_service.generate_summary(content)
+        
+        # Create memory with appropriate importance
+        memory = Memory(
+            id=memory_id,
+            content=content,
+            summary=summary,
+            embedding=embedding_list,
+            memory_type=MemoryType.WORKING,
+            timestamp=datetime.now(timezone.utc),
+            tags=tags or [],
+            importance_score=0.8,  # Higher importance for working memory
+            context={"created_in_working_memory": True},
+            embedding_purpose=ModelPurpose.GENERAL
+        )
+        
+        # Store in working memory
+        self.working_memory[memory_id] = memory
+        self.memory_embeddings[memory_id] = memory.embedding
+        
+        # Update tag index
+        for tag in memory.tags:
+            if tag not in self.memory_tags:
+                self.memory_tags[tag] = []
+            self.memory_tags[tag].append(memory_id)
+        
+        return memory
+
+    def get_working_memory_contents(self) -> List[Memory]:
+        """Get all currently active working memories."""
+        return list(self.working_memory.values())
+
+    def clear_working_memory(self, preserve_important: bool = True):
+        """
+        Clear working memory, optionally preserving high-importance items.
+        
+        Args:
+            preserve_important: If True, keep memories with importance >= 0.7
+        """
+        if preserve_important:
+            # Only remove low-importance working memories
+            to_remove = []
+            for memory_id, memory in self.working_memory.items():
+                if memory.importance_score < 0.7:
+                    to_remove.append(memory_id)
+            
+            for memory_id in to_remove:
+                del self.working_memory[memory_id]
+                if memory_id in self.memory_embeddings:
+                    del self.memory_embeddings[memory_id]
+                # Update tag index
+                memory = self.get_memory(memory_id)
+                if memory:
+                    for tag in memory.tags:
+                        if tag in self.memory_tags and memory_id in self.memory_tags[tag]:
+                            self.memory_tags[tag].remove(memory_id)
+        else:
+            # Clear all working memory
+            for memory_id in list(self.working_memory.keys()):
+                if memory_id in self.memory_embeddings:
+                    del self.memory_embeddings[memory_id]
+                # Update tag index
+                memory = self.get_memory(memory_id)
+                if memory:
+                    for tag in memory.tags:
+                        if tag in self.memory_tags and memory_id in self.memory_tags[tag]:
+                            self.memory_tags[tag].remove(memory_id)
+            
+            self.working_memory.clear()
+            
+        logger.info(f"Cleared working memory (preserved important: {preserve_important})")
 
 
 # Global instance for shared use
