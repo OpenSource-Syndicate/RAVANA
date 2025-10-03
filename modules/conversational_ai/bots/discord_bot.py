@@ -3,10 +3,12 @@ import logging
 import discord
 from discord.ext import commands
 
+from .base_bot import BaseBot
+
 logger = logging.getLogger(__name__)
 
 
-class DiscordBot:
+class DiscordBot(BaseBot):
     # Class variables to track instances
     _instance_started = False
     _active_instance = None
@@ -20,10 +22,7 @@ class DiscordBot:
             command_prefix: Command prefix for the bot
             conversational_ai: Reference to the main ConversationalAI instance
         """
-        self.token = token
-        self.command_prefix = command_prefix
-        self.conversational_ai = conversational_ai
-        self.connected = False
+        super().__init__(token, command_prefix, conversational_ai)
 
         # Initialize Discord client
         intents = discord.Intents.default()
@@ -137,7 +136,7 @@ class DiscordBot:
             if self._shutdown.is_set():
                 return
             user_id = str(ctx.author.id)
-            self.conversational_ai.handle_task_from_user(
+            self.handle_task_from_user(
                 user_id, task_description)
             if not self._shutdown.is_set():
                 await ctx.send("I've sent your task to RAVANA. I'll let you know when there's an update!")

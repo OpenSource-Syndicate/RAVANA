@@ -68,10 +68,13 @@ class MemoryServiceChannel:
             return False
 
         try:
-            # For now, we'll just log that we're trying to send a message
-            # In a real implementation, we would store this in the memory service
+            self.memory_service.store(
+                key=message.id,
+                data=message.to_dict(),
+                collection=self.channel_name
+            )
             logger.info(
-                f"Message {message.id} would be stored in memory service")
+                f"Message {message.id} stored in memory service channel '{self.channel_name}'")
             return True
 
         except Exception as e:
@@ -92,9 +95,13 @@ class MemoryServiceChannel:
             List of CommunicationMessage objects
         """
         try:
-            # In a real implementation, we would query the memory service
-            # For now, we'll return an empty list since this is a simulated implementation
-            return []
+            messages_data = self.memory_service.query(
+                collection=self.channel_name,
+                filter_func=lambda msg: msg.get('recipient') == recipient
+            )
+            # Sort by timestamp and take the most recent 'limit' messages
+            sorted_messages = sorted(messages_data, key=lambda msg: msg.get('timestamp'), reverse=True)
+            return [CommunicationMessage.from_dict(data) for data in sorted_messages[:limit]]
 
         except Exception as e:
             if not self._shutdown.is_set():

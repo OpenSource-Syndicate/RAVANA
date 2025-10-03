@@ -410,13 +410,13 @@ async def main():
                 bot_tasks = []
 
                 # Start Discord bot if enabled
-                if ai.config.get("platforms", {}).get("discord", {}).get("enabled", False):
+                if ai.config.CONV_AI_PLATFORMS.get("discord", {}).get("enabled", False):
                     try:
-                        token = ai.config.get("discord_token")
+                        token = ai.config.CONV_AI_DISCORD_TOKEN
                         if token:
                             discord_bot_instance = DiscordBot(
                                 token=token,
-                                command_prefix=ai.config["platforms"]["discord"]["command_prefix"],
+                                command_prefix=ai.config.CONV_AI_PLATFORMS["discord"]["command_prefix"],
                                 conversational_ai=ai
                             )
 
@@ -438,13 +438,13 @@ async def main():
                         logger.error(f"Failed to start Discord bot: {e}")
 
                 # Start Telegram bot if enabled
-                if ai.config.get("platforms", {}).get("telegram", {}).get("enabled", False):
+                if ai.config.CONV_AI_PLATFORMS.get("telegram", {}).get("enabled", False):
                     try:
-                        token = ai.config.get("telegram_token")
+                        token = ai.config.CONV_AI_TELEGRAM_TOKEN
                         if token:
                             telegram_bot_instance = await TelegramBot.get_instance(
                                 token=token,
-                                command_prefix=ai.config["platforms"]["telegram"]["command_prefix"],
+                                command_prefix=ai.config.CONV_AI_PLATFORMS["telegram"]["command_prefix"],
                                 conversational_ai=ai
                             )
 

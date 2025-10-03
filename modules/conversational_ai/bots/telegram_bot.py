@@ -3,10 +3,12 @@ import logging
 from telegram import Update, Bot
 from telegram.ext import Application, MessageHandler, CommandHandler, CallbackContext, filters
 
+from .base_bot import BaseBot
+
 logger = logging.getLogger(__name__)
 
 
-class TelegramBot:
+class TelegramBot(BaseBot):
     # Class variables to track instances
     _active_instances = {}  # Track instances by token
     _lock = asyncio.Lock()  # Async lock for thread safety
@@ -20,19 +22,11 @@ class TelegramBot:
             command_prefix: Command prefix (not used in Telegram but kept for consistency)
             conversational_ai: Reference to the main ConversationalAI instance
         """
-        self.token = token
-        self.command_prefix = command_prefix
-        self.conversational_ai = conversational_ai
-        self.connected = False
+        super().__init__(token, command_prefix, conversational_ai)
         self._running = False
 
         # Initialize Telegram application
         self.application = Application.builder().token(token).build()
-
-        # For graceful shutdown
-        self._shutdown = asyncio.Event()
-        # Track if the bot has been started
-        self._started = False
 
         # Register handlers
         self._register_handlers()
@@ -176,7 +170,7 @@ Just send me a message and I'll respond!
                     await update.message.reply_text("Please provide a task description. Usage: /task <description>")
                 return
 
-            self.conversational_ai.handle_task_from_user(
+            self.handle_task_from_user(
                 user_id, task_description)
             if not self._shutdown.is_set():
                 await update.message.reply_text("I've sent your task to RAVANA. I'll let you know when there's an update!")

@@ -589,11 +589,12 @@ class RAVANACommunicator:
             message = CommunicationMessage(
                 id=str(uuid.uuid4()),
                 type=CommunicationType.LEARNING_EXPERIENCE,
-                payload=learning_experience,
                 priority=Priority.MEDIUM,
-                timestamp=datetime.now().isoformat(),
-                source="conversational_ai",
-                destination="ravana_core"
+                timestamp=datetime.now(),
+                sender="conversational_ai",
+                recipient="ravana_core",
+                subject=f"Learning Experience: {learning_experience.get('experience_id', 'unknown')}",
+                content=learning_experience
             )
             
             # Send message through message queue channel
@@ -614,11 +615,12 @@ class RAVANACommunicator:
             message = CommunicationMessage(
                 id=str(uuid.uuid4()),
                 type=CommunicationType.IMPROVEMENT_OPPORTUNITY,
-                payload=improvement_data,
                 priority=Priority.HIGH if any(op.get('priority') == 'high' for op in improvement_data.get('opportunities', [])) else Priority.MEDIUM,
-                timestamp=datetime.now().isoformat(),
-                source="conversational_ai",
-                destination="ravana_core"
+                timestamp=datetime.now(),
+                sender="conversational_ai",
+                recipient="ravana_core",
+                subject=f"Improvement Opportunities: {len(improvement_data.get('opportunities', []))} opportunities",
+                content=improvement_data
             )
             
             # Send message through message queue channel

@@ -9,6 +9,8 @@ import tempfile
 import requests
 from pathlib import Path
 
+from core.config import Config
+
 # Import required modules
 from .emotional_intelligence.conversational_ei import ConversationalEmotionalIntelligence
 from .memory.memory_interface import SharedMemoryInterface
@@ -41,21 +43,21 @@ class ConversationalAI:
                 "ConversationalAI instance already initialized, skipping...")
             return
 
+        # Load configuration from core config
+        self.config = Config()
+
         # Initialize core components
         self.emotional_intelligence = ConversationalEmotionalIntelligence()
-        self.memory_interface = SharedMemoryInterface()
+        self.memory_interface = SharedMemoryInterface(self.config.CONV_AI_MEMORY_PATH)
         self.ravana_communicator = RAVANACommunicator(
-            "conversational_ai_bridge", self)
-        self.user_profile_manager = UserProfileManager()
+            self.config.CONV_AI_COMMUNICATION["ipc_channel"], self)
+        self.user_profile_manager = UserProfileManager(self.config.CONV_AI_USER_DATA_PATH)
         
         # Initialize enhanced multi-modal service
         self.multi_modal_service = MultiModalService()
 
         # Initialize shutdown event
         self._shutdown = asyncio.Event()
-
-        # Load configuration
-        self.config = self._load_config()
 
         # Initialize bots (will be set up in start method)
         self.discord_bot = None
@@ -69,21 +71,13 @@ class ConversationalAI:
 
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from config.json file."""
-        config_path = os.path.join(os.path.dirname(__file__), 'config.json')
-        try:
-            with open(config_path, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"Error loading config file: {e}")
-            # Return default configuration
-            return {
-                "discord_token": "",
-                "telegram_token": "",
-                "platforms": {
-                    "discord": {"enabled": False, "command_prefix": "!"},
-                    "telegram": {"enabled": False, "command_prefix": "/"}
-                }
-            }
+        # This method is now obsolete as config is loaded from core.config
+        # but we keep it to avoid breaking other parts of the code that might call it.
+        return {
+            "discord_token": self.config.CONV_AI_DISCORD_TOKEN,
+            "telegram_token": self.config.CONV_AI_TELEGRAM_TOKEN,
+            "platforms": self.config.CONV_AI_PLATFORMS
+        }
 
     async def _run_discord_bot(self):
         """Run the Discord bot in a separate task."""
@@ -154,13 +148,13 @@ class ConversationalAI:
 
             # Initialize bots - now also for integrated mode
             # Initialize Discord bot if configured and enabled
-            if (self.config.get("platforms", {}).get("discord", {}).get("enabled", False) and
-                    self.config.get("discord_token")):
+            if (self.config.CONV_AI_PLATFORMS.get("discord", {}).get("enabled", False) and
+                    self.config.CONV_AI_DISCORD_TOKEN):
                 try:
                     from .bots.discord_bot import DiscordBot
-                    discord_config = self.config["platforms"]["discord"]
+                    discord_config = self.config.CONV_AI_PLATFORMS["discord"]
                     self.discord_bot = DiscordBot.get_instance(
-                        token=self.config["discord_token"],
+                        token=self.config.CONV_AI_DISCORD_TOKEN,
                         command_prefix=discord_config["command_prefix"],
                         conversational_ai=self
                     )
@@ -170,13 +164,13 @@ class ConversationalAI:
                     logger.error(f"Full traceback: {traceback.format_exc()}")
 
             # Initialize Telegram bot if configured and enabled
-            if (self.config.get("platforms", {}).get("telegram", {}).get("enabled", False) and
-                    self.config.get("telegram_token")):
+            if (self.config.CONV_AI_PLATFORMS.get("telegram", {}).get("enabled", False) and
+                    self.config.CONV_AI_TELEGRAM_TOKEN):
                 try:
                     from .bots.telegram_bot import TelegramBot
-                    telegram_config = self.config["platforms"]["telegram"]
+                    telegram_config = self.config.CONV_AI_PLATFORMS["telegram"]
                     self.telegram_bot = await TelegramBot.get_instance(
-                        token=self.config["telegram_token"],
+                        token=self.config.CONV_AI_TELEGRAM_TOKEN,
                         command_prefix=telegram_config["command_prefix"],
                         conversational_ai=self
                     )
@@ -391,7 +385,6 @@ class ConversationalAI:
     def _process_multi_modal_input(self, media_urls: List[str], text_content: str) -> Dict[str, Any]:
         """
         Process multi-modal inputs (images, audio, video) and extract meaningful information.
-        Enhanced to use the MultiModalService for better processing capabilities.
         
         Args:
             media_urls: List of URLs to media content
@@ -400,8 +393,45 @@ class ConversationalAI:
         Returns:
             Dictionary containing processed multi-modal context
         """
-        # Use the enhanced MultiModalService for processing
-        return self._process_multi_modal_input_with_service(media_urls, text_content, "unknown_user")
+        multi_modal_context = {
+            "media_analyzed": [],
+            "errors": []
+        }
+
+        for url in media_urls:
+            media_path = self._download_media_to_temp(url)
+            if not media_path:
+                multi_modal_context["errors"].append(f"Failed to download media from {url}")
+                continue
+
+            media_type = self._get_media_type_from_url(url)
+            analysis = None
+
+            try:
+                if 'image' in media_type:
+                    analysis = self._analyze_image(media_path, text_content)
+                elif 'audio' in media_type:
+                    analysis = self._analyze_audio(media_path)
+                elif 'video' in media_type:
+                    analysis = self._analyze_video(media_path)
+                else:
+                    multi_modal_context["errors"].append(f"Unsupported media type '{media_type}' for URL {url}")
+
+                if analysis:
+                    multi_modal_context["media_analyzed"].append({
+                        "url": url,
+                        "media_type": media_type,
+                        "analysis": analysis
+                    })
+            except Exception as e:
+                logger.error(f"Error analyzing media from {url}: {e}")
+                multi_modal_context["errors"].append(f"Error analyzing media from {url}: {str(e)}")
+            finally:
+                # Clean up temporary file
+                if media_path and os.path.exists(media_path):
+                    os.remove(media_path)
+        
+        return multi_modal_context
 
     def _get_media_type_from_url(self, url: str) -> str:
         """

@@ -159,10 +159,13 @@ class SharedStateChannel:
             return False
 
         try:
-            # For now, we'll just log that we're trying to send a message
-            # In a real implementation, we would store this in the shared state
+            # In a real implementation, this would be more complex, maybe with pub/sub
+            # For simulation, we'll store it under a key related to the recipient.
+            recipient_key = f"{self.channel_name}:{message.recipient}"
+            # We'll just overwrite the last message for a recipient for simplicity
+            self.shared_state.set(recipient_key, message.to_dict())
             logger.info(
-                f"Message {message.id} would be sent through shared state")
+                f"Message {message.id} sent through shared state channel to {message.recipient}")
             return True
 
         except Exception as e:

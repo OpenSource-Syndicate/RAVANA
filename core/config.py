@@ -334,6 +334,35 @@ class Config:
         self.CONVERSATIONAL_AI_ENABLED = self._str_to_bool(os.environ.get("CONVERSATIONAL_AI_ENABLED", "True"))
         self.CONVERSATIONAL_AI_START_DELAY = int(os.environ.get(
             "CONVERSATIONAL_AI_START_DELAY", 2))  # Reduced for faster startup
+
+        self.CONV_AI_DISCORD_TOKEN = os.environ.get("CONV_AI_DISCORD_TOKEN", "")
+        self.CONV_AI_TELEGRAM_TOKEN = os.environ.get("CONV_AI_TELEGRAM_TOKEN", "")
+        self.CONV_AI_MEMORY_PATH = os.environ.get("CONV_AI_MEMORY_PATH", "shared_memory")
+        self.CONV_AI_USER_DATA_PATH = os.environ.get("CONV_AI_USER_DATA_PATH", "profiles")
+
+        self.CONV_AI_PLATFORMS = {
+            "discord": {
+                "enabled": self._str_to_bool(os.environ.get("CONV_AI_DISCORD_ENABLED", "True")),
+                "command_prefix": os.environ.get("CONV_AI_DISCORD_PREFIX", "!"),
+                "status": "online"
+            },
+            "telegram": {
+                "enabled": self._str_to_bool(os.environ.get("CONV_AI_TELEGRAM_ENABLED", "True")),
+                "command_prefix": os.environ.get("CONV_AI_TELEGRAM_PREFIX", "/")
+            }
+        }
+
+        self.CONV_AI_EMOTIONAL_INTELLIGENCE = {
+            "default_persona": "Balanced",
+            "mood_decay_rate": 0.05,
+            "context_window_hours": 24
+        }
+
+        self.CONV_AI_COMMUNICATION = {
+            "ipc_channel": "conversational_ai_bridge",
+            "message_timeout": 30,
+            "retry_attempts": 3
+        }
         
         # Snake Agent Enhanced Logging Configuration
         self.SNAKE_LOG_ERRORS_TO_FILE = self._str_to_bool(os.environ.get("SNAKE_LOG_ERRORS_TO_FILE", "True"))

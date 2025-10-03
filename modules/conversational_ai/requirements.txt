@@ -1,2 +1,9 @@
 discord.py>=2.0.0
 python-telegram-bot>=20.0
+requests
+Pillow
+scipy
+numpy
+opencv-python
+scikit-learn
+pydub
