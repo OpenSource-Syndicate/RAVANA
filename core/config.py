@@ -410,6 +410,42 @@ class Config:
             'SNAKE_SANDBOX_TIMEOUT': int(os.environ.get("SNAKE_SANDBOX_TIMEOUT", 60)),
             'SNAKE_BLACKLIST_PATHS': os.environ.get("SNAKE_BLACKLIST_PATHS", "").split(",") if os.environ.get("SNAKE_BLACKLIST_PATHS") else [],
             'SNAKE_COMM_PRIORITY_THRESHOLD': float(os.environ.get("SNAKE_COMM_PRIORITY_THRESHOLD", "0.8")),
+            'SNAKE_CODING_MODEL': {
+                # Use electronhub by default
+                "provider": os.environ.get("SNAKE_CODING_PROVIDER", "electronhub"),
+                # Use free models from electronhub
+                "model_name": os.environ.get("SNAKE_CODING_MODEL", "gpt-oss-20b:free"),
+                # Use electronhub as default
+                "base_url": os.environ.get("SNAKE_PROVIDER_BASE_URL", "https://api.electronhub.ai"),
+                "api_key": os.environ.get("SNAKE_ELECTRONHUB_API_KEY", "ek-sVvxMYfdFQ0Kl6Aj2tmV7b8n5v0Y0sDHVsOUZWyx2vbs0AbuAc"),
+                "temperature": float(os.environ.get("SNAKE_CODING_TEMPERATURE", "0.1")),
+                "max_tokens": None if os.environ.get("SNAKE_CODING_MAX_TOKENS", "unlimited").lower() in ["unlimited", "none", "none", "-1"] else int(os.environ.get("SNAKE_CODING_MAX_TOKENS", "4096")),
+                "unlimited_mode": self._str_to_bool(os.environ.get("SNAKE_UNLIMITED_MODE", "True")),
+                "chunk_size": int(os.environ.get("SNAKE_CHUNK_SIZE", "4096")),
+                # Better timeout for API calls
+                "timeout": int(os.environ.get("SNAKE_PROVIDER_TIMEOUT", 120)),
+                "keep_alive": os.environ.get("SNAKE_PROVIDER_KEEP_ALIVE", "10m"),
+                "fallback_provider": "ollama",  # Fallback to local if needed
+                "fallback_model": "deepseek-coder:6.7b"
+            },
+            'SNAKE_REASONING_MODEL': {
+                # Use electronhub by default
+                "provider": os.environ.get("SNAKE_REASONING_PROVIDER", "electronhub"),
+                # Use free models from electronhub
+                "model_name": os.environ.get("SNAKE_REASONING_MODEL", "deepseek-r1:free"),
+                # Use electronhub as default
+                "base_url": os.environ.get("SNAKE_PROVIDER_BASE_URL", "https://api.electronhub.ai"),
+                "api_key": os.environ.get("SNAKE_ELECTRONHUB_API_KEY", "ek-sVvxMYfdFQ0Kl6Aj2tmV7b8n5v0Y0sDHVsOUZWyx2vbs0AbuAc"),
+                "temperature": float(os.environ.get("SNAKE_REASONING_TEMPERATURE", "0.3")),
+                "max_tokens": None if os.environ.get("SNAKE_REASONING_MAX_TOKENS", "unlimited").lower() in ["unlimited", "none", "none", "-1"] else int(os.environ.get("SNAKE_REASONING_MAX_TOKENS", "2048")),
+                "unlimited_mode": self._str_to_bool(os.environ.get("SNAKE_UNLIMITED_MODE", "True")),
+                "chunk_size": int(os.environ.get("SNAKE_CHUNK_SIZE", "2048")),
+                # Better timeout for API calls
+                "timeout": int(os.environ.get("SNAKE_PROVIDER_TIMEOUT", 120)),
+                "keep_alive": os.environ.get("SNAKE_PROVIDER_KEEP_ALIVE", "10m"),
+                "fallback_provider": "ollama",  # Fallback to local if needed
+                "fallback_model": "llama3.1:8b"
+            },
             'BLOG_ENABLED': self._str_to_bool(os.environ.get("RAVANA_BLOG_ENABLED", "True")),
             'BLOG_API_URL': os.environ.get("RAVANA_BLOG_API_URL", "https://ravana-blog.netlify.app/api/publish"),
             'BLOG_AUTH_TOKEN': os.environ.get("RAVANA_BLOG_AUTH_TOKEN", "ravana_secret_token_2024"),

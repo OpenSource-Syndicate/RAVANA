@@ -377,6 +377,7 @@ async def main():
             logger.error("AGI system initialization failed")
             return 1
 
+
         logger.info("AGI system initialized successfully")
 
         # Start Snake Agent if enabled
@@ -539,6 +540,13 @@ async def main():
         else:
             # Start the autonomous loop
             logger.info("Starting autonomous AGI loop...")
+            # Log the availability of new enhanced systems
+            if hasattr(agi_system, 'function_calling_system'):
+                logger.info("Function calling system is available for advanced operations")
+            if hasattr(agi_system, 'physics_analysis_system'):
+                logger.info("Physics analysis system is available for scientific calculations")
+            if hasattr(agi_system, 'failure_learning_system'):
+                logger.info("Failure learning system is available for continuous improvement")
             # Start shutdown monitor for autonomous loop mode
             shutdown_monitor_task = asyncio.create_task(
                 monitor_shutdown_event())

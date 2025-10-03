@@ -106,7 +106,7 @@ class ReflectionModule:
         except Exception as e:
             logger.error(f"Error updating self-improvement goals from experiment: {e}")
 
-    def reflect(self, shared_state: SharedState):
+    async def reflect(self, shared_state: SharedState):
         """
         General reflection method. For now, it will look at the mood history.
         Enhanced to consider self-improvement goals.
@@ -125,6 +125,9 @@ class ReflectionModule:
         
         # Evaluate self-improvement goals during reflection
         self._evaluate_self_improvement_goals(shared_state)
+        
+        # Perform deep reflection that sets new goals based on learning
+        await self.perform_deep_reflection(shared_state)
     
     def _evaluate_self_improvement_goals(self, shared_state: SharedState):
         """
@@ -175,6 +178,94 @@ class ReflectionModule:
                 
         except Exception as e:
             logger.error(f"Error evaluating self-improvement goals: {e}")
+    
+    async def perform_deep_reflection(self, shared_state: SharedState):
+        """
+        Perform deep reflection that generates insights for goal setting based on learning.
+        """
+        try:
+            logger.info("Performing deep reflection for goal setting...")
+            
+            # Analyze different aspects of the system to generate insights
+            insights = {
+                "capability_gaps": self._analyze_capability_gaps(),
+                "learning_patterns": self._analyze_learning_patterns(),
+                "performance_insights": self._analyze_performance_insights(),
+                "reflection_timestamp": shared_state.last_decision_time.isoformat() if shared_state.last_decision_time else None
+            }
+            
+            # Call the main system's learning-based goal setter
+            if hasattr(self.agi_system, '_set_learning_based_goals'):
+                await self.agi_system._set_learning_based_goals(insights)
+            
+            logger.info(f"Completed deep reflection, insights: {insights}")
+            
+        except Exception as e:
+            logger.error(f"Error during deep reflection: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _analyze_capability_gaps(self):
+        """
+        Analyze the system to identify capability gaps that need improvement.
+        """
+        gaps = []
+        
+        # Example: Check if certain types of tasks are frequently unsuccessful
+        if hasattr(self.agi_system, 'performance_tracker'):
+            perf_metrics = self.agi_system.performance_tracker.get_advanced_metrics()
+            
+            # Identify if certain areas need improvement
+            if perf_metrics.get("decision_accuracy", 1.0) < 0.7:
+                gaps.append({
+                    "name": "decision_making",
+                    "description": "Decision accuracy is below optimal threshold",
+                    "severity": "high",
+                    "timeframe": 14,
+                    "target_metric": 0.8
+                })
+            
+            if perf_metrics.get("learning_rate", 0.5) < 0.3:
+                gaps.append({
+                    "name": "learning_efficiency",
+                    "description": "Learning rate is low, needs improvement for faster adaptation",
+                    "severity": "high",
+                    "timeframe": 21,
+                    "target_metric": 0.5
+                })
+        
+        return gaps
+
+    def _analyze_learning_patterns(self):
+        """
+        Analyze the AGI's learning patterns to identify areas for improvement.
+        """
+        patterns = {}
+        
+        # Check learning metrics if available
+        if hasattr(self.agi_system, 'performance_tracker'):
+            perf_metrics = self.agi_system.performance_tracker.get_advanced_metrics()
+            
+            patterns["learning_rate"] = perf_metrics.get("learning_rate", 0.3)
+            patterns["knowledge_integration_issues"] = perf_metrics.get("knowledge_integration_issues", False)
+            patterns["memory_retention"] = perf_metrics.get("memory_retention", 0.8)
+        
+        return patterns
+
+    def _analyze_performance_insights(self):
+        """
+        Analyze overall system performance for insights.
+        """
+        insights = {}
+        
+        if hasattr(self.agi_system, 'performance_tracker'):
+            perf_summary = self.agi_system.performance_tracker.get_performance_summary()
+            
+            insights["decision_accuracy"] = perf_summary.get("decision_accuracy", 1.0)
+            insights["improvement_success_rate"] = perf_summary.get("improvement_success_rate", 1.0)
+            insights["response_time"] = perf_summary.get("avg_response_time", 0)
+        
+        return insights
 
     def _check_experiment_reflection_blog_trigger(self, insight: str, experiment_results: dict):
         """Check if an experiment reflection should trigger a blog post."""

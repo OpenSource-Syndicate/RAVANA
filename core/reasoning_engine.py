@@ -138,7 +138,9 @@ Monitor and regulate your own thinking:
                     situation: Dict[str, Any], 
                     memory_context: List[Memory] = None,
                     reasoning_types: List[ReasoningType] = None,
-                    goal_context: List[Dict[str, Any]] = None) -> Dict[str, Any]:
+                    goal_context: List[Dict[str, Any]] = None,
+                    physics_analysis: Dict[str, Any] = None,
+                    failure_lessons: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Perform advanced reasoning on a situation using multiple reasoning types.
         
@@ -168,6 +170,13 @@ Monitor and regulate your own thinking:
         situation_context = situation.get('context', {})
         mood = situation.get('mood', {})
         
+        # Enhance situation context with physics analysis and failure lessons if available
+        enhanced_situation = situation_prompt
+        if physics_analysis:
+            enhanced_situation += f"\nPhysics Analysis: {json.dumps(physics_analysis, indent=2)}"
+        if failure_lessons:
+            enhanced_situation += f"\nRelevant Lessons from Past Failures: {json.dumps(failure_lessons, indent=2)}"
+        
         # Perform different types of reasoning
         reasoning_results = {}
         reasoning_steps = []
@@ -178,21 +187,21 @@ Monitor and regulate your own thinking:
             
             try:
                 if reasoning_type == ReasoningType.LOGICAL:
-                    result = await self.logical_reasoner.apply(situation_prompt, memory_context)
+                    result = await self.logical_reasoner.apply(enhanced_situation, memory_context)
                 elif reasoning_type == ReasoningType.CAUSAL:
-                    result = await self.causal_reasoner.apply(situation_prompt, memory_context)
+                    result = await self.causal_reasoner.apply(enhanced_situation, memory_context)
                 elif reasoning_type == ReasoningType.ANALOGICAL:
-                    result = await self.analogical_reasoner.apply(situation_prompt, memory_context)
+                    result = await self.analogical_reasoner.apply(enhanced_situation, memory_context)
                 elif reasoning_type == ReasoningType.CREATIVE:
-                    result = await self.creative_reasoner.apply(situation_prompt, memory_context)
+                    result = await self.creative_reasoner.apply(enhanced_situation, memory_context)
                 elif reasoning_type == ReasoningType.METACOGNITIVE:
-                    result = await self.metacognitive_reasoner.apply(situation_prompt, memory_context)
+                    result = await self.metacognitive_reasoner.apply(enhanced_situation, memory_context)
                 elif reasoning_type == ReasoningType.ABDUCTIVE:
-                    result = await self._apply_abductive_reasoning(situation_prompt, memory_context)
+                    result = await self._apply_abductive_reasoning(enhanced_situation, memory_context)
                 elif reasoning_type == ReasoningType.DEDUCTIVE:
-                    result = await self._apply_deductive_reasoning(situation_prompt, memory_context)
+                    result = await self._apply_deductive_reasoning(enhanced_situation, memory_context)
                 elif reasoning_type == ReasoningType.INDUCTIVE:
-                    result = await self._apply_inductive_reasoning(situation_prompt, memory_context)
+                    result = await self._apply_inductive_reasoning(enhanced_situation, memory_context)
                 else:
                     logger.warning(f"Unknown reasoning type: {reasoning_type}")
                     continue
@@ -211,7 +220,7 @@ Monitor and regulate your own thinking:
         # Synthesize results from different reasoning types
         synthesized_conclusion = await self._synthesize_reasoning_results(
             reasoning_results, 
-            situation_prompt, 
+            enhanced_situation, 
             memory_context
         )
         
@@ -238,7 +247,9 @@ Monitor and regulate your own thinking:
             'input_context': {
                 'memory_context': memory_context,
                 'goal_context': goal_context,
-                'mood': mood
+                'mood': mood,
+                'physics_analysis': physics_analysis,
+                'failure_lessons': failure_lessons
             },
             'output': final_output,
             'timestamp': start_time

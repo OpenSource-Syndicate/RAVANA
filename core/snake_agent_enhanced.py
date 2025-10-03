@@ -25,6 +25,7 @@ from core.snake_log_manager import SnakeLogManager
 from core.snake_threading_manager import SnakeThreadingManager
 from core.snake_process_manager import SnakeProcessManager
 from core.snake_file_monitor import ContinuousFileMonitor
+from modules.self_improvement.self_goal_manager import GoalPriority
 
 # VLTM imports
 from core.vltm_store import VeryLongTermMemoryStore
@@ -132,6 +133,91 @@ class EnhancedSnakeAgent:
                 }
         
         return SnakeAgentState(self)
+
+    @state.setter
+    def state(self, value):
+        """Setter for the state property to update agent state from a SnakeAgentState object"""
+        # Check if value is our own state object (the one we return in the getter)
+        if hasattr(value, 'agent') and hasattr(value.agent, 'start_time'):
+            # It's our own state object, copy the values
+            self.start_time = value.agent.start_time
+            self.improvements_applied = value.agent.improvements_applied
+            self.experiments_completed = value.agent.experiments_completed
+            self.files_analyzed = value.agent.files_analyzed
+            self.communications_sent = value.agent.communications_sent
+            self.running = value.agent.running
+            self.initialized = value.agent.initialized
+            self.vltm_enabled = value.agent.vltm_enabled
+            self.session_id = value.agent.session_id
+        elif hasattr(value, 'to_dict'):
+            # It's another state object with a to_dict method
+            state_dict = value.to_dict()
+            
+            # Check if it's a classic SnakeAgentState (which has different fields than our enhanced state) 
+            if all(key in state_dict for key in ['last_analysis_time', 'analyzed_files', 'pending_experiments']):
+                # It's a classic SnakeAgentState, convert it to enhanced state format
+                self._update_from_classic_snake_agent_state(state_dict)
+            else:
+                # It's a state dictionary with similar structure to our enhanced state
+                self._update_from_state_dict(state_dict)
+        else:
+            # Assume it's a dictionary or dict-like object
+            self._update_from_state_dict(value)
+
+    def _update_from_classic_snake_agent_state(self, state_dict: Dict[str, Any]):
+        """Update enhanced agent state from a classic SnakeAgentState dictionary"""
+        # Convert from classic SnakeAgentState format to enhanced format
+        if "last_analysis_time" in state_dict and state_dict["last_analysis_time"] is not None:
+            try:
+                # Map last_analysis_time to start_time
+                self.start_time = datetime.fromisoformat(state_dict["last_analysis_time"])
+            except ValueError:
+                logger.warning(f"Could not parse last_analysis_time: {state_dict['last_analysis_time']}")
+                self.start_time = None
+        else:
+            self.start_time = None
+
+        # Map analyzed_files count to files_analyzed
+        self.files_analyzed = len(state_dict.get("analyzed_files", []))
+        
+        # Map pending_experiments count to a proxy value for experiment tracking
+        pending_experiments = state_dict.get("pending_experiments", [])
+        # We can't map this directly, but we could count completed experiments differently
+        # For now, we'll just log that we have pending experiments
+        if pending_experiments:
+            logger.info(f"Restoring with {len(pending_experiments)} pending experiments")
+        
+        # For other values not in classic state, keep current values or use defaults
+        # We can't map all values directly, so set reasonable defaults
+        # Note: actual values will be reloaded from the enhanced state file in _load_state
+        self.improvements_applied = 0
+        self.experiments_completed = 0
+        self.running = False
+        self.initialized = False
+        self.communications_sent = 0  # Will be counted over time
+
+    def _update_from_state_dict(self, state_dict: Dict[str, Any]):
+        """Update agent state from a state dictionary"""
+        if "start_time" in state_dict and state_dict["start_time"] is not None:
+            try:
+                self.start_time = datetime.fromisoformat(state_dict["start_time"])
+            except ValueError:
+                logger.warning(f"Could not parse start_time: {state_dict['start_time']}")
+                self.start_time = None
+        else:
+            self.start_time = None
+
+        self.improvements_applied = state_dict.get("improvements_applied", 0)
+        self.experiments_completed = state_dict.get("experiments_completed", 0)
+        self.files_analyzed = state_dict.get("files_analyzed", 0)
+        self.communications_sent = state_dict.get("communications_sent", 0)
+        self.running = state_dict.get("running", False)
+        self.initialized = state_dict.get("initialized", False)
+        self.vltm_enabled = state_dict.get("vltm_enabled", True)
+        
+        # Only update session_id if provided and not empty
+        if state_dict.get("session_id"):
+            self.session_id = state_dict["session_id"]
 
     async def initialize(self) -> bool:
         """Initialize all Enhanced Snake Agent components"""
@@ -282,6 +368,7 @@ class EnhancedSnakeAgent:
             else:
                 # Fallback logging if log_manager is not set up
                 logger.error(f"Failed to initialize Enhanced Snake Agent: {e}", exc_info=True)
+            self.initialized = False
             return False
 
     async def _setup_component_callbacks(self):
@@ -394,7 +481,7 @@ class EnhancedSnakeAgent:
 
     async def start_autonomous_operation(self):
         """Start the enhanced autonomous operation with threading and multiprocessing"""
-        if not self.initialized:
+        if not self.initialized or self.log_manager is None:
             if not await self.initialize():
                 logger.error(
                     "Cannot start Enhanced Snake Agent - initialization failed")
@@ -652,6 +739,9 @@ class EnhancedSnakeAgent:
             
             # Store goals in state for tracking
             self.current_goals = goals
+            
+            # Sync goals with the main system goal manager
+            await self._sync_goals_with_system(goals)
             
             # Log the goals
             await self.log_manager.log_system_event(
@@ -1844,6 +1934,60 @@ class EnhancedSnakeAgent:
 
         except Exception as e:
             logger.error(f"Error triggering memory consolidation: {e}")
+
+    async def _sync_goals_with_system(self, snake_goals: List[Dict[str, Any]]):
+        """Sync snake agent goals with the main system goal manager"""
+        try:
+            # Check if main system has goal manager available
+            if not hasattr(self, 'agi_system') or not self.agi_system or not hasattr(self.agi_system, 'self_goal_manager'):
+                logger.warning("AGI system or goal manager not available for sync")
+                return
+
+            # Convert snake agent goals to main system goals
+            for goal in snake_goals:
+                goal_type = goal.get('type', 'general')
+                title = goal.get('description', f"Improve {goal_type.replace('_', ' ').title()}")
+                target_date = datetime.now(timezone.utc) + timedelta(days=goal.get('timeframe_days', 7))
+                
+                # Map priority from snake agent format to main system format
+                priority_map = {
+                    'low': GoalPriority.LOW,
+                    'medium': GoalPriority.MEDIUM,
+                    'high': GoalPriority.HIGH,
+                    'critical': GoalPriority.CRITICAL
+                }
+                priority = priority_map.get(goal.get('priority', 'medium'), GoalPriority.MEDIUM)
+                
+                # Check if goal already exists in the system to avoid duplicates
+                existing_goal = None
+                for sys_goal in self.agi_system.self_goal_manager.goals.values():
+                    if sys_goal.title == title or goal.get('id') in sys_goal.id:
+                        existing_goal = sys_goal
+                        break
+                
+                if existing_goal is None:
+                    # Create goal in the main system
+                    self.agi_system.self_goal_manager.create_goal(
+                        title=title,
+                        description=f"Snake Agent goal: {goal.get('description', 'General improvement goal')}. "
+                                  f"Target: {goal.get('target', 'unknown')}, "
+                                  f"Current: {goal.get('current', 'unknown')}. "
+                                  f"Strategies: {', '.join(goal.get('strategies', []))}",
+                        category="snake_agent_improvement",
+                        priority=priority,
+                        target_date=target_date,
+                        metrics={goal_type: goal.get('target', 0.5)},
+                        dependencies=[]
+                    )
+                    logger.info(f"Added snake agent goal to main system: {title}")
+            
+            # Save the updated goals to persistent storage
+            await self.agi_system.self_goal_manager.save_goals()
+            
+        except Exception as e:
+            logger.error(f"Error syncing goals with system: {e}")
+            import traceback
+            traceback.print_exc()
 
     async def get_status(self) -> Dict[str, Any]:
         """Get comprehensive status of the enhanced agent"""

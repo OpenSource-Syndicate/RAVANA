@@ -66,13 +66,14 @@ class ExperimentationModule:
         self.experiment_history: List[Experiment] = []
         self.config = Config()
         
-    async def generate_hypothesis(self, domain: str, focus_area: str = None) -> str:
+    async def generate_hypothesis(self, domain: str, focus_area: str = None, impossible: bool = False) -> str:
         """
         Generate a testable hypothesis based on current knowledge and gaps.
         
         Args:
             domain: The domain to generate a hypothesis in
             focus_area: Specific area within the domain to focus on
+            impossible: Whether to generate an 'impossible' or highly challenging hypothesis
             
         Returns:
             A testable hypothesis
@@ -88,19 +89,40 @@ class ExperimentationModule:
         
         memory_summaries = [mem[0].summary for mem in memories if mem[0].summary]
         
-        prompt = f"""
-        Based on this information about {domain}:
-        {chr(10).join(memory_summaries[:5])}
-        
-        Generate a specific, testable hypothesis that would advance understanding in this domain.
-        The hypothesis should be:
-        1. Falsifiable (can be proven wrong)
-        2. Specific (not vague)
-        3. Testable through experimentation or observation
-        4. Relevant to advancing knowledge in {domain}
-        
-        Return only the hypothesis statement, no additional text.
-        """
+        if impossible:
+            prompt = f"""
+            Based on this information about {domain}:
+            {chr(10).join(memory_summaries[:5])}
+            
+            Generate a specific, seemingly impossible hypothesis that would advance understanding in this domain.
+            The hypothesis should be:
+            1. Currently considered impossible or extremely difficult by conventional wisdom
+            2. Specific (not vague)
+            3. Potentially testable through innovative experimentation or observation
+            4. Relevant to advancing knowledge in {domain}
+            5. Push the boundaries of what is considered possible
+            
+            Examples of impossible hypotheses:
+            - "Consciousness can be transferred between systems without loss of identity"
+            - "Information can be retrieved from a black hole using quantum entanglement"
+            - "A perpetual motion machine can be created using quantum fluctuations"
+            
+            Return only the hypothesis statement, no additional text.
+            """
+        else:
+            prompt = f"""
+            Based on this information about {domain}:
+            {chr(10).join(memory_summaries[:5])}
+            
+            Generate a specific, testable hypothesis that would advance understanding in this domain.
+            The hypothesis should be:
+            1. Falsifiable (can be proven wrong)
+            2. Specific (not vague)
+            3. Testable through experimentation or observation
+            4. Relevant to advancing knowledge in {domain}
+            
+            Return only the hypothesis statement, no additional text.
+            """
         
         try:
             hypothesis = await async_safe_call_llm(prompt)
@@ -113,6 +135,19 @@ class ExperimentationModule:
             logger.error(f"Error generating hypothesis: {e}")
             # Fallback hypothesis
             return f"Performing exploratory analysis of {domain} to identify patterns and insights"
+    
+    async def generate_impossible_hypothesis(self, domain: str, focus_area: str = None) -> str:
+        """
+        Generate an 'impossible' or highly challenging hypothesis.
+        
+        Args:
+            domain: The domain to generate a hypothesis in
+            focus_area: Specific area within the domain to focus on
+            
+        Returns:
+            An 'impossible' hypothesis
+        """
+        return await self.generate_hypothesis(domain, focus_area, impossible=True)
     
     async def design_experiment(self, hypothesis: str, experiment_type: ExperimentType = ExperimentType.HYPOTHESIS_TESTING) -> Experiment:
         """
@@ -571,6 +606,7 @@ class ExperimentationModule:
     async def _analyze_experiment_results(self, experiment: Experiment) -> Dict[str, Any]:
         """
         Analyze the results of an experiment and draw conclusions.
+        Enhanced to include failure analysis and alternative approaches when experiments fail.
         """
         try:
             # Format the experiment data for analysis
@@ -584,65 +620,645 @@ class ExperimentationModule:
                 'status': experiment.status.value
             }
             
-            prompt = f"""
-            Analyze the results of this experiment:
+            # Determine if this is a failure that needs special analysis
+            is_failure = experiment.status in [ExperimentStatus.FAILED, ExperimentStatus.ABANDONED]
             
-            Hypothesis: {experiment.hypothesis}
+            if is_failure:
+                prompt = f"""
+                Analyze the results of this failed experiment:
+                
+                Hypothesis: {experiment.hypothesis}
+                
+                Experimental Procedure: {json.dumps(experiment.procedure, indent=2)}
+                
+                Results: {json.dumps(experiment.results, indent=2)}
+                
+                Success Criteria: {", ".join(experiment.success_criteria)}
+                
+                Expected Outcomes: {", ".join(experiment.expected_outcomes)}
+                
+                Status: {experiment.status.value}
+                
+                Perform a comprehensive failure analysis that includes:
+                1. Root causes of the failure
+                2. What was learned despite the failure
+                3. Alternative approaches that might succeed
+                4. Modifications to the original hypothesis that could make it testable
+                5. Broader implications of this failure for the domain
+                6. How this failure advances understanding
+                
+                The mad scientist approach values learning from failures as much as successes.
+                
+                Return your analysis in JSON format with these keys:
+                - supported: boolean indicating if hypothesis is supported (likely false for failures)
+                - confidence: confidence level (0-1) 
+                - significance: statistical significance (0-1, 0 if not applicable)
+                - actual_outcomes: list of actual outcomes observed
+                - conclusion: text conclusion
+                - implications: what the results mean
+                - recommendations: recommendations for future work
+                - failure_analysis: detailed analysis of what went wrong and why
+                - alternative_approaches: potential alternative approaches to test the hypothesis
+                - learning_points: key learning points from the failure
+                """
+            else:
+                prompt = f"""
+                Analyze the results of this experiment:
+                
+                Hypothesis: {experiment.hypothesis}
+                
+                Experimental Procedure: {json.dumps(experiment.procedure, indent=2)}
+                
+                Results: {json.dumps(experiment.results, indent=2)}
+                
+                Success Criteria: {", ".join(experiment.success_criteria)}
+                
+                Expected Outcomes: {", ".join(experiment.expected_outcomes)}
+                
+                Based on this information, provide:
+                1. Whether the hypothesis is supported or refuted
+                2. The level of confidence in the conclusion (0-1)
+                3. The statistical significance of the results if applicable (0-1)
+                4. Actual outcomes observed
+                5. Implications of the results
+                6. Recommendations for future research or action
+                
+                Return your analysis in JSON format with these keys:
+                - supported: boolean indicating if hypothesis is supported
+                - confidence: confidence level (0-1)
+                - significance: statistical significance (0-1, 0 if not applicable)
+                - actual_outcomes: list of actual outcomes observed
+                - conclusion: text conclusion
+                - implications: what the results mean
+                - recommendations: recommendations for future work
+                """
             
-            Experimental Procedure: {json.dumps(experiment.procedure, indent=2)}
+            response = await async_safe_call_llm(prompt)
             
-            Results: {json.dumps(experiment.results, indent=2)}
+            try:
+                analysis = json.loads(response)
+                
+                # If this was a failure, also trigger alternative approach discovery
+                if is_failure and 'alternative_approaches' in analysis:
+                    # Store alternative approaches for future use
+                    for approach in analysis['alternative_approaches']:
+                        logger.info(f"Discovered alternative approach: {approach}")
+                        # Potentially store in knowledge base for future use
+                        await self.agi_system.knowledge_service.add_knowledge(
+                            content=approach,
+                            source="failure_analysis",
+                            category="alternative_approach"
+                        )
+                
+                return analysis
+            except json.JSONDecodeError:
+                logger.warning(f"Could not parse analysis as JSON: {response}")
+                
+                if is_failure:
+                    return {
+                        'supported': False,
+                        'confidence': 0.2,  # Lower confidence for failed experiments
+                        'significance': 0.0,
+                        'actual_outcomes': ['Experiment failed - specific outcomes unknown'],
+                        'conclusion': 'Experiment failed, but valuable insights may be gained from analysis',
+                        'implications': 'Failure provides information about limitations and constraints',
+                        'recommendations': 'Consider alternative approaches to test the same hypothesis',
+                        'failure_analysis': f'Attempt to test hypothesis failed. Details: {response[:300]}',
+                        'alternative_approaches': ['Try different experimental design', 'Modify hypothesis to be more testable'],
+                        'learning_points': ['Learned what does not work', 'Identified specific failure points']
+                    }
+                else:
+                    return {
+                        'supported': False,
+                        'confidence': 0.5,
+                        'significance': 0.0,
+                        'actual_outcomes': ['Results could not be parsed'],
+                        'conclusion': response[:500],  # Truncate to reasonable length
+                        'implications': 'Unable to determine implications from unparsed results',
+                        'recommendations': 'Recommend reviewing the experimental procedure and analysis method'
+                    }
+                
+        except Exception as e:
+            logger.error(f"Error analyzing experiment results: {e}")
             
-            Success Criteria: {", ".join(experiment.success_criteria)}
+            # Determine if this was a failure analysis based on status
+            is_failure = experiment.status in [ExperimentStatus.FAILED, ExperimentStatus.ABANDONED]
             
-            Expected Outcomes: {", ".join(experiment.expected_outcomes)}
+            if is_failure:
+                return {
+                    'supported': False,
+                    'confidence': 0.0,
+                    'significance': 0.0,
+                    'actual_outcomes': [f'Error in analysis: {e}'],
+                    'conclusion': 'Analysis failed due to error, but failure analysis is still valuable',
+                    'implications': 'Unable to determine implications',
+                    'recommendations': 'Try a different experimental approach or analysis method',
+                    'failure_analysis': f'Error during failure analysis: {e}',
+                    'alternative_approaches': ['Consider completely different approach to hypothesis'],
+                    'learning_points': ['Even failed analysis provides meta-learning opportunities']
+                }
+            else:
+                return {
+                    'supported': False,
+                    'confidence': 0.0,
+                    'significance': 0.0,
+                    'actual_outcomes': [f'Error in analysis: {e}'],
+                    'conclusion': 'Analysis failed due to error',
+                    'implications': 'Unable to determine implications',
+                    'recommendations': 'Try a different experimental approach or analysis method'
+                }
+
+    async def analyze_failure_patterns(self, domain: str = None) -> Dict[str, Any]:
+        """
+        Analyze patterns in failed experiments to extract general insights.
+        
+        Args:
+            domain: Optional domain to focus the analysis on
             
-            Based on this information, provide:
-            1. Whether the hypothesis is supported or refuted
-            2. The level of confidence in the conclusion (0-1)
-            3. The statistical significance of the results if applicable (0-1)
-            4. Actual outcomes observed
-            5. Implications of the results
-            6. Recommendations for future research or action
-            
-            Return your analysis in JSON format with these keys:
-            - supported: boolean indicating if hypothesis is supported
-            - confidence: confidence level (0-1)
-            - significance: statistical significance (0-1, 0 if not applicable)
-            - actual_outcomes: list of actual outcomes observed
-            - conclusion: text conclusion
-            - implications: what the results mean
-            - recommendations: recommendations for future work
-            """
-            
+        Returns:
+            A dictionary with failure pattern analysis
+        """
+        logger.info(f"Analyzing failure patterns{' in domain: ' + domain if domain else ''}")
+        
+        # Get all experiments
+        all_experiments = list(self.experiments.values())
+        
+        # Filter by domain if specified
+        if domain:
+            domain_experiments = []
+            for exp in all_experiments:
+                if domain.lower() in exp.hypothesis.lower():
+                    domain_experiments.append(exp)
+            experiments_to_analyze = domain_experiments
+        else:
+            experiments_to_analyze = all_experiments
+        
+        # Separate failed and successful experiments
+        failed_experiments = [exp for exp in experiments_to_analyze if exp.status in [ExperimentStatus.FAILED, ExperimentStatus.ABANDONED]]
+        successful_experiments = [exp for exp in experiments_to_analyze if exp.status in [ExperimentStatus.COMPLETED]]
+        
+        if not failed_experiments:
+            logger.info("No failed experiments to analyze")
+            return {
+                'total_experiments': len(experiments_to_analyze),
+                'failed_experiments': 0,
+                'success_rate': 1.0 if experiments_to_analyze else 0.0,
+                'failure_patterns': [],
+                'learning_opportunities': [],
+                'recommendations': ['Continue current approach - success rate is high']
+            }
+        
+        # Format failed experiments for analysis
+        failed_experiment_summaries = []
+        for exp in failed_experiments:
+            failed_experiment_summaries.append({
+                'hypothesis': exp.hypothesis,
+                'type': exp.experiment_type.value,
+                'procedure_length': len(exp.procedure),
+                'results': exp.results
+            })
+        
+        prompt = f"""
+        Analyze these failed experiments to identify patterns and extract valuable insights:
+        
+        Total Experiments Analyzed: {len(experiments_to_analyze)}
+        Failed Experiments: {len(failed_experiments)}
+        Successful Experiments: {len(successful_experiments)}
+        
+        Failed Experiment Summaries:
+        {json.dumps(failed_experiment_summaries, indent=2)}
+        
+        Identify:
+        1. Common patterns in the failures
+        2. What these failures reveal about the domain
+        3. Learning opportunities from these failures
+        4. Recommendations to avoid similar failures in the future
+        5. Potential areas where the approach might be too conservative or too aggressive
+        6. Unexpected insights gained from the failures
+        
+        Remember: The mad scientist approach values learning from failures as much as celebrating successes.
+        
+        Return your analysis in JSON format with these keys:
+        - total_experiments: total number of experiments analyzed
+        - failed_experiments: number of failed experiments
+        - success_rate: calculated success rate
+        - failure_patterns: common patterns identified in failures
+        - learning_opportunities: valuable learning opportunities from failures
+        - recommendations: suggestions for improving experimental approach
+        - unexpected_insights: any unexpected insights from the failures
+        """
+        
+        try:
             response = await async_safe_call_llm(prompt)
             
             try:
                 analysis = json.loads(response)
                 return analysis
             except json.JSONDecodeError:
-                logger.warning(f"Could not parse analysis as JSON: {response}")
+                logger.warning(f"Could not parse failure analysis as JSON: {response}")
+                
                 return {
-                    'supported': False,
-                    'confidence': 0.5,
-                    'significance': 0.0,
-                    'actual_outcomes': ['Results could not be parsed'],
-                    'conclusion': response[:500],  # Truncate to reasonable length
-                    'implications': 'Unable to determine implications from unparsed results',
-                    'recommendations': 'Recommend reviewing the experimental procedure and analysis method'
+                    'total_experiments': len(experiments_to_analyze),
+                    'failed_experiments': len(failed_experiments),
+                    'success_rate': len(successful_experiments) / len(experiments_to_analyze) if experiments_to_analyze else 0,
+                    'failure_patterns': ['Failed to parse detailed analysis'],
+                    'learning_opportunities': ['Improve analysis parsing'],
+                    'recommendations': ['Review error in failure analysis'],
+                    'unexpected_insights': []
                 }
                 
         except Exception as e:
-            logger.error(f"Error analyzing experiment results: {e}")
+            logger.error(f"Error analyzing failure patterns: {e}")
             return {
-                'supported': False,
-                'confidence': 0.0,
-                'significance': 0.0,
-                'actual_outcomes': [f'Error in analysis: {e}'],
-                'conclusion': 'Analysis failed due to error',
-                'implications': 'Unable to determine implications',
-                'recommendations': 'Try a different experimental approach or analysis method'
+                'total_experiments': len(experiments_to_analyze),
+                'failed_experiments': len(failed_experiments),
+                'success_rate': len(successful_experiments) / len(experiments_to_analyze) if experiments_to_analyze else 0,
+                'failure_patterns': [f'Error in analysis: {e}'],
+                'learning_opportunities': ['Error analysis'],
+                'recommendations': ['Fix failure analysis system'],
+                'unexpected_insights': []
             }
+
+    async def discover_alternative_pathways(self, original_goal: str, failure_context: str = None) -> List[Dict[str, str]]:
+        """
+        Discover alternative pathways to achieve a goal when primary methods fail.
+        
+        Args:
+            original_goal: The original goal that needs alternative approaches
+            failure_context: Context about why primary methods failed (optional)
+            
+        Returns:
+            A list of alternative pathways, each with a description and rationale
+        """
+        logger.info(f"Discovering alternative pathways for goal: {original_goal}")
+        
+        # Get relevant memories to inform alternative pathway discovery
+        query = f"alternative approaches to achieve {original_goal} or related goals"
+        memories = await self.agi_system.memory_service.retrieve_relevant_memories(
+            query, top_k=10
+        )
+        
+        memory_summaries = [mem[0].summary for mem in memories if mem[0].summary]
+        
+        if failure_context:
+            prompt = f"""
+            The original goal was: {original_goal}
+            The context of failure was: {failure_context}
+            
+            Additional context from knowledge base:
+            {chr(10).join(memory_summaries[:5])}
+            
+            Discover alternative pathways to achieve the same or similar outcomes as the original goal.
+            Consider:
+            1. Completely different approaches to the same problem
+            2. Relaxing some constraints to make the goal achievable
+            3. Breaking the goal into smaller, achievable sub-goals
+            4. Indirect methods that achieve the same outcome through different means
+            5. Related goals that provide similar value
+            6. Evolution of the goal based on new information
+            
+            The mad scientist approach finds ways around impossibilities.
+            
+            Return your alternatives in JSON format as an array of objects with these keys:
+            - approach: description of the alternative approach
+            - rationale: why this approach might work when the original didn't
+            - requirements: what would be needed to pursue this approach
+            - risk_level: risk level from 0.0 to 1.0
+            - estimated_difficulty: how difficult this approach is to implement
+            """
+        else:
+            prompt = f"""
+            The original goal was: {original_goal}
+            
+            Additional context from knowledge base:
+            {chr(10).join(memory_summaries[:5])}
+            
+            Discover alternative pathways to achieve the same or similar outcomes as the original goal.
+            Consider:
+            1. Completely different approaches to the same problem
+            2. Relaxing some constraints to make the goal achievable
+            3. Breaking the goal into smaller, achievable sub-goals
+            4. Indirect methods that achieve the same outcome through different means
+            5. Related goals that provide similar value
+            6. Evolution of the goal based on new information
+            
+            The mad scientist approach finds ways around impossibilities.
+            
+            Return your alternatives in JSON format as an array of objects with these keys:
+            - approach: description of the alternative approach
+            - rationale: why this approach might work when the original didn't
+            - requirements: what would be needed to pursue this approach
+            - risk_level: risk level from 0.0 to 1.0
+            - estimated_difficulty: how difficult this approach is to implement
+            """
+        
+        try:
+            response = await async_safe_call_llm(prompt)
+            
+            try:
+                alternatives = json.loads(response)
+                
+                if isinstance(alternatives, list):
+                    logger.info(f"Discovered {len(alternatives)} alternative pathways for goal: {original_goal}")
+                    
+                    # Store alternatives in knowledge base
+                    for alt_idx, alt in enumerate(alternatives):
+                        knowledge_content = f"Alternative approach {alt_idx+1} to achieve {original_goal}: {alt.get('approach', '')}. Rationale: {alt.get('rationale', '')}"
+                        await self.agi_system.knowledge_service.add_knowledge(
+                            content=knowledge_content,
+                            source="alternative_pathway_discovery",
+                            category="alternative_approach"
+                        )
+                    
+                    return alternatives
+                else:
+                    logger.warning("LLM response was not a list of alternatives")
+                    # Return a default structure if parsing fails
+                    return [{
+                        'approach': 'Systematic exploration of alternative approaches',
+                        'rationale': 'When primary approach fails, explore systematically',
+                        'requirements': 'Analysis of primary failure mode',
+                        'risk_level': 0.5,
+                        'estimated_difficulty': 'medium'
+                    }]
+                    
+            except json.JSONDecodeError:
+                logger.warning(f"Could not parse alternatives as JSON: {response}")
+                
+                # Try to extract alternatives from plain text
+                lines = response.strip().split('\n')
+                alternatives = []
+                
+                current_approach = ""
+                current_rationale = ""
+                
+                for line in lines:
+                    if line.startswith("Approach:") or line.startswith("Alternative:") or line.startswith("1.") or line.startswith("2.") or line.startswith("3."):
+                        if current_approach:
+                            alternatives.append({
+                                'approach': current_approach,
+                                'rationale': current_rationale,
+                                'requirements': 'Standard research tools',
+                                'risk_level': 0.5,
+                                'estimated_difficulty': 'medium'
+                            })
+                        current_approach = line.replace("Approach:", "").replace("Alternative:", "").replace("1.", "").replace("2.", "").replace("3.", "").strip()
+                        current_rationale = ""
+                    elif line.startswith("Rationale:") or "why " in line.lower() or "because" in line.lower():
+                        current_rationale = line.replace("Rationale:", "").strip()
+                
+                # Add the last one if it exists
+                if current_approach:
+                    alternatives.append({
+                        'approach': current_approach,
+                        'rationale': current_rationale,
+                        'requirements': 'Standard research tools',
+                        'risk_level': 0.5,
+                        'estimated_difficulty': 'medium'
+                    })
+                
+                if alternatives:
+                    logger.info(f"Discovered {len(alternatives)} alternative pathways from plain text for goal: {original_goal}")
+                    return alternatives
+                else:
+                    logger.warning("Could not extract alternatives from LLM response")
+                    return [{
+                        'approach': 'Systematic analysis of the original goal to find alternative pathways',
+                        'rationale': 'This is a fallback approach when alternatives are not clearly specified',
+                        'requirements': 'Detailed analysis of the original goal and constraints',
+                        'risk_level': 0.3,
+                        'estimated_difficulty': 'high'
+                    }]
+                
+        except Exception as e:
+            logger.error(f"Error discovering alternative pathways: {e}")
+            return [{
+                'approach': 'Manual analysis of the goal to find alternative pathways',
+                'rationale': 'LLM failed to generate alternatives, so manual approach needed',
+                'requirements': 'Human researcher input',
+                'risk_level': 0.1,
+                'estimated_difficulty': 'high'
+            }]
+
+    async def apply_alternative_pathway(self, original_experiment: Experiment, alternative_approach: Dict[str, str]) -> Experiment:
+        """
+        Apply an alternative pathway to create a new experiment based on a failed one.
+        
+        Args:
+            original_experiment: The original failed experiment
+            alternative_approach: An alternative approach from discover_alternative_pathways
+            
+        Returns:
+            A new experiment based on the alternative approach
+        """
+        logger.info(f"Applying alternative pathway for original experiment: {original_experiment.hypothesis}")
+        
+        # Create a new experiment based on the alternative approach
+        experiment_id = f"alt_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{random.randint(1000, 9999)}"
+        
+        # Adapt the experimental procedure based on the alternative approach
+        new_procedure = await self._adapt_procedure_for_alternative(
+            original_experiment.procedure,
+            alternative_approach
+        )
+        
+        # Define success criteria for the alternative
+        success_criteria = await self._define_success_criteria_for_alternative(
+            original_experiment.hypothesis,
+            alternative_approach
+        )
+        
+        # Define expected outcomes for the alternative
+        expected_outcomes = await self._define_expected_outcomes_for_alternative(
+            original_experiment.hypothesis,
+            alternative_approach
+        )
+        
+        # Determine experiment type based on the alternative approach
+        # If it's a completely different approach, it might be exploration
+        # If it's refining the original idea, it might be hypothesis testing
+        if "different approach" in alternative_approach.get('approach', '').lower():
+            experiment_type = ExperimentType.EXPLORATION
+        else:
+            experiment_type = ExperimentType.HYPOTHESIS_TESTING
+        
+        # Create the new experiment
+        new_experiment = Experiment(
+            id=experiment_id,
+            hypothesis=alternative_approach.get('approach', f"Alternative approach to: {original_experiment.hypothesis}"),
+            experiment_type=experiment_type,
+            procedure=new_procedure,
+            success_criteria=success_criteria,
+            expected_outcomes=expected_outcomes,
+            status=ExperimentStatus.PLANNING
+        )
+        
+        # Store the experiment
+        self.experiments[experiment_id] = new_experiment
+        
+        logger.info(f"Created alternative experiment {experiment_id} for hypothesis: {new_experiment.hypothesis}")
+        
+        # Store a reference from the original experiment to the alternative
+        if not hasattr(original_experiment, 'alternatives_tried'):
+            original_experiment.alternatives_tried = []
+        original_experiment.alternatives_tried.append(experiment_id)
+        
+        return new_experiment
+
+    async def _adapt_procedure_for_alternative(self, original_procedure: List[Dict], alternative_approach: Dict[str, str]) -> List[Dict]:
+        """
+        Adapt an original experimental procedure for an alternative approach.
+        """
+        logger.debug(f"Adapting procedure for alternative approach: {alternative_approach.get('approach', 'Unknown')}")
+        
+        # Create a prompt to adapt the procedure
+        prompt = f"""
+        Original Experimental Procedure:
+        {json.dumps(original_procedure, indent=2)}
+        
+        Alternative Approach:
+        {alternative_approach.get('approach', '')}
+        
+        Rationale for Alternative:
+        {alternative_approach.get('rationale', '')}
+        
+        Requirements for Alternative:
+        {alternative_approach.get('requirements', '')}
+        
+        Please adapt the original experimental procedure to fit the alternative approach.
+        The new procedure should:
+        1. Align with the alternative approach
+        2. Maintain scientific rigor
+        3. Address the requirements of the alternative approach
+        4. Preserve the goal of testing the underlying hypothesis in a new way
+        5. Be feasible given the new approach
+        
+        Return the adapted procedure in the same format as the original.
+        """
+        
+        try:
+            response = await async_safe_call_llm(prompt)
+            
+            try:
+                new_procedure = json.loads(response)
+                if isinstance(new_procedure, list):
+                    return new_procedure
+                else:
+                    logger.warning("Adapted procedure is not a list, returning original")
+                    return original_procedure
+            except json.JSONDecodeError:
+                logger.warning(f"Could not parse adapted procedure as JSON: {response}")
+                # Return a modified version of the original procedure
+                return original_procedure
+                
+        except Exception as e:
+            logger.error(f"Error adapting procedure for alternative: {e}")
+            return original_procedure
+
+    async def _define_success_criteria_for_alternative(self, original_hypothesis: str, alternative_approach: Dict[str, str]) -> List[str]:
+        """
+        Define success criteria for an alternative approach.
+        """
+        logger.debug(f"Defining success criteria for alternative: {alternative_approach.get('approach', 'Unknown')}")
+        
+        prompt = f"""
+        Original Hypothesis: {original_hypothesis}
+        
+        Alternative Approach: {alternative_approach.get('approach', '')}
+        
+        Rationale: {alternative_approach.get('rationale', '')}
+        
+        Requirements: {alternative_approach.get('requirements', '')}
+        
+        Define success criteria for this alternative approach. The criteria should:
+        1. Be achievable with this alternative approach
+        2. Still address the core hypothesis or a derivative of it
+        3. Be measurable and specific
+        4. Reflect the new methodology
+        5. Account for the different risk level and difficulty
+        
+        Return a list of 2-4 success criteria.
+        """
+        
+        try:
+            response = await async_safe_call_llm(prompt)
+            
+            # Parse the response into a list
+            lines = response.strip().split('\n')
+            criteria = []
+            
+            for line in lines:
+                line = line.strip()
+                # Remove numbering if present
+                if line.startswith(('1.', '2.', '3.', '4.', '5.')):
+                    line = line[2:].strip()
+                elif line.startswith(('-', '*')):
+                    line = line[1:].strip()
+                
+                if line:
+                    criteria.append(line)
+            
+            if not criteria:
+                criteria = [f"Successfully execute the alternative approach: {alternative_approach.get('approach', 'Unknown approach')}"]
+            
+            return criteria
+            
+        except Exception as e:
+            logger.error(f"Error defining success criteria for alternative: {e}")
+            return [f"Execute the alternative approach: {alternative_approach.get('approach', 'Unknown approach')}"]
+
+    async def _define_expected_outcomes_for_alternative(self, original_hypothesis: str, alternative_approach: Dict[str, str]) -> List[str]:
+        """
+        Define expected outcomes for an alternative approach.
+        """
+        logger.debug(f"Defining expected outcomes for alternative: {alternative_approach.get('approach', 'Unknown')}")
+        
+        prompt = f"""
+        Original Hypothesis: {original_hypothesis}
+        
+        Alternative Approach: {alternative_approach.get('approach', '')}
+        
+        Rationale: {alternative_approach.get('rationale', '')}
+        
+        Requirements: {alternative_approach.get('requirements', '')}
+        
+        Risk Level: {alternative_approach.get('risk_level', 'Unknown')}
+        
+        Define expected outcomes for this alternative approach. The outcomes should:
+        1. Be realistic given the alternative methodology
+        2. Relate to the original hypothesis or its implications
+        3. Account for the different risk level
+        4. Include both positive and negative possibilities
+        
+        Return a list of 2-4 expected outcomes.
+        """
+        
+        try:
+            response = await async_safe_call_llm(prompt)
+            
+            # Parse the response into a list
+            lines = response.strip().split('\n')
+            outcomes = []
+            
+            for line in lines:
+                line = line.strip()
+                # Remove numbering if present
+                if line.startswith(('1.', '2.', '3.', '4.', '5.')):
+                    line = line[2:].strip()
+                elif line.startswith(('-', '*')):
+                    line = line[1:].strip()
+                
+                if line:
+                    outcomes.append(line)
+            
+            if not outcomes:
+                outcomes = [f"Results from alternative approach to {original_hypothesis}"]
+            
+            return outcomes
+            
+        except Exception as e:
+            logger.error(f"Error defining expected outcomes for alternative: {e}")
+            return [f"Results from alternative approach to {original_hypothesis}"]
     
     async def _blog_about_experiment(self, experiment: Experiment):
         """

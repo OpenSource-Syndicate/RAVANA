@@ -32,6 +32,9 @@ from database.models import Event
 from modules.decision_engine.search_result_manager import search_result_manager
 from modules.performance_monitoring.performance_tracker import performance_tracker
 from modules.self_improvement.self_goal_manager import self_goal_manager, GoalStatus, GoalPriority
+from modules.failure_learning_system import FailureLearningSystem
+from modules.physics_analysis_system import PhysicsAnalysisSystem
+from modules.function_calling_system import FunctionCallingSystem
 
 # Import autonomous blog scheduler
 try:
@@ -123,6 +126,14 @@ class AGISystem:
         self.experimentation_engine = AGIExperimentationEngine(
             self, blog_scheduler=self.blog_scheduler)
 
+        # Initialize enhanced systems for failure learning and physics analysis
+        self.failure_learning_system = FailureLearningSystem(
+            self, blog_scheduler=self.blog_scheduler)
+        self.physics_analysis_system = PhysicsAnalysisSystem(
+            self, blog_scheduler=self.blog_scheduler)
+        self.function_calling_system = FunctionCallingSystem(
+            self, blog_scheduler=self.blog_scheduler)
+
         # Initialize enhanced action manager
         self.action_manager = ActionManager(self, self.data_service)
 
@@ -194,6 +205,15 @@ class AGISystem:
                     f"Failed to initialize Conversational AI module: {e}")
                 self.conversational_ai = None
 
+        # Initialize Mad Scientist System
+        try:
+            from modules.mad_scientist_system import MadScientistSystem
+            self.mad_scientist_system = MadScientistSystem(self, self.blog_scheduler)
+            logger.info("Mad Scientist System initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize Mad Scientist System: {e}")
+            self.mad_scientist_system = None
+
         # New state for multi-step plans
         self.current_plan: List[Dict] = []
         self.current_task_prompt: str = None
@@ -239,6 +259,11 @@ class AGISystem:
             self.shutdown_coordinator.register_component(
                 self.conversational_ai, ShutdownPriority.MEDIUM, is_async=True)
 
+        # Register Mad Scientist System if available
+        if hasattr(self, 'mad_scientist_system') and self.mad_scientist_system:
+            self.shutdown_coordinator.register_component(
+                self.mad_scientist_system, ShutdownPriority.MEDIUM, is_async=True)
+
         # Register experimentation modules
         if hasattr(self, 'experimentation_engine'):
             self.shutdown_coordinator.register_component(
@@ -247,6 +272,19 @@ class AGISystem:
         if hasattr(self, 'reflection_module'):
             self.shutdown_coordinator.register_component(
                 self.reflection_module, ShutdownPriority.LOW, is_async=True)
+
+        # Register enhanced learning and analysis modules
+        if hasattr(self, 'failure_learning_system'):
+            self.shutdown_coordinator.register_component(
+                self.failure_learning_system, ShutdownPriority.MEDIUM, is_async=True)
+
+        if hasattr(self, 'physics_analysis_system'):
+            self.shutdown_coordinator.register_component(
+                self.physics_analysis_system, ShutdownPriority.MEDIUM, is_async=True)
+
+        if hasattr(self, 'function_calling_system'):
+            self.shutdown_coordinator.register_component(
+                self.function_calling_system, ShutdownPriority.MEDIUM, is_async=True)
 
         if hasattr(self, 'multi_modal_service'):
             self.shutdown_coordinator.register_component(
@@ -264,28 +302,8 @@ class AGISystem:
         # Invention tracking
         self.invention_history = []
 
-        # Load previous state if available - handle case where there's no running event loop (e.g. during tests)
-        try:
-            asyncio.create_task(self._load_previous_state())
-        except RuntimeError:
-            # If there's no running event loop, schedule the task for later when one becomes available
-            logger.warning("No running event loop found, scheduling _load_previous_state for later execution")
-            # This will be handled by the main loop when the system starts
-            pass
-        
-        # Load self-goals if available - with same loop protection
-        try:
-            asyncio.create_task(self.self_goal_manager.load_goals())
-        except RuntimeError:
-            logger.warning("No running event loop found, scheduling self_goal_manager.load_goals for later execution")
-            pass
-        
-        # Initialize goal setting - with same loop protection
-        try:
-            asyncio.create_task(self._initiate_goal_setting())
-        except RuntimeError:
-            logger.warning("No running event loop found, scheduling _initiate_goal_setting for later execution")
-            pass
+        # Initialize background tasks list
+        self.background_tasks = []
 
     async def _check_for_search_results(self):
         """Enhanced search result processing with better error handling."""
@@ -398,6 +416,18 @@ class AGISystem:
             logger.warning("Failed components:")
             for name, error in failed_components:
                 logger.warning(f"  - {name}: {error}")
+
+        # Load previous state, goals, and initiate goal setting
+        try:
+            logger.info("Loading previous state...")
+            await self._load_previous_state()
+            logger.info("Loading self-goals...")
+            await self.self_goal_manager.load_goals()
+            logger.info("Initiating goal setting...")
+            await self._initiate_goal_setting()
+        except Exception as e:
+            logger.error(f"Error during post-initialization tasks: {e}", exc_info=True)
+            failed_components.append(("Post-initialization", str(e)))
 
         return len(failed_components) == 0
 
@@ -701,7 +731,7 @@ class AGISystem:
                 'semantic_retrieval_functions': self._create_semantic_retrieval_functions(),
                 'episodic_retrieval_functions': self._create_episodic_retrieval_functions(),
                 'memory_integration_threshold': 0.6,  # Similarity threshold for integration
-                'memory_consolidation_scheduler': self._schedule_memory_consolidation(),
+                'memory_consolidation_scheduler': None,  # Will be initialized later when event loop is available
                 'memory_tagging_system': self._initialize_memory_tagging()
             }
             
@@ -1117,26 +1147,32 @@ class AGISystem:
                 logger.info(
                     f"Restored {len(self.invention_history)} invention history entries")
 
-            # Restore Snake Agent state
-            if "snake_agent" in agi_state and self.snake_agent and SnakeAgentState:
+            # Restore Snake Agent state - handle both EnhancedSnakeAgent and SnakeAgent
+            if "snake_agent" in agi_state and self.snake_agent:
                 try:
                     snake_data = agi_state["snake_agent"]
                     if "state" in snake_data:
-                        # Restore Snake Agent state
-                        restored_state = SnakeAgentState.from_dict(
-                            snake_data["state"])
-                        self.snake_agent.state = restored_state
+                        # Check if this is the EnhancedSnakeAgent, which has its own state management
+                        from core.snake_agent_enhanced import EnhancedSnakeAgent
+                        if isinstance(self.snake_agent, EnhancedSnakeAgent):
+                            self.snake_agent.state = snake_data["state"]
+                            logger.info("Successfully set EnhancedSnakeAgent state.")
+                        else:
+                            # For regular SnakeAgent, use the original restoration logic
+                            restored_state = SnakeAgentState.from_dict(
+                                snake_data["state"])
+                            self.snake_agent.state = restored_state
 
-                        # Restore counters
-                        self.snake_agent.analysis_count = snake_data.get(
-                            "analysis_count", 0)
-                        self.snake_agent.experiment_count = snake_data.get(
-                            "experiment_count", 0)
-                        self.snake_agent.communication_count = snake_data.get(
-                            "communication_count", 0)
+                            # Restore counters
+                            self.snake_agent.analysis_count = snake_data.get(
+                                "analysis_count", 0)
+                            self.snake_agent.experiment_count = snake_data.get(
+                                "experiment_count", 0)
+                            self.snake_agent.communication_count = snake_data.get(
+                                "communication_count", 0)
 
-                        logger.info(
-                            f"Restored Snake Agent state: {len(restored_state.pending_experiments)} pending experiments, {len(restored_state.communication_queue)} queued communications")
+                            logger.info(
+                                f"Restored Snake Agent state: {len(restored_state.pending_experiments)} pending experiments, {len(restored_state.communication_queue)} queued communications")
                 except Exception as e:
                     logger.warning(f"Could not restore Snake Agent state: {e}")
 
@@ -1157,8 +1193,9 @@ class AGISystem:
             # Wait for system to be fully initialized
             await asyncio.sleep(5)
             
-            # Set initial goals based on system analysis
-            await self._set_initial_improvement_goals()
+            # Load any existing goals from previous sessions
+            # The AGI will set new goals based on its learning and reflection
+            logger.info("AGI will set its own goals based on learning and reflection")
             
             # Start the goal evaluation loop
             asyncio.create_task(self._goal_evaluation_loop())
@@ -1477,6 +1514,91 @@ class AGISystem:
                     dependencies=[]
                 )
 
+    async def _set_learning_based_goals(self, reflection_insights: Dict[str, Any]):
+        """
+        Set goals based on the AGI's learning and reflection insights.
+        This method is called when the AGI processes new learning or completes self-reflection.
+        """
+        try:
+            logger.info(f"Setting goals based on learning insights: {list(reflection_insights.keys())}")
+            
+            # Set goals based on capability gaps identified in reflection
+            if 'capability_gaps' in reflection_insights:
+                for gap in reflection_insights['capability_gaps']:
+                    gap_name = gap.get('name', 'general_capability')
+                    gap_severity = gap.get('severity', 'medium')
+                    
+                    # Map severity to priority
+                    priority_map = {
+                        'low': GoalPriority.LOW,
+                        'medium': GoalPriority.MEDIUM,
+                        'high': GoalPriority.HIGH,
+                        'critical': GoalPriority.CRITICAL
+                    }
+                    priority = priority_map.get(gap_severity, GoalPriority.MEDIUM)
+                    
+                    self.self_goal_manager.create_goal(
+                        title=f"Improve {gap_name.replace('_', ' ').title()} Capability",
+                        description=f"Address identified capability gap in {gap_name}: {gap.get('description', 'Improve performance in this area')}",
+                        category="capability",
+                        priority=priority,
+                        target_date=datetime.now(timezone.utc) + timedelta(days=gap.get('timeframe', 14)),
+                        metrics={gap_name: gap.get('target_metric', 0.8)},
+                        dependencies=[]
+                    )
+            
+            # Set goals based on learning patterns
+            if 'learning_patterns' in reflection_insights:
+                patterns = reflection_insights['learning_patterns']
+                
+                # If learning rate is low, set a goal to improve it
+                if patterns.get('learning_rate', 0) < 0.3:
+                    self.self_goal_manager.create_goal(
+                        title="Improve Learning Efficiency",
+                        description="Based on reflection, learning efficiency needs improvement. Focus on better retention and understanding of new information.",
+                        category="learning",
+                        priority=GoalPriority.HIGH,
+                        target_date=datetime.now(timezone.utc) + timedelta(days=21),
+                        metrics={"learning_efficiency": 0.6},
+                        dependencies=[]
+                    )
+                
+                # If certain types of knowledge are difficult to acquire
+                if patterns.get('knowledge_integration_issues', False):
+                    self.self_goal_manager.create_goal(
+                        title="Enhance Knowledge Integration",
+                        description="Improve ability to connect new knowledge with existing knowledge and form comprehensive understanding.",
+                        category="learning",
+                        priority=GoalPriority.MEDIUM,
+                        target_date=datetime.now(timezone.utc) + timedelta(days=30),
+                        metrics={"knowledge_integration_rate": 0.75},
+                        dependencies=[]
+                    )
+            
+            # Set goals based on performance insights
+            if 'performance_insights' in reflection_insights:
+                perf_insights = reflection_insights['performance_insights']
+                
+                if perf_insights.get('decision_accuracy', 1.0) < 0.7:
+                    self.self_goal_manager.create_goal(
+                        title="Improve Decision Accuracy",
+                        description="Analysis shows decision accuracy is below desired threshold. Focus on improving reasoning and evaluation processes.",
+                        category="performance",
+                        priority=GoalPriority.HIGH,
+                        target_date=datetime.now(timezone.utc) + timedelta(days=14),
+                        metrics={"decision_accuracy": 0.8},
+                        dependencies=[]
+                    )
+            
+            # Save goals after setting
+            await self.self_goal_manager.save_goals()
+            logger.info(f"Set {len(reflection_insights)} learning-based goals")
+            
+        except Exception as e:
+            logger.error(f"Error setting learning-based goals: {e}")
+            import traceback
+            traceback.print_exc()
+
     async def _memorize_interaction(self, situation_prompt: str, decision: dict, action_output: Any):
         """Extracts and saves memories from an interaction."""
         interaction_summary = f"Situation: {situation_prompt}\nDecision: {decision}\nAction Output: {action_output}"
@@ -1637,7 +1759,7 @@ class AGISystem:
                 self.shared_state.recent_memories = []
 
     async def _make_decision(self, situation: dict):
-        logger.info("Making enhanced decision with adaptive learning and self-improvement goals.")
+        logger.info("Making enhanced decision with adaptive learning, self-improvement goals, and advanced analysis systems.")
 
         # Get available actions from the action manager's registry
         available_actions = self.action_manager.action_registry.get_action_definitions()
@@ -1653,6 +1775,29 @@ class AGISystem:
 
         learning_adaptations = await self.learning_engine.apply_learning_to_decision(decision_context)
 
+        # Apply enhanced analysis using the new systems
+        # Analyze the situation for potential physics-related aspects
+        physics_analysis = None
+        try:
+            # Check if the situation might involve physics
+            situation_text = str(situation.get('prompt', '')) + ' ' + str(situation)
+            if any(keyword in situation_text.lower() for keyword in 
+                   ['physics', 'motion', 'force', 'energy', 'quantum', 'relativity', 'mechanics', 'thermodynamics']):
+                physics_analysis = await self.physics_analysis_system.analyze_physics_problem(
+                    problem_description=situation_text
+                )
+        except Exception as e:
+            logger.warning(f"Physics analysis failed: {e}")
+
+        # Apply lessons from previous failures to the current situation
+        failure_lessons = None
+        try:
+            failure_lessons = await self.failure_learning_system.apply_lessons_to_task(
+                task_description=situation.get('prompt', str(situation))
+            )
+        except Exception as e:
+            logger.warning(f"Failure lesson application failed: {e}")
+
         # Let personality influence decision context
         try:
             persona_mods = self.personality.influence_decision(
@@ -1665,11 +1810,15 @@ class AGISystem:
             logger.debug(f"Personality influence failed: {e}")
 
         # Use advanced reasoning engine for enhanced decision making
-        reasoning_result = await self.reasoning_engine.reason(
-            situation=situation,
-            memory_context=self.shared_state.recent_memories,
-            goal_context=self._get_active_improvement_goals()
-        )
+        reasoning_context = {
+            'situation': situation,
+            'memory_context': self.shared_state.recent_memories,
+            'goal_context': self._get_active_improvement_goals(),
+            'physics_analysis': physics_analysis,
+            'failure_lessons': failure_lessons
+        }
+        
+        reasoning_result = await self.reasoning_engine.reason(**reasoning_context)
         
         # Convert reasoning result to decision format compatible with existing code
         decision = await self._convert_reasoning_to_decision(
@@ -1691,6 +1840,12 @@ class AGISystem:
             decision['mood_context'] = self.shared_state.mood
             # Last 5 memories
             decision['memory_context'] = self.shared_state.recent_memories[:5]
+
+        # Add enhanced analysis results to decision
+        if physics_analysis:
+            decision['physics_analysis'] = physics_analysis
+        if failure_lessons:
+            decision['failure_lessons'] = failure_lessons
 
         # Log the enhanced decision
         await asyncio.to_thread(
@@ -1778,11 +1933,23 @@ class AGISystem:
                         'metacognitive_evaluation': {},
                         'reasoning_types_used': []
                     }
+            
+            # Double-check that reasoning_result is now a dict before using .get() methods
+            if not isinstance(reasoning_result, dict):
+                logger.warning(f"Expected reasoning_result to be a dict after conversion, but got {type(reasoning_result)}. Creating default structure.")
+                reasoning_result = {
+                    'synthesized_conclusion': str(reasoning_result),
+                    'confidence_score': 0.5,
+                    'reasoning_steps': [],
+                    'reasoning_process': {},
+                    'metacognitive_evaluation': {},
+                    'reasoning_types_used': []
+                }
 
-            # Extract key information from reasoning results
-            synthesized_conclusion = reasoning_result.get('synthesized_conclusion', '')
-            confidence_score = reasoning_result.get('confidence_score', 0.5)
-            reasoning_steps = reasoning_result.get('reasoning_steps', [])
+            # Extract key information from reasoning results with additional safety
+            synthesized_conclusion = reasoning_result.get('synthesized_conclusion', '') if hasattr(reasoning_result, 'get') else str(reasoning_result)
+            confidence_score = reasoning_result.get('confidence_score', 0.5) if hasattr(reasoning_result, 'get') else 0.5
+            reasoning_steps = reasoning_result.get('reasoning_steps', []) if hasattr(reasoning_result, 'get') else []
             
             # Determine the best action based on reasoning conclusion
             best_action = await self._select_best_action_from_reasoning(
@@ -1799,23 +1966,23 @@ class AGISystem:
             # Create decision in compatible format
             decision = {
                 'raw_response': json.dumps({
-                    'analysis': reasoning_result.get('synthesized_conclusion', ''),
-                    'reasoning_process': reasoning_result.get('reasoning_process', {}),
-                    'metacognitive_evaluation': reasoning_result.get('metacognitive_evaluation', {}),
+                    'analysis': reasoning_result.get('synthesized_conclusion', '') if hasattr(reasoning_result, 'get') else str(reasoning_result),
+                    'reasoning_process': reasoning_result.get('reasoning_process', {}) if hasattr(reasoning_result, 'get') else {},
+                    'metacognitive_evaluation': reasoning_result.get('metacognitive_evaluation', {}) if hasattr(reasoning_result, 'get') else {},
                     'plan': plan,
                     'action': best_action.get('name', 'log_message'),
                     'params': best_action.get('default_params', {}),
                     'confidence': confidence_score
                 }, indent=2),
-                'analysis': reasoning_result.get('synthesized_conclusion', ''),
-                'reasoning_process': reasoning_result.get('reasoning_process', {}),
-                'metacognitive_evaluation': reasoning_result.get('metacognitive_evaluation', {}),
+                'analysis': reasoning_result.get('synthesized_conclusion', '') if hasattr(reasoning_result, 'get') else str(reasoning_result),
+                'reasoning_process': reasoning_result.get('reasoning_process', {}) if hasattr(reasoning_result, 'get') else {},
+                'metacognitive_evaluation': reasoning_result.get('metacognitive_evaluation', {}) if hasattr(reasoning_result, 'get') else {},
                 'plan': plan,
                 'action': best_action.get('name', 'log_message'),
                 'params': best_action.get('default_params', {}),
                 'confidence': confidence_score,
                 'reasoning_steps': reasoning_steps,
-                'reasoning_types_used': reasoning_result.get('reasoning_types_used', [])
+                'reasoning_types_used': reasoning_result.get('reasoning_types_used', []) if hasattr(reasoning_result, 'get') else []
             }
             
             logger.info(f"Converted reasoning to decision with action: {decision['action']} "
@@ -2017,7 +2184,7 @@ class AGISystem:
             logger.info("Mood has not improved. Initiating reflection.")
             # This is where you can trigger a reflection process
             # For now, we'll just log it.
-            self.reflection_module.reflect(self.shared_state)
+            await self.reflection_module.reflect(self.shared_state)
         else:
             logger.info(
                 "Mood improved or stayed the same, skipping reflection.")
@@ -2337,6 +2504,11 @@ class AGISystem:
             self.background_tasks.append(asyncio.create_task(
                 self.autonomous_blog_maintenance_task()))
 
+        # Start Mad Scientist System maintenance task
+        if hasattr(self, 'mad_scientist_system') and self.mad_scientist_system:
+            self.background_tasks.append(asyncio.create_task(
+                self.mad_scientist_maintenance_task()))
+
         # Start Snake Agent if enabled
         if self.config.SNAKE_AGENT_ENABLED and self.snake_agent:
             await self.start_snake_agent()
@@ -2362,6 +2534,51 @@ class AGISystem:
                 await asyncio.sleep(self.config.LOOP_SLEEP_DURATION * 5)
 
         logger.info("Autonomous loop has been stopped.")
+
+    async def mad_scientist_maintenance_task(self):
+        """Background task to run mad scientist system activities."""
+        while not self._shutdown.is_set():
+            try:
+                logger.info("Running mad scientist maintenance cycle...")
+                
+                # Occasionally run a mad scientist cycle to explore impossible projects
+                if random.random() < 0.3:  # 30% chance to run a mad scientist cycle
+                    # Select a random domain from recent activities
+                    recent_domains = ["computer science", "physics", "mathematics", "ai research", "consciousness"]
+                    if self.shared_state.recent_memories:
+                        # Extract domains from recent memories
+                        for memory in self.shared_state.recent_memories[:5]:
+                            content = getattr(memory, 'content', str(memory))
+                            if 'physics' in content.lower():
+                                recent_domains.append('physics')
+                            elif 'computer' in content.lower() or 'code' in content.lower():
+                                recent_domains.append('computer science')
+                            elif 'math' in content.lower():
+                                recent_domains.append('mathematics')
+                            elif 'ai' in content.lower() or 'intelligence' in content.lower():
+                                recent_domains.append('ai research')
+                    
+                    # Select a random domain to focus on
+                    selected_domain = random.choice(list(set(recent_domains)))
+                    
+                    logger.info(f"Starting mad scientist cycle in domain: {selected_domain}")
+                    result = await self.mad_scientist_system.run_mad_scientist_cycle(selected_domain)
+                    logger.info(f"Mad scientist cycle completed with {len(result.get('publications_created', []))} publications")
+                
+                # Periodically retry any pending publications
+                retries = await self.mad_scientist_system.retry_publication_of_innovations()
+                logger.info(f"Retried publication for {retries} innovations")
+
+            except Exception as e:
+                logger.error(
+                    f"Error in mad scientist maintenance: {e}", exc_info=True)
+
+            try:
+                # Run maintenance every 2 hours
+                await asyncio.sleep(7200)
+            except asyncio.CancelledError:
+                break
+        logger.info("Mad scientist maintenance task shut down.")
 
     async def run_single_task(self, prompt: str):
         """Runs the AGI for a single task specified by the prompt."""
@@ -2514,3 +2731,33 @@ class AGISystem:
             "status": "active",
             **self.blog_scheduler.get_status()
         }
+
+    async def trigger_learning_based_goal_setting(self, learning_event: Dict[str, Any]):
+        """
+        Trigger goal setting based on learning events.
+        This method allows the AGI to set goals when it learns something significant.
+        """
+        try:
+            logger.info(f"Triggering goal setting from learning event: {learning_event.get('event_type', 'unknown')}")
+            
+            # Create reflection insights from the learning event
+            insights = {
+                "capability_gaps": learning_event.get("capability_gaps", []),
+                "learning_patterns": learning_event.get("learning_patterns", {}),
+                "performance_insights": learning_event.get("performance_insights", {}),
+                "learning_event_type": learning_event.get("event_type", "general"),
+                "learning_content": learning_event.get("content", ""),
+                "timestamp": learning_event.get("timestamp", None)
+            }
+            
+            # Set goals based on the learning
+            await self._set_learning_based_goals(insights)
+            
+            logger.info("Successfully triggered learning-based goal setting")
+            
+        except Exception as e:
+            logger.error(f"Error in learning-based goal triggering: {e}")
+            import traceback
+            traceback.print_exc()
+
+
