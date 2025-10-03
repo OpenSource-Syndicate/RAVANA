@@ -54,6 +54,7 @@ Requires-Dist: yarl>=1.9.4
 Requires-Dist: aiofiles>=23.2.1
 Requires-Dist: memory-profiler>=0.61.0
 Requires-Dist: pytest-cov>=7.0.0
+Requires-Dist: accelerate>=1.10.1
 Provides-Extra: conversational-ai
 Requires-Dist: discord.py>=2.6.0; extra == "conversational-ai"
 Requires-Dist: python-telegram-bot>=22.3; extra == "conversational-ai"

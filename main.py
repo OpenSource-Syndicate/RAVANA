@@ -37,8 +37,17 @@ def setup_logging():
     root_logger = logging.getLogger()
     root_logger.handlers = []  # Clear existing handlers
 
-    # Choose formatter based on config
-    if Config.LOG_FORMAT.upper() == 'JSON':
+    # Access Config instance to ensure it's initialized
+    config = Config()
+    
+    # Choose formatter based on config, with fallback in case LOG_FORMAT is missing
+    try:
+        log_format = config.LOG_FORMAT.upper()
+    except AttributeError:
+        # Fallback to default if LOG_FORMAT is missing
+        log_format = 'TEXT'
+    
+    if log_format == 'JSON':
         formatter = jsonlogger.JsonFormatter(
             '%(asctime)s %(name)s %(levelname)s %(message)s')
     else:
@@ -57,8 +66,16 @@ def setup_logging():
 
     root_logger.addHandler(stream_handler)
     root_logger.addHandler(file_handler)
-    root_logger.setLevel(Config.LOG_LEVEL)
-    if Config.LOG_FORMAT.upper() == 'JSON':
+    
+    # Set logger level with fallback in case LOG_LEVEL is missing
+    try:
+        log_level = config.LOG_LEVEL
+    except AttributeError:
+        # Fallback to default if LOG_LEVEL is missing
+        log_level = 'INFO'
+    root_logger.setLevel(log_level)
+    
+    if log_format == 'JSON':
         root_logger.propagate = False
 
 
@@ -71,7 +88,8 @@ def pull_required_models():
     logger.info("Pulling required models...")
     
     # Use the main system local model settings from Config
-    local_model_config = Config.MAIN_SYSTEM_LOCAL_MODEL
+    config = Config()  # Ensure Config is initialized
+    local_model_config = config.MAIN_SYSTEM_LOCAL_MODEL
     
     # Check if we can connect to Ollama server
     base_url = local_model_config['base_url']
@@ -324,9 +342,10 @@ async def main():
     """Main entry point for the RAVANA AGI system."""
     global agi_system_instance
 
-    logger.info("🚀 Starting RAVANA AGI System")
-    logger.info(f"🧠 Using model: {Config.EMBEDDING_MODEL}")
-    logger.info(f"📊 Log level: {Config.LOG_LEVEL}")
+    logger.info("Starting RAVANA AGI System")
+    config = Config()  # Ensure Config is initialized
+    logger.info(f"Using model: {config.EMBEDDING_MODEL}")
+    logger.info(f"📊 Log level: {config.LOG_LEVEL}")
 
     # Pull required models before initializing the system
     logger.info("📦 Pulling required models before system initialization...")
@@ -335,7 +354,7 @@ async def main():
     try:
         # Create database and tables
         logger.info("Initializing database...")
-        create_db_and_tables()
+        create_db_and_tables(engine)
         logger.info("Database initialized successfully")
 
     except Exception as e:
@@ -361,7 +380,8 @@ async def main():
         logger.info("AGI system initialized successfully")
 
         # Start Snake Agent if enabled
-        if Config.SNAKE_AGENT_ENABLED and agi_system.snake_agent:
+        config_instance = Config()  # Get instance of config
+        if config_instance.SNAKE_AGENT_ENABLED and agi_system.snake_agent:
             try:
                 logger.info("Starting Snake Agent...")
                 await agi_system.start_snake_agent()
@@ -371,7 +391,7 @@ async def main():
                 # Continue even if Snake Agent fails to start
 
         # Start Bots directly if enabled (instead of Conversational AI)
-        if Config.CONVERSATIONAL_AI_ENABLED:
+        if config_instance.CONVERSATIONAL_AI_ENABLED:
             try:
                 logger.info("Starting bots directly...")
                 # Import bot classes

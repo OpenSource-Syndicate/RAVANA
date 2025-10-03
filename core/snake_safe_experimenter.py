@@ -126,7 +126,7 @@ class SandboxEnvironment:
         if not self.is_active:
             raise RuntimeError("Sandbox not active")
 
-        timeout = timeout or Config.SNAKE_SANDBOX_TIMEOUT
+        timeout = timeout or Config().SNAKE_SANDBOX_TIMEOUT
 
         try:
             # Write code to file in sandbox
@@ -275,13 +275,13 @@ class CodeSafetyAnalyzer:
             safety_score = 0.0
 
         # Check file size
-        if len(code) > Config.SNAKE_MAX_FILE_SIZE:
+        if len(code) > Config().SNAKE_MAX_FILE_SIZE:
             warnings.append(
-                f"Code size ({len(code)}) exceeds maximum ({Config.SNAKE_MAX_FILE_SIZE})")
+                f"Code size ({len(code)}) exceeds maximum ({Config().SNAKE_MAX_FILE_SIZE})")
             safety_score -= 0.1
 
         # Check for blacklisted paths in code
-        for blacklisted_path in Config.SNAKE_BLACKLIST_PATHS:
+        for blacklisted_path in Config().SNAKE_BLACKLIST_PATHS:
             if blacklisted_path and blacklisted_path in code:
                 warnings.append(
                     f"Blacklisted path detected: {blacklisted_path}")

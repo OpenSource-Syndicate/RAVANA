@@ -23,9 +23,10 @@ class SnakeConfigValidator:
     @staticmethod
     def validate_ollama_connection() -> bool:
         """Verify Ollama server is accessible"""
+        config = Config()
         try:
             response = requests.get(
-                f"{Config.SNAKE_OLLAMA_BASE_URL}/api/tags", timeout=5)
+                f"{config.SNAKE_OLLAMA_BASE_URL}/api/tags", timeout=5)
             return response.status_code == 200
         except Exception as e:
             logger.debug(f"Cannot connect to Ollama: {e}")
@@ -34,13 +35,16 @@ class SnakeConfigValidator:
     @staticmethod
     def validate_electronhub_connection() -> bool:
         """Verify electronhub API is accessible"""
+        config = Config()
         try:
+            coding_model = config.SNAKE_CODING_MODEL or {}
+            reasoning_model = config.SNAKE_REASONING_MODEL or {}
             headers = {
-                "Authorization": f"Bearer {Config.SNAKE_CODING_MODEL.get('api_key', Config.SNAKE_REASONING_MODEL.get('api_key', ''))}",
+                "Authorization": f"Bearer {coding_model.get('api_key', reasoning_model.get('api_key', ''))}",
                 "Content-Type": "application/json"
             }
             response = requests.get(
-                f"{Config.SNAKE_CODING_MODEL.get('base_url', Config.SNAKE_REASONING_MODEL.get('base_url', 'https://api.electronhub.ai'))}/v1/models", 
+                f"{coding_model.get('base_url', reasoning_model.get('base_url', 'https://api.electronhub.ai'))}/v1/models", 
                 headers=headers, timeout=10)
             return response.status_code == 200
         except Exception as e:
@@ -50,9 +54,12 @@ class SnakeConfigValidator:
     @staticmethod
     def validate_models_available() -> tuple[bool, bool, List[str]]:
         """Check if required models are pulled (for Ollama) or accessible (for other providers)"""
+        config = Config()
         # Determine which provider each model uses
-        coding_provider = Config.SNAKE_CODING_MODEL.get('provider', 'ollama').lower()
-        reasoning_provider = Config.SNAKE_REASONING_MODEL.get('provider', 'ollama').lower()
+        coding_model = config.SNAKE_CODING_MODEL or {}
+        reasoning_model = config.SNAKE_REASONING_MODEL or {}
+        coding_provider = coding_model.get('provider', 'ollama').lower()
+        reasoning_provider = reasoning_model.get('provider', 'ollama').lower()
         
         coding_available = False
         reasoning_available = False
@@ -60,19 +67,19 @@ class SnakeConfigValidator:
         
         if coding_provider == 'ollama':
             try:
-                response = requests.get(f"{Config.SNAKE_OLLAMA_BASE_URL}/api/tags", timeout=5)
+                response = requests.get(f"{config.SNAKE_OLLAMA_BASE_URL}/api/tags", timeout=5)
                 if response.status_code == 200:
                     models_data = response.json()
                     available_models.extend([m['name'] for m in models_data.get('models', [])])
-                    coding_available = Config.SNAKE_CODING_MODEL['model_name'] in available_models
+                    coding_available = coding_model['model_name'] in available_models
             except Exception as e:
                 logger.debug(f"Error checking coding models: {e}")
         else:
             # For other providers, assume model is available if API is accessible
             try:
-                headers = {"Authorization": f"Bearer {Config.SNAKE_CODING_MODEL.get('api_key', '')}", "Content-Type": "application/json"}
+                headers = {"Authorization": f"Bearer {coding_model.get('api_key', '')}", "Content-Type": "application/json"}
                 response = requests.get(
-                    f"{Config.SNAKE_CODING_MODEL.get('base_url', 'https://api.electronhub.ai')}/v1/models", 
+                    f"{coding_model.get('base_url', 'https://api.electronhub.ai')}/v1/models", 
                     headers=headers, timeout=10)
                 coding_available = response.status_code == 200
             except Exception as e:
@@ -80,19 +87,19 @@ class SnakeConfigValidator:
         
         if reasoning_provider == 'ollama':
             try:
-                response = requests.get(f"{Config.SNAKE_OLLAMA_BASE_URL}/api/tags", timeout=5)
+                response = requests.get(f"{config.SNAKE_OLLAMA_BASE_URL}/api/tags", timeout=5)
                 if response.status_code == 200:
                     models_data = response.json()
                     available_models.extend([m['name'] for m in models_data.get('models', []) if m['name'] not in available_models])
-                    reasoning_available = Config.SNAKE_REASONING_MODEL['model_name'] in available_models
+                    reasoning_available = reasoning_model['model_name'] in available_models
             except Exception as e:
                 logger.debug(f"Error checking reasoning models: {e}")
         else:
             # For other providers, assume model is available if API is accessible
             try:
-                headers = {"Authorization": f"Bearer {Config.SNAKE_REASONING_MODEL.get('api_key', '')}", "Content-Type": "application/json"}
+                headers = {"Authorization": f"Bearer {reasoning_model.get('api_key', '')}", "Content-Type": "application/json"}
                 response = requests.get(
-                    f"{Config.SNAKE_REASONING_MODEL.get('base_url', 'https://api.electronhub.ai')}/v1/models", 
+                    f"{reasoning_model.get('base_url', 'https://api.electronhub.ai')}/v1/models", 
                     headers=headers, timeout=10)
                 reasoning_available = response.status_code == 200
             except Exception as e:
@@ -212,7 +219,8 @@ class SnakeLLMInterface:
                         self.config['model_name'] = self.config['fallback_model']
                         # Update base URL for fallback if needed
                         if self.config.get('fallback_provider') == 'ollama':
-                            self.config['base_url'] = Config.SNAKE_OLLAMA_BASE_URL
+                            config = Config()
+                            self.config['base_url'] = config.SNAKE_OLLAMA_BASE_URL
                     else:
                         raise ConnectionError(
                             f"Cannot connect to Ollama at {self.config['base_url']}")
@@ -244,7 +252,8 @@ class SnakeLLMInterface:
                             # Switch to fallback provider
                             self.config['provider'] = self.config['fallback_provider']
                             self.config['model_name'] = self.config['fallback_model']
-                            self.config['base_url'] = Config.SNAKE_OLLAMA_BASE_URL
+                            config_instance = Config()
+                            self.config['base_url'] = config_instance.SNAKE_OLLAMA_BASE_URL
                             provider = self.config['provider']
                         else:
                             raise RuntimeError(f"No API key provided for {provider} provider and no fallback available")
@@ -257,7 +266,8 @@ class SnakeLLMInterface:
                         # Switch to fallback provider
                         self.config['provider'] = self.config['fallback_provider']
                         self.config['model_name'] = self.config['fallback_model']
-                        self.config['base_url'] = Config.SNAKE_OLLAMA_BASE_URL
+                        config_instance = Config()
+                        self.config['base_url'] = config_instance.SNAKE_OLLAMA_BASE_URL
                         provider = self.config['provider']
                     else:
                         raise
@@ -417,11 +427,12 @@ class SnakeCodingLLM(SnakeLLMInterface):
     def __init__(self, log_manager=None):
         # If the configured provider exists in repository providers config,
         # prefer a provider-selected model (e.g., electronhub) for coding tasks.
-        conf = Config.SNAKE_CODING_MODEL or {}
+        config = Config()
+        conf = config.SNAKE_CODING_MODEL or {}
         provider = conf.get('provider')
-        if provider and provider in Config.PROVIDERS_CONFIG:
+        if provider and provider in config.PROVIDERS_CONFIG:
             try:
-                prov_model = Config.get_provider_model(provider, role='coding')
+                prov_model = config.get_provider_model(provider, role='coding')
                 if prov_model and prov_model.get('model_name'):
                     # Ensure API key is included from the original config
                     prov_model['api_key'] = conf.get('api_key', '')
@@ -433,7 +444,7 @@ class SnakeCodingLLM(SnakeLLMInterface):
 
         # Fallback to configured coding model
         try:
-            super().__init__(Config.SNAKE_CODING_MODEL, 'coding')
+            super().__init__(config.SNAKE_CODING_MODEL, 'coding')
         except Exception as e:
             logger.error(
                 f"Failed to initialize coding LLM with configured model: {e}")
@@ -441,7 +452,7 @@ class SnakeCodingLLM(SnakeLLMInterface):
             fallback_config = {
                 'provider': 'ollama',
                 'model_name': 'gpt-oss:20b',
-                'base_url': Config.SNAKE_OLLAMA_BASE_URL,
+                'base_url': config.SNAKE_OLLAMA_BASE_URL,
                 'api_key': '',  # Ollama doesn't need API key
                 'temperature': 0.1,
                 'max_tokens': None,
@@ -547,11 +558,12 @@ class SnakeReasoningLLM(SnakeLLMInterface):
     """Specialized LLM interface for reasoning tasks"""
 
     def __init__(self, log_manager=None):
-        conf = Config.SNAKE_REASONING_MODEL or {}
+        config = Config()
+        conf = config.SNAKE_REASONING_MODEL or {}
         provider = conf.get('provider')
-        if provider and provider in Config.PROVIDERS_CONFIG:
+        if provider and provider in config.PROVIDERS_CONFIG:
             try:
-                prov_model = Config.get_provider_model(
+                prov_model = config.get_provider_model(
                     provider, role='reasoning')
                 if prov_model and prov_model.get('model_name'):
                     # Ensure API key is included from the original config
@@ -565,7 +577,7 @@ class SnakeReasoningLLM(SnakeLLMInterface):
 
         # Fallback to configured reasoning model
         try:
-            super().__init__(Config.SNAKE_REASONING_MODEL, 'reasoning')
+            super().__init__(config.SNAKE_REASONING_MODEL, 'reasoning')
         except Exception as e:
             logger.error(
                 f"Failed to initialize reasoning LLM with configured model: {e}")
@@ -573,7 +585,7 @@ class SnakeReasoningLLM(SnakeLLMInterface):
             fallback_config = {
                 'provider': 'ollama',
                 'model_name': 'deepseek-r1:8b',
-                'base_url': Config.SNAKE_OLLAMA_BASE_URL,
+                'base_url': config.SNAKE_OLLAMA_BASE_URL,
                 'api_key': '',  # Ollama doesn't need API key
                 'temperature': 0.3,
                 'max_tokens': None,

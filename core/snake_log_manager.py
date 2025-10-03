@@ -383,6 +383,19 @@ class SnakeLogManager:
         }
         self.log_queue.put(log_entry)
 
+    def log_system_event_sync(self, event_type: str, data: Dict[str, Any],
+                              level: str = "info", worker_id: str = "system"):
+        """Synchronous version of log_system_event for use in threads"""
+        log_entry = {
+            "type": "system",
+            "event_type": event_type,
+            "data": data,
+            "level": level,
+            "worker_id": worker_id,
+            "logged_at": datetime.now().isoformat()
+        }
+        self.log_queue.put(log_entry)
+
     def get_log_statistics(self) -> Dict[str, Any]:
         """Get logging statistics"""
         return {

@@ -131,7 +131,8 @@ def process_data_for_events(texts: List[str], embedding_model=None, sentiment_cl
         logger.warning(
             "Sentiment classifier not available. Loading it now. For production, pass pre-loaded models.")
         if not sentiment_classifier_to_use:
-            sentiment_classifier_to_use = pipeline('sentiment-analysis')
+            from core.model_manager import create_sentiment_classifier
+            sentiment_classifier_to_use = create_sentiment_classifier()
             sentiment_classifier_global = sentiment_classifier_to_use
 
     # 1. Create Document objects

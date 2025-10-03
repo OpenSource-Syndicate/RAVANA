@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 
-from core.llm import call_llm, safe_call_llm, extract_decision
+from core.llm import call_llm, safe_call_llm, async_safe_call_llm, extract_decision
 from core.embeddings_manager import embeddings_manager, ModelPurpose
 from core.enhanced_memory_service import MemoryType, Memory
 from core.config import Config
@@ -260,7 +260,7 @@ Provide the most likely explanation for this situation. Use abductive reasoning 
 """
         
         try:
-            response = await safe_call_llm(prompt)
+            response = await async_safe_call_llm(prompt)
             return {
                 'explanation': response,
                 'steps': [ReasoningStep(
@@ -294,7 +294,7 @@ Apply deductive reasoning to draw specific conclusions that logically follow fro
 """
         
         try:
-            response = await safe_call_llm(prompt)
+            response = await async_safe_call_llm(prompt)
             return {
                 'deduction': response,
                 'steps': [ReasoningStep(
@@ -328,7 +328,7 @@ Apply inductive reasoning to identify patterns and draw general conclusions that
 """
         
         try:
-            response = await safe_call_llm(prompt)
+            response = await async_safe_call_llm(prompt)
             return {
                 'induction': response,
                 'steps': [ReasoningStep(
@@ -366,7 +366,7 @@ Synthesize these different reasoning results into a coherent, unified conclusion
 """
         
         try:
-            response = await safe_call_llm(prompt)
+            response = await async_safe_call_llm(prompt)
             return response
         except Exception as e:
             logger.error(f"Error synthesizing reasoning results: {e}")
@@ -662,7 +662,7 @@ Generate 5 creative and innovative solutions that address this situation. Think 
 """
         
         try:
-            response = await safe_call_llm(prompt)
+            response = await async_safe_call_llm(prompt)
             # Parse the response into individual solutions
             solutions = [s.strip() for s in response.split('\n') if s.strip() and not s.startswith('1.') and not s.startswith('2.') and not s.startswith('3.') and not s.startswith('4.') and not s.startswith('5.')]
             if not solutions:
@@ -692,7 +692,7 @@ Provide an evaluation score from 0 to 1 (1 being highly feasible/effective) and 
 """
             
             try:
-                evaluation_response = await safe_call_llm(evaluation_prompt)
+                evaluation_response = await async_safe_call_llm(evaluation_prompt)
                 
                 evaluated.append({
                     'solution': solution,

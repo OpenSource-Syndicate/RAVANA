@@ -67,12 +67,20 @@ class ThreadState:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
-        data = asdict(self)
-        data['status'] = self.status.value
-        data['start_time'] = self.start_time.isoformat()
-        data['last_activity'] = self.last_activity.isoformat()
-        # Remove non-serializable thread object
-        data.pop('thread_object', None)
+        # Manually construct dict to avoid potential issues with dataclasses.asdict
+        # and threading-related objects that might contain locks
+        data = {
+            'thread_id': self.thread_id,
+            'name': self.name,
+            'status': self.status.value,
+            'start_time': self.start_time.isoformat(),
+            'last_activity': self.last_activity.isoformat(),
+            'processed_items': self.processed_items,
+            'error_count': self.error_count,
+            'current_task': self.current_task,
+            'performance_metrics': self.performance_metrics.copy() if self.performance_metrics else {}
+        }
+        # Do not include thread_object as it's not serializable
         return data
 
     def update_activity(self, task: Optional[str] = None):
@@ -417,3 +425,13 @@ class SnakeAgentConfiguration:
             issues.append("task_timeout too low (minimum 10 seconds)")
 
         return issues
+
+    def __getstate__(self):
+        """Custom serialization for multiprocessing to avoid pickling issues"""
+        state = self.__dict__.copy()
+        # Remove or sanitize any fields that may cause pickling issues
+        return state
+
+    def __setstate__(self, state):
+        """Custom deserialization for multiprocessing"""
+        self.__dict__.update(state)

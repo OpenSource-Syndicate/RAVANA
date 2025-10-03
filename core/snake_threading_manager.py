@@ -373,14 +373,14 @@ class SnakeThreadingManager:
                         self.tasks_processed += 1
 
                     except Exception as e:
-                        # Log callback error
-                        asyncio.create_task(self.log_manager.log_system_event(
+                        # Log callback error using the synchronous version
+                        self.log_manager.log_system_event_sync(
                             "file_change_callback_error",
                             {"error": str(
                                 e), "file_event": file_event.to_dict()},
                             level="error",
                             worker_id=worker_id
-                        ))
+                        )
 
                         # Update error metrics
                         if worker_id in self.worker_metrics:
@@ -395,13 +395,13 @@ class SnakeThreadingManager:
                 self.file_change_queue.task_done()
 
             except Exception as e:
-                # Log worker error
-                asyncio.create_task(self.log_manager.log_system_event(
+                # Log worker error using the synchronous version
+                self.log_manager.log_system_event_sync(
                     "file_monitor_worker_error",
                     {"error": str(e)},
                     level="error",
                     worker_id=worker_id
-                ))
+                )
 
                 with self.coordination_lock:
                     if worker_id in self.active_threads:
@@ -454,13 +454,13 @@ class SnakeThreadingManager:
                         self.tasks_processed += 1
 
                     except Exception as e:
-                        # Log callback error
-                        asyncio.create_task(self.log_manager.log_system_event(
+                        # Log callback error using the synchronous version
+                        self.log_manager.log_system_event_sync(
                             "indexing_callback_error",
                             {"error": str(e), "task": indexing_task.to_dict()},
                             level="error",
                             worker_id=worker_id
-                        ))
+                        )
 
                         # Update error metrics
                         if worker_id in self.worker_metrics:
@@ -475,13 +475,13 @@ class SnakeThreadingManager:
                 self.indexing_queue.task_done()
 
             except Exception as e:
-                # Log worker error
-                asyncio.create_task(self.log_manager.log_system_event(
+                # Log worker error using the synchronous version
+                self.log_manager.log_system_event_sync(
                     "indexing_worker_error",
                     {"error": str(e)},
                     level="error",
                     worker_id=worker_id
-                ))
+                )
 
                 with self.coordination_lock:
                     if worker_id in self.active_threads:
@@ -592,13 +592,13 @@ class SnakeThreadingManager:
                         self.tasks_processed += 1
 
                     except Exception as e:
-                        # Log callback error
-                        asyncio.create_task(self.log_manager.log_system_event(
+                        # Log callback error using the synchronous version
+                        self.log_manager.log_system_event_sync(
                             "study_callback_error",
                             {"error": str(e), "task": study_task.to_dict()},
                             level="error",
                             worker_id=worker_id
-                        ))
+                        )
 
                         # Update error metrics
                         if worker_id in self.worker_metrics:
@@ -613,13 +613,13 @@ class SnakeThreadingManager:
                 self.study_queue.task_done()
 
             except Exception as e:
-                # Log worker error
-                asyncio.create_task(self.log_manager.log_system_event(
+                # Log worker error using the synchronous version
+                self.log_manager.log_system_event_sync(
                     "study_worker_error",
                     {"error": str(e)},
                     level="error",
                     worker_id=worker_id
-                ))
+                )
 
                 with self.coordination_lock:
                     if worker_id in self.active_threads:
@@ -672,14 +672,14 @@ class SnakeThreadingManager:
                         self.tasks_processed += 1
 
                     except Exception as e:
-                        # Log callback error
-                        asyncio.create_task(self.log_manager.log_system_event(
+                        # Log callback error using the synchronous version
+                        self.log_manager.log_system_event_sync(
                             "communication_callback_error",
                             {"error": str(
                                 e), "message": comm_message.to_dict()},
                             level="error",
                             worker_id=worker_id
-                        ))
+                        )
 
                         # Update error metrics
                         if worker_id in self.worker_metrics:
@@ -694,13 +694,13 @@ class SnakeThreadingManager:
                 self.communication_queue.task_done()
 
             except Exception as e:
-                # Log worker error
-                asyncio.create_task(self.log_manager.log_system_event(
+                # Log worker error using the synchronous version
+                self.log_manager.log_system_event_sync(
                     "communication_worker_error",
                     {"error": str(e)},
                     level="error",
                     worker_id=worker_id
-                ))
+                )
 
                 with self.coordination_lock:
                     if worker_id in self.active_threads:
@@ -739,7 +739,8 @@ class SnakeThreadingManager:
                 # Log performance data periodically
                 current_time = datetime.now()
                 if (current_time.minute % 5 == 0 and current_time.second < 5):  # Every 5 minutes
-                    asyncio.create_task(self.log_manager.log_system_event(
+                    # Use the synchronous version of log_system_event to avoid event loop issues
+                    self.log_manager.log_system_event_sync(
                         "performance_metrics",
                         {
                             "cpu_usage": cpu_usage,
@@ -754,19 +755,19 @@ class SnakeThreadingManager:
                             }
                         },
                         worker_id=worker_id
-                    ))
+                    )
 
                 # Sleep for monitoring interval
                 time.sleep(10.0)  # Monitor every 10 seconds
 
             except Exception as e:
-                # Log monitoring error
-                asyncio.create_task(self.log_manager.log_system_event(
+                # Log monitoring error using the synchronous version
+                self.log_manager.log_system_event_sync(
                     "performance_monitor_error",
                     {"error": str(e)},
                     level="error",
                     worker_id=worker_id
-                ))
+                )
 
                 time.sleep(10.0)
 
@@ -792,12 +793,12 @@ class SnakeThreadingManager:
             self.file_change_queue.put_nowait(file_event)
             return True
         except queue.Full:
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "file_change_queue_full",
                 {"event": file_event.to_dict()},
                 level="warning",
                 worker_id="threading_manager"
-            ))
+            )
             return False
 
     def queue_indexing_task(self, analysis_task: AnalysisTask) -> bool:
@@ -806,12 +807,12 @@ class SnakeThreadingManager:
             self.indexing_queue.put_nowait(analysis_task)
             return True
         except queue.Full:
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "indexing_queue_full",
                 {"task": analysis_task.to_dict()},
                 level="warning",
                 worker_id="threading_manager"
-            ))
+            )
             return False
 
     def queue_analysis_task(self, analysis_task: AnalysisTask) -> bool:
@@ -826,12 +827,12 @@ class SnakeThreadingManager:
                 # Otherwise send to indexing queue which has multiple threads
                 return self.queue_indexing_task(analysis_task)
         except queue.Full:
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "analysis_queue_full",
                 {"task": analysis_task.to_dict()},
                 level="warning",
                 worker_id="threading_manager"
-            ))
+            )
             return False
 
     def queue_study_task(self, study_task: AnalysisTask) -> bool:
@@ -840,12 +841,12 @@ class SnakeThreadingManager:
             self.study_queue.put_nowait(study_task)
             return True
         except queue.Full:
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "study_queue_full",
                 {"task": study_task.to_dict()},
                 level="warning",
                 worker_id="threading_manager"
-            ))
+            )
             return False
 
     def queue_communication_message(self, comm_message: CommunicationMessage) -> bool:
@@ -854,21 +855,34 @@ class SnakeThreadingManager:
             self.communication_queue.put_nowait(comm_message)
             return True
         except queue.Full:
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "communication_queue_full",
                 {"message": comm_message.to_dict()},
                 level="warning",
                 worker_id="threading_manager"
-            ))
+            )
             return False
 
     def get_thread_status(self) -> Dict[str, Dict[str, Any]]:
         """Get status of all active threads"""
         with self.coordination_lock:
-            return {
-                thread_id: thread_state.to_dict()
-                for thread_id, thread_state in self.active_threads.items()
-            }
+            # Use the to_dict method on ThreadState which handles serialization
+            # and removes non-serializable objects like thread objects
+            result = {}
+            for thread_id, thread_state in self.active_threads.items():
+                try:
+                    # Use the ThreadState's to_dict method which properly handles serialization
+                    status_dict = thread_state.to_dict()
+                    result[thread_id] = status_dict
+                except Exception as e:
+                    # If serialization fails for any thread, log and continue
+                    logger.error(f"Failed to serialize thread state for {thread_id}: {e}")
+                    result[thread_id] = {
+                        "status": "error",
+                        "error": str(e),
+                        "thread_id": thread_id
+                    }
+            return result
 
     def get_queue_status(self) -> Dict[str, int]:
         """Get status of all queues"""

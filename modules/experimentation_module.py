@@ -11,7 +11,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 from dataclasses import dataclass
 
-from core.llm import safe_call_llm
+from core.llm import safe_call_llm, async_safe_call_llm
 from core.enhanced_memory_service import MemoryType
 from core.config import Config
 
@@ -103,7 +103,7 @@ class ExperimentationModule:
         """
         
         try:
-            hypothesis = await safe_call_llm(prompt)
+            hypothesis = await async_safe_call_llm(prompt)
             # Clean up the response to just the hypothesis
             hypothesis = hypothesis.strip().split('\n')[0].strip()
             
@@ -194,7 +194,7 @@ class ExperimentationModule:
         """
         
         try:
-            response = await safe_call_llm(prompt)
+            response = await async_safe_call_llm(prompt)
             
             # Try to parse the response as JSON
             try:
@@ -615,7 +615,7 @@ class ExperimentationModule:
             - recommendations: recommendations for future work
             """
             
-            response = await safe_call_llm(prompt)
+            response = await async_safe_call_llm(prompt)
             
             try:
                 analysis = json.loads(response)

@@ -420,10 +420,20 @@ class ContinuousFileMonitor:
                         self.events_processed += 1
 
                     except Exception as e:
-                        self._log_error("event_callback_error", {
-                            "event_id": event.event_id,
-                            "error": str(e)
-                        })
+                        # Ensure we await the coroutine in a thread-safe way
+                        try:
+                            asyncio.run_coroutine_threadsafe(
+                                self.log_manager.log_system_event(
+                                    "event_callback_error",
+                                    {"event_id": event.event_id, "error": str(e)},
+                                    level="error",
+                                    worker_id="file_monitor"
+                                ),
+                                self.loop
+                            )
+                        except Exception as log_error:
+                            # If logging itself fails, we have to accept it and continue
+                            pass  # Ignore logging errors in worker thread
 
                 # Log processing summary if events were processed
                 if events_to_process:
@@ -485,23 +495,25 @@ class ContinuousFileMonitor:
     def _log_info(self, event_type: str, data: Dict):
         """Thread-safe info logging"""
         try:
-            # Use asyncio to schedule logging
-            asyncio.run_coroutine_threadsafe(
-                self.log_manager.log_system_event(
-                    event_type, data, worker_id="file_monitor"),
-                self.loop
-            )
+            # Use asyncio to schedule logging, with proper error handling
+            if not self.loop.is_closed():
+                asyncio.run_coroutine_threadsafe(
+                    self.log_manager.log_system_event(
+                        event_type, data, worker_id="file_monitor"),
+                    self.loop
+                )
         except Exception:
             pass  # Ignore logging errors in worker thread
 
     def _log_error(self, event_type: str, data: Dict):
         """Thread-safe error logging"""
         try:
-            asyncio.run_coroutine_threadsafe(
-                self.log_manager.log_system_event(
-                    event_type, data, level="error", worker_id="file_monitor"),
-                self.loop
-            )
+            if not self.loop.is_closed():
+                asyncio.run_coroutine_threadsafe(
+                    self.log_manager.log_system_event(
+                        event_type, data, level="error", worker_id="file_monitor"),
+                    self.loop
+                )
         except Exception:
             pass  # Ignore logging errors in worker thread
 

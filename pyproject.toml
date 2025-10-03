@@ -55,6 +55,7 @@ dependencies = [
     "aiofiles>=23.2.1", # For async file operations
     "memory-profiler>=0.61.0", # For memory profiling
     "pytest-cov>=7.0.0",
+    "accelerate>=1.10.1",
 ]
 
 [build-system]

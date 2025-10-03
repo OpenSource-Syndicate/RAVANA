@@ -66,9 +66,13 @@ class AGISystem:
         # Initialize LLM selector with config
         initialize_llm_selector(self.config.PROVIDERS_CONFIG)
 
+        # Initialize background_tasks early to prevent attribute errors
+        self.background_tasks = []
+
         # Load shared models using the intelligent embeddings manager
         self.embedding_model = embeddings_manager
-        self.sentiment_classifier = pipeline('sentiment-analysis')
+        from core.model_manager import create_sentiment_classifier
+        self.sentiment_classifier = create_sentiment_classifier()
 
         # Use enhanced memory service
         self.memory_service = enhanced_memory_service
@@ -115,9 +119,7 @@ class AGISystem:
             blog_scheduler=self.blog_scheduler)  # Enhanced with blog integration
         self.reflection_module = ReflectionModule(
             self, blog_scheduler=self.blog_scheduler)
-        from modules.experimentation_module import ExperimentationModule
-        self.experimentation_module = ExperimentationModule(
-            self, blog_scheduler=self.blog_scheduler)
+
         self.experimentation_engine = AGIExperimentationEngine(
             self, blog_scheduler=self.blog_scheduler)
 
@@ -198,7 +200,6 @@ class AGISystem:
 
         # For graceful shutdown
         self._shutdown = asyncio.Event()
-        self.background_tasks = []
         self.shutdown_coordinator = ShutdownCoordinator(self)
         
         # Performance monitoring
@@ -427,7 +428,8 @@ class AGISystem:
     def _initialize_sentiment_classifier(self):
         """Initialize sentiment classifier."""
         try:
-            self.sentiment_classifier = pipeline('sentiment-analysis')
+            from core.model_manager import create_sentiment_classifier
+            self.sentiment_classifier = create_sentiment_classifier()
             logger.info("Sentiment classifier initialized")
         except Exception as e:
             logger.error(f"Failed to initialize sentiment classifier: {e}")
@@ -492,6 +494,7 @@ class AGISystem:
                 blog_scheduler=self.blog_scheduler)
             self.reflection_module = ReflectionModule(
                 self, blog_scheduler=self.blog_scheduler)
+            from modules.experimentation_module import ExperimentationModule
             self.experimentation_module = ExperimentationModule(
                 self, blog_scheduler=self.blog_scheduler)
             self.experimentation_engine = AGIExperimentationEngine(
@@ -534,7 +537,7 @@ class AGISystem:
                 try:
                     # Try enhanced version first, fall back to original if needed
                     enhanced_mode = getattr(
-                        Config, 'SNAKE_ENHANCED_MODE', True)
+                        config, 'SNAKE_ENHANCED_MODE', True)
                     if enhanced_mode:
                         from core.snake_agent_enhanced import EnhancedSnakeAgent
                         self.snake_agent = EnhancedSnakeAgent(self)
@@ -956,7 +959,7 @@ class AGISystem:
 
     async def start_snake_agent(self):
         """Start Snake Agent background operation."""
-        if self.snake_agent and Config.SNAKE_AGENT_ENABLED:
+        if self.snake_agent and self.config.SNAKE_AGENT_ENABLED:
             try:
                 logger.info("Starting Snake Agent background operation...")
                 snake_task = asyncio.create_task(
@@ -968,7 +971,7 @@ class AGISystem:
 
     async def start_conversational_ai(self):
         """Start Conversational AI module in a separate thread."""
-        if self.conversational_ai and Config.CONVERSATIONAL_AI_ENABLED:
+        if self.conversational_ai and self.config.CONVERSATIONAL_AI_ENABLED:
             # Check if already started to prevent multiple instances
             if self._conversational_ai_started:
                 logger.warning(
@@ -982,7 +985,7 @@ class AGISystem:
                 async def run_conversational_ai():
                     try:
                         # Add a small delay to allow the main system to initialize
-                        await asyncio.sleep(Config.CONVERSATIONAL_AI_START_DELAY)
+                        await asyncio.sleep(self.config.CONVERSATIONAL_AI_START_DELAY)
                         # Run the conversational AI as part of the main system (not standalone)
                         await self.conversational_ai.start(standalone=False)
                     except Exception as e:
@@ -1033,7 +1036,7 @@ class AGISystem:
 
         status = await self.snake_agent.get_status()
         return {
-            "enabled": Config.SNAKE_AGENT_ENABLED,
+            "enabled": self.config.SNAKE_AGENT_ENABLED,
             "status": "active" if self.snake_agent.running else "inactive",
             **status
         }
@@ -1063,7 +1066,7 @@ class AGISystem:
         status = "active" if (started and bot_connected) else "inactive"
 
         return {
-            "enabled": Config.CONVERSATIONAL_AI_ENABLED,
+            "enabled": self.config.CONVERSATIONAL_AI_ENABLED,
             "status": status,
             "discord_connected": discord_connected,
             "telegram_connected": telegram_connected
@@ -1421,7 +1424,8 @@ class AGISystem:
     async def _update_performance_metrics_from_goals(self, completed_goals, in_progress_goals, overdue_goals):
         """Update system performance metrics based on goal progress."""
         try:
-            if not self.performance_tracker:
+            # Check if performance tracker exists and is not None
+            if not hasattr(self, 'performance_tracker') or self.performance_tracker is None:
                 return
 
             # Calculate goal-related performance metrics
@@ -1432,7 +1436,7 @@ class AGISystem:
                 overdue_rate = len(overdue_goals) / total_goals
                 
                 # Update performance tracker with goal-related metrics
-                await self.performance_tracker.record_metric(
+                self.performance_tracker.record_metric(
                     name="goal_completion_rate",
                     value=completion_rate,
                     unit="percentage",
@@ -1440,7 +1444,7 @@ class AGISystem:
                     tags=["performance", "goals"]
                 )
                 
-                await self.performance_tracker.record_metric(
+                self.performance_tracker.record_metric(
                     name="goal_overdue_rate",
                     value=overdue_rate,
                     unit="percentage",
@@ -1490,7 +1494,7 @@ class AGISystem:
         if self.behavior_modifiers.get('suggest_break'):
             logger.info(
                 "Mood suggests taking a break. Sleeping for a short while.")
-            await asyncio.sleep(Config.LOOP_SLEEP_DURATION * 2)
+            await asyncio.sleep(self.config.LOOP_SLEEP_DURATION * 2)
             self.behavior_modifiers = {}  # Reset modifiers
 
     async def _handle_curiosity(self):
@@ -1746,6 +1750,35 @@ class AGISystem:
             Dictionary in the format expected by the rest of the system
         """
         try:
+            # Check if reasoning_result is a string and handle appropriately
+            if isinstance(reasoning_result, str):
+                logger.warning(f"Received string instead of dict for reasoning_result: {reasoning_result[:100]}...")
+                # Try to parse as JSON if it's a string
+                try:
+                    parsed_result = json.loads(reasoning_result)
+                    if isinstance(parsed_result, dict):
+                        reasoning_result = parsed_result
+                    else:
+                        # If it's not JSON-parseable or not a dict, create a default structure
+                        reasoning_result = {
+                            'synthesized_conclusion': reasoning_result,
+                            'confidence_score': 0.5,
+                            'reasoning_steps': [],
+                            'reasoning_process': {},
+                            'metacognitive_evaluation': {},
+                            'reasoning_types_used': []
+                        }
+                except json.JSONDecodeError:
+                    # If it can't be parsed as JSON, create a default structure
+                    reasoning_result = {
+                        'synthesized_conclusion': reasoning_result,
+                        'confidence_score': 0.5,
+                        'reasoning_steps': [],
+                        'reasoning_process': {},
+                        'metacognitive_evaluation': {},
+                        'reasoning_types_used': []
+                    }
+
             # Extract key information from reasoning results
             synthesized_conclusion = reasoning_result.get('synthesized_conclusion', '')
             confidence_score = reasoning_result.get('confidence_score', 0.5)
@@ -1900,7 +1933,7 @@ class AGISystem:
         while not self._shutdown.is_set():
             try:
                 # Only attempt occasionally
-                await asyncio.sleep(Config.INVENTION_INTERVAL)
+                await asyncio.sleep(self.config.INVENTION_INTERVAL)
                 ideas = getattr(self.shared_state,
                                 'invention_ideas', None) or []
                 if not ideas:
@@ -1976,6 +2009,18 @@ class AGISystem:
                 logger.info(
                     f"Action output contains a directive to '{action_output['action']}'. Starting experiment.")
                 self.experimentation_engine.start_experiment(action_output)
+
+        # Check if reflection should be triggered based on mood changes
+        mood_changed_for_better = self._did_mood_improve(old_mood, new_mood)
+
+        if not mood_changed_for_better and random.random() < self.config.REFLECTION_CHANCE:
+            logger.info("Mood has not improved. Initiating reflection.")
+            # This is where you can trigger a reflection process
+            # For now, we'll just log it.
+            self.reflection_module.reflect(self.shared_state)
+        else:
+            logger.info(
+                "Mood improved or stayed the same, skipping reflection.")
 
     async def _apply_emotional_influences(self, behavior_modifiers: Dict[str, float]):
         """
@@ -2165,17 +2210,6 @@ class AGISystem:
         # Ensure we return the same number of memories as input
         return re_ranked[:len(memories)]
 
-        mood_changed_for_better = self._did_mood_improve(old_mood, new_mood)
-
-        if not mood_changed_for_better and random.random() < Config.REFLECTION_CHANCE:
-            logger.info("Mood has not improved. Initiating reflection.")
-            # This is where you can trigger a reflection process
-            # For now, we'll just log it.
-            self.reflection_module.reflect(self.shared_state)
-        else:
-            logger.info(
-                "Mood improved or stayed the same, skipping reflection.")
-
     async def get_recent_events(self, time_limit_seconds: int = 3600) -> List[Event]:
         """
         Retrieves recent events from the database.
@@ -2304,11 +2338,11 @@ class AGISystem:
                 self.autonomous_blog_maintenance_task()))
 
         # Start Snake Agent if enabled
-        if Config.SNAKE_AGENT_ENABLED and self.snake_agent:
+        if self.config.SNAKE_AGENT_ENABLED and self.snake_agent:
             await self.start_snake_agent()
 
         # Start Conversational AI if enabled
-        if Config.CONVERSATIONAL_AI_ENABLED and self.conversational_ai:
+        if self.config.CONVERSATIONAL_AI_ENABLED and self.conversational_ai:
             await self.start_conversational_ai()
 
         while not self._shutdown.is_set():
@@ -2319,13 +2353,13 @@ class AGISystem:
                     await self.run_iteration()
 
                 logger.info(
-                    f"End of loop iteration. Sleeping for {Config.LOOP_SLEEP_DURATION} seconds.")
-                await asyncio.sleep(Config.LOOP_SLEEP_DURATION)
+                    f"End of loop iteration. Sleeping for {self.config.LOOP_SLEEP_DURATION} seconds.")
+                await asyncio.sleep(self.config.LOOP_SLEEP_DURATION)
             except Exception as e:
                 logger.critical(
                     f"Critical error in autonomous loop: {e}", exc_info=True)
                 # Longer sleep after critical error
-                await asyncio.sleep(Config.LOOP_SLEEP_DURATION * 5)
+                await asyncio.sleep(self.config.LOOP_SLEEP_DURATION * 5)
 
         logger.info("Autonomous loop has been stopped.")
 
@@ -2382,7 +2416,7 @@ class AGISystem:
 
             try:
                 # Use config value
-                await asyncio.sleep(Config.DATA_COLLECTION_INTERVAL)
+                await asyncio.sleep(self.config.DATA_COLLECTION_INTERVAL)
             except asyncio.CancelledError:
                 break
         logger.info("Data collection task shut down.")
@@ -2399,7 +2433,7 @@ class AGISystem:
 
             try:
                 # Use config value
-                await asyncio.sleep(Config.EVENT_DETECTION_INTERVAL)
+                await asyncio.sleep(self.config.EVENT_DETECTION_INTERVAL)
             except asyncio.CancelledError:
                 break
         logger.info("Event detection task shut down.")

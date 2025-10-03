@@ -3,17 +3,19 @@ import json
 
 
 class Config:
+    # Use a class variable to hold the singleton instance
+    _instance = None
+
     def __new__(cls):
-        # Create a new instance if one doesn't exist
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(Config, cls).__new__(cls)
-        return cls.instance
+        # Create a single instance of the class
+        if cls._instance is None:
+            cls._instance = super(Config, cls).__new__(cls)
+        return cls._instance
 
     @classmethod
     def reset_instance(cls):
         """Reset the singleton instance for testing purposes."""
-        if hasattr(cls, 'instance'):
-            delattr(cls, 'instance')
+        cls._instance = None
     
     def _str_to_bool(self, value):
         """Convert string to boolean in a more robust way."""
@@ -216,6 +218,15 @@ class Config:
             ",") if os.environ.get("SNAKE_BLACKLIST_PATHS") else []
         self.SNAKE_APPROVAL_REQUIRED = self._str_to_bool(os.environ.get("SNAKE_APPROVAL_REQUIRED", "True"))
 
+        # Snake Agent Safety Configuration
+        self.SNAKE_SANDBOX_TIMEOUT = int(os.environ.get(
+            "SNAKE_SANDBOX_TIMEOUT", 60))  # seconds
+        self.SNAKE_MAX_FILE_SIZE = int(os.environ.get(
+            "SNAKE_MAX_FILE_SIZE", 1048576))  # 1MB
+        self.SNAKE_BLACKLIST_PATHS = os.environ.get("SNAKE_BLACKLIST_PATHS", "").split(
+            ",") if os.environ.get("SNAKE_BLACKLIST_PATHS") else []
+        self.SNAKE_APPROVAL_REQUIRED = self._str_to_bool(os.environ.get("SNAKE_APPROVAL_REQUIRED", "True"))
+
         # Communication Configuration
         self.SNAKE_COMM_CHANNEL = os.environ.get("SNAKE_COMM_CHANNEL", "memory_service")
         self.SNAKE_COMM_PRIORITY_THRESHOLD = float(
@@ -393,6 +404,12 @@ class Config:
             'SNAKE_AGENT_ENABLED': self._str_to_bool(os.environ.get("SNAKE_AGENT_ENABLED", "True")),
             'SNAKE_AGENT_INTERVAL': int(os.environ.get("SNAKE_AGENT_INTERVAL", 180)),
             'SNAKE_OLLAMA_BASE_URL': os.environ.get("SNAKE_OLLAMA_BASE_URL", "http://localhost:11434"),
+            'SNAKE_MAX_FILE_SIZE': int(os.environ.get("SNAKE_MAX_FILE_SIZE", 1048576)),
+            'SNAKE_COMM_CHANNEL': os.environ.get("SNAKE_COMM_CHANNEL", "memory_service"),
+            'SNAKE_APPROVAL_REQUIRED': self._str_to_bool(os.environ.get("SNAKE_APPROVAL_REQUIRED", "True")),
+            'SNAKE_SANDBOX_TIMEOUT': int(os.environ.get("SNAKE_SANDBOX_TIMEOUT", 60)),
+            'SNAKE_BLACKLIST_PATHS': os.environ.get("SNAKE_BLACKLIST_PATHS", "").split(",") if os.environ.get("SNAKE_BLACKLIST_PATHS") else [],
+            'SNAKE_COMM_PRIORITY_THRESHOLD': float(os.environ.get("SNAKE_COMM_PRIORITY_THRESHOLD", "0.8")),
             'BLOG_ENABLED': self._str_to_bool(os.environ.get("RAVANA_BLOG_ENABLED", "True")),
             'BLOG_API_URL': os.environ.get("RAVANA_BLOG_API_URL", "https://ravana-blog.netlify.app/api/publish"),
             'BLOG_AUTH_TOKEN': os.environ.get("RAVANA_BLOG_AUTH_TOKEN", "ravana_secret_token_2024"),

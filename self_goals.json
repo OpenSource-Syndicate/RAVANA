@@ -1,14 +1,14 @@
 {
   "active_goals": [
     {
-      "id": "c3246f80-1f8e-40dc-91f6-56d57db8baae",
+      "id": "b3d77c2c-ad4f-4e88-9c51-67874f016730",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T01:43:21.937425",
-      "target_date": "2025-10-16T01:43:21.937374",
+      "created_at": "2025-10-02T17:29:09.234762",
+      "target_date": "2025-10-16T17:29:09.234727+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -17,14 +17,14 @@
       }
     },
     {
-      "id": "5911c9e8-5261-4fb8-91e3-f7e18e2023be",
+      "id": "1ac1b587-179d-4fcf-93d1-afe0917e3ca3",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T01:43:21.937468",
-      "target_date": "2025-10-12T01:43:21.937453",
+      "created_at": "2025-10-02T17:29:09.235007",
+      "target_date": "2025-10-12T17:29:09.234982+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -33,14 +33,14 @@
       }
     },
     {
-      "id": "95b46182-af1f-42ff-aec1-dc0974443489",
+      "id": "35595ed0-87a5-42f2-9f80-6df7582052b8",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T01:43:21.937487",
-      "target_date": "2025-10-23T01:43:21.937477",
+      "created_at": "2025-10-02T17:29:09.235195",
+      "target_date": "2025-10-23T17:29:09.235172+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -49,14 +49,14 @@
       }
     },
     {
-      "id": "750e24b4-dd9c-4dce-9918-6c1e6d68348e",
+      "id": "b5bb6242-1f49-40cf-944a-63ba9355b029",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T01:43:21.937503",
-      "target_date": "2025-11-01T01:43:21.937495",
+      "created_at": "2025-10-02T17:29:09.235381",
+      "target_date": "2025-11-01T17:29:09.235351+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -65,14 +65,14 @@
       }
     },
     {
-      "id": "ca18b95c-4be6-458a-9a53-625c5004cb60",
+      "id": "be217263-52f1-4fc1-8832-5805a4dd708b",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T01:43:21.937516",
-      "target_date": "2025-10-27T01:43:21.937509",
+      "created_at": "2025-10-02T17:29:09.235535",
+      "target_date": "2025-10-27T17:29:09.235508+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -81,14 +81,14 @@
       }
     },
     {
-      "id": "f063f47f-f886-42f9-aff0-32fe95b745ba",
+      "id": "26847c36-9584-4d04-9f5e-489b595d22b2",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T01:43:21.937531",
-      "target_date": "2025-10-20T01:43:21.937523",
+      "created_at": "2025-10-02T17:29:09.235684",
+      "target_date": "2025-10-20T17:29:09.235653+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -97,14 +97,14 @@
       }
     },
     {
-      "id": "6accf0a2-24f1-4d75-858f-5d6e6b882ec9",
+      "id": "d458e77c-ac5b-4b92-8d63-24eacba4c034",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T01:43:21.937546",
-      "target_date": "2025-11-06T01:43:21.937536",
+      "created_at": "2025-10-02T17:29:09.235928",
+      "target_date": "2025-11-06T17:29:09.235889+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -113,14 +113,14 @@
       }
     },
     {
-      "id": "32712fc7-bdf9-4366-93b0-586abf25303e",
+      "id": "ebaceb5e-7b07-45ff-9931-bf989c04ba7d",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:25:41.284071",
-      "target_date": "2025-10-16T04:25:41.283837",
+      "created_at": "2025-10-03T02:50:21.804248",
+      "target_date": "2025-10-17T02:50:21.804214+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -129,14 +129,14 @@
       }
     },
     {
-      "id": "7fe9bd82-b3bd-4a48-a27d-98ee30eca423",
+      "id": "daf94a64-2345-42cb-beff-7fbb9089c03b",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:25:41.284250",
-      "target_date": "2025-10-12T04:25:41.284147",
+      "created_at": "2025-10-03T02:50:21.804529",
+      "target_date": "2025-10-13T02:50:21.804487+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -145,14 +145,14 @@
       }
     },
     {
-      "id": "862724d6-f2b7-42fa-908e-27e6f40ecc5c",
+      "id": "b21fb8c4-a159-4c27-8ee6-5047290c110d",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T04:25:41.284377",
-      "target_date": "2025-10-23T04:25:41.284311",
+      "created_at": "2025-10-03T02:50:21.804768",
+      "target_date": "2025-10-24T02:50:21.804737+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -161,14 +161,14 @@
       }
     },
     {
-      "id": "abe68f15-f49a-44f7-a36a-f9b6402d0abd",
+      "id": "c7b6896b-2dfd-42fb-856d-20a90de5d356",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:25:41.284485",
-      "target_date": "2025-11-01T04:25:41.284431",
+      "created_at": "2025-10-03T02:50:21.804987",
+      "target_date": "2025-11-02T02:50:21.804952+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -177,14 +177,14 @@
       }
     },
     {
-      "id": "cf174be7-20f1-4fc3-8be4-f4a98e21f7bb",
+      "id": "6347b84a-c1a7-4372-8d9e-35845207210c",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T04:25:41.284566",
-      "target_date": "2025-10-27T04:25:41.284519",
+      "created_at": "2025-10-03T02:50:21.805169",
+      "target_date": "2025-10-28T02:50:21.805139+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -193,14 +193,14 @@
       }
     },
     {
-      "id": "90e3e66a-0a67-4500-805b-7dc2ac4bcf67",
+      "id": "983985de-f72c-479e-8878-2ffcfda4d2c3",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:25:41.284668",
-      "target_date": "2025-10-20T04:25:41.284611",
+      "created_at": "2025-10-03T02:50:21.805344",
+      "target_date": "2025-10-21T02:50:21.805305+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -209,14 +209,14 @@
       }
     },
     {
-      "id": "77e345f1-892a-4d94-bbcc-9e1b465d23d3",
+      "id": "76040129-6141-4df0-829e-337b2f65f0a4",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T04:25:41.284763",
-      "target_date": "2025-11-06T04:25:41.284696",
+      "created_at": "2025-10-03T02:50:21.805508",
+      "target_date": "2025-11-07T02:50:21.805479+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -225,14 +225,14 @@
       }
     },
     {
-      "id": "34fdfb33-566c-4f8f-8e67-e19618985063",
+      "id": "0b80d21f-208c-48e7-bd24-ca66e62d31e0",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:23.961766",
-      "target_date": "2025-10-16T04:32:23.961710",
+      "created_at": "2025-10-03T03:05:42.254116",
+      "target_date": "2025-10-17T03:05:42.254065+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -241,14 +241,14 @@
       }
     },
     {
-      "id": "62877f97-f52b-49ba-8ed5-2802d0d538c6",
+      "id": "a77cbe81-ee77-4811-bca7-5c516b85fd21",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:23.961800",
-      "target_date": "2025-10-12T04:32:23.961782",
+      "created_at": "2025-10-03T03:05:42.254401",
+      "target_date": "2025-10-13T03:05:42.254361+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -257,14 +257,14 @@
       }
     },
     {
-      "id": "f2dc81a0-b54d-44a8-8b1c-34971b2ef6f7",
+      "id": "cb1a791c-ef25-4b41-9f7d-f6d84e7698ed",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:23.961823",
-      "target_date": "2025-10-23T04:32:23.961809",
+      "created_at": "2025-10-03T03:05:42.254605",
+      "target_date": "2025-10-24T03:05:42.254564+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -273,14 +273,14 @@
       }
     },
     {
-      "id": "e849861f-eef1-4166-8452-bef5b368d06b",
+      "id": "2ca5f1d3-cdf2-4dec-a3a6-75a171dd8279",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:23.961847",
-      "target_date": "2025-11-01T04:32:23.961833",
+      "created_at": "2025-10-03T03:05:42.254829",
+      "target_date": "2025-11-02T03:05:42.254788+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -289,14 +289,14 @@
       }
     },
     {
-      "id": "5f97fee6-8fe5-44ae-94ce-60443ac9d986",
+      "id": "f94320dc-86f7-489c-93ee-10bb4d41f0ea",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:23.961868",
-      "target_date": "2025-10-27T04:32:23.961855",
+      "created_at": "2025-10-03T03:05:42.255012",
+      "target_date": "2025-10-28T03:05:42.254978+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -305,14 +305,14 @@
       }
     },
     {
-      "id": "201cfe7c-8578-444d-83b4-e89322ada638",
+      "id": "f46b8d27-8c7f-48cc-b785-6645a301cb44",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:23.961890",
-      "target_date": "2025-10-20T04:32:23.961877",
+      "created_at": "2025-10-03T03:05:42.255170",
+      "target_date": "2025-10-21T03:05:42.255146+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -321,14 +321,14 @@
       }
     },
     {
-      "id": "60766c4b-b26b-4976-adb7-121e55aaad10",
+      "id": "39ba3e3f-1be3-4300-8905-18bec8415a48",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:23.961914",
-      "target_date": "2025-11-06T04:32:23.961897",
+      "created_at": "2025-10-03T03:05:42.255310",
+      "target_date": "2025-11-07T03:05:42.255288+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -337,14 +337,14 @@
       }
     },
     {
-      "id": "9ee12ec6-e918-4867-a5ee-3c252aecbe24",
+      "id": "de34236b-573e-4556-8ef0-4a90df642ffd",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:31.226481",
-      "target_date": "2025-10-16T04:32:31.226428",
+      "created_at": "2025-10-03T03:08:22.708126",
+      "target_date": "2025-10-17T03:08:22.708057+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -353,14 +353,14 @@
       }
     },
     {
-      "id": "f13f7e12-a4eb-4d93-bc58-0436f49ee49a",
+      "id": "4db2822a-20d5-49a9-b0e7-b6b4f02c9a70",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:31.226524",
-      "target_date": "2025-10-12T04:32:31.226503",
+      "created_at": "2025-10-03T03:08:22.708167",
+      "target_date": "2025-10-13T03:08:22.708150+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -369,14 +369,14 @@
       }
     },
     {
-      "id": "853b35e9-c925-4e13-b30b-490cd35d31fd",
+      "id": "0a8f4687-42b1-440a-9cf9-ff868ebc5f89",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:31.226552",
-      "target_date": "2025-10-23T04:32:31.226536",
+      "created_at": "2025-10-03T03:08:22.708191",
+      "target_date": "2025-10-24T03:08:22.708176+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -385,14 +385,14 @@
       }
     },
     {
-      "id": "61bb1d28-313e-4b0c-b90a-04f048943ff9",
+      "id": "eb69a653-7aec-4e1b-8a71-d918d522d991",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:31.226579",
-      "target_date": "2025-11-01T04:32:31.226564",
+      "created_at": "2025-10-03T03:08:22.708206",
+      "target_date": "2025-11-02T03:08:22.708197+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -401,14 +401,14 @@
       }
     },
     {
-      "id": "0053ff01-2203-4fc8-a454-229f9f38cdee",
+      "id": "af3d0ee4-4310-4a45-9c03-97fd124725c8",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:31.226603",
-      "target_date": "2025-10-27T04:32:31.226588",
+      "created_at": "2025-10-03T03:08:22.708218",
+      "target_date": "2025-10-28T03:08:22.708210+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -417,14 +417,14 @@
       }
     },
     {
-      "id": "c2bca58a-4021-4564-b0a7-a6af502108c0",
+      "id": "54b32b6f-c153-4ef9-9a9b-356e73770275",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:31.226628",
-      "target_date": "2025-10-20T04:32:31.226614",
+      "created_at": "2025-10-03T03:08:22.708230",
+      "target_date": "2025-10-21T03:08:22.708223+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -433,14 +433,14 @@
       }
     },
     {
-      "id": "7e0567af-7937-417d-ad6c-615f9edc3860",
+      "id": "1b8ece94-bf5f-4bae-a768-e588545f6f5d",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T04:32:31.226653",
-      "target_date": "2025-11-06T04:32:31.226637",
+      "created_at": "2025-10-03T03:08:22.708238",
+      "target_date": "2025-11-07T03:08:22.708232+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -449,14 +449,14 @@
       }
     },
     {
-      "id": "0fd7171d-1218-41f1-a8fa-3ef31b3d98ad",
+      "id": "6062519d-31ac-426f-9446-75dc19fc476a",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:25:36.323147",
-      "target_date": "2025-10-16T05:25:36.322910+00:00",
+      "created_at": "2025-10-03T03:10:17.876184",
+      "target_date": "2025-10-17T03:10:17.876152+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -465,14 +465,14 @@
       }
     },
     {
-      "id": "cfc32ef0-7337-425d-934e-d0fe1520581d",
+      "id": "38ba7281-0b8b-4aac-b1b5-fbd62e795ef5",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:25:36.323287",
-      "target_date": "2025-10-12T05:25:36.323198+00:00",
+      "created_at": "2025-10-03T03:10:17.876205",
+      "target_date": "2025-10-13T03:10:17.876193+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -481,14 +481,14 @@
       }
     },
     {
-      "id": "dae5c5cf-c471-4f76-b292-3a8fd02f55ad",
+      "id": "7d301b05-1e16-4682-9334-48a2cccbd974",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T05:25:36.323480",
-      "target_date": "2025-10-23T05:25:36.323367+00:00",
+      "created_at": "2025-10-03T03:10:17.876218",
+      "target_date": "2025-10-24T03:10:17.876210+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -497,14 +497,14 @@
       }
     },
     {
-      "id": "ae049389-e75b-4d08-a2dc-33b86a74ebe7",
+      "id": "d8fb9c11-ff10-46d0-8b7a-5f689e856f69",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:25:36.323556",
-      "target_date": "2025-11-01T05:25:36.323511+00:00",
+      "created_at": "2025-10-03T03:10:17.876231",
+      "target_date": "2025-11-02T03:10:17.876223+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -513,14 +513,14 @@
       }
     },
     {
-      "id": "ed35856e-6001-4221-9bbd-17dcfb6ef70a",
+      "id": "b5bc71c9-1cfc-471f-8ae9-5227c96ff900",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T05:25:36.323602",
-      "target_date": "2025-10-27T05:25:36.323569+00:00",
+      "created_at": "2025-10-03T03:10:17.876242",
+      "target_date": "2025-10-28T03:10:17.876234+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -529,14 +529,14 @@
       }
     },
     {
-      "id": "0607dc1d-9e29-4715-b98a-5c2cf3fc525d",
+      "id": "74249b15-f7c9-4621-a615-4adc178d4381",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:25:36.323652",
-      "target_date": "2025-10-20T05:25:36.323621+00:00",
+      "created_at": "2025-10-03T03:10:17.876254",
+      "target_date": "2025-10-21T03:10:17.876246+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -545,14 +545,14 @@
       }
     },
     {
-      "id": "d64ee2f5-539f-4cad-8c80-606ec49bd3a8",
+      "id": "57f7fd09-d9bf-4ce8-a880-4350c3fd7445",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T05:25:36.323691",
-      "target_date": "2025-11-06T05:25:36.323660+00:00",
+      "created_at": "2025-10-03T03:10:17.876264",
+      "target_date": "2025-11-07T03:10:17.876257+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -561,14 +561,14 @@
       }
     },
     {
-      "id": "8bab3b8b-90d4-4d3d-8397-59545fdaf23c",
+      "id": "1d950051-ed1b-44fe-8398-0a59f6766170",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:06.694211",
-      "target_date": "2025-10-16T05:30:06.694176+00:00",
+      "created_at": "2025-10-03T03:14:40.382021",
+      "target_date": "2025-10-17T03:14:40.381982+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -577,14 +577,14 @@
       }
     },
     {
-      "id": "9134b291-aa0c-47a1-a347-c2f009c01602",
+      "id": "b391bd6c-4443-454f-9242-dff11d8bd7da",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:06.694233",
-      "target_date": "2025-10-12T05:30:06.694219+00:00",
+      "created_at": "2025-10-03T03:14:40.382042",
+      "target_date": "2025-10-13T03:14:40.382030+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -593,14 +593,14 @@
       }
     },
     {
-      "id": "62b1a9d2-74af-44f9-85eb-bf8d5c7da973",
+      "id": "8c8a6ba4-d770-45b2-aadf-e34fbd2e320f",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:06.694248",
-      "target_date": "2025-10-23T05:30:06.694239+00:00",
+      "created_at": "2025-10-03T03:14:40.382056",
+      "target_date": "2025-10-24T03:14:40.382047+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -609,14 +609,14 @@
       }
     },
     {
-      "id": "341f322a-bc8b-41a1-9fd2-90598192d227",
+      "id": "a5989aa3-eb94-41f6-a4eb-aa919c2a3b29",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:06.694261",
-      "target_date": "2025-11-01T05:30:06.694252+00:00",
+      "created_at": "2025-10-03T03:14:40.382070",
+      "target_date": "2025-11-02T03:14:40.382061+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -625,14 +625,14 @@
       }
     },
     {
-      "id": "afb437dd-849e-44d3-8739-f810c7375ec6",
+      "id": "efc65663-f135-48a9-8676-53d368318c85",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:06.694281",
-      "target_date": "2025-10-27T05:30:06.694267+00:00",
+      "created_at": "2025-10-03T03:14:40.382081",
+      "target_date": "2025-10-28T03:14:40.382073+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -641,14 +641,14 @@
       }
     },
     {
-      "id": "0d913964-debf-4605-bc5f-35f6a24d6957",
+      "id": "d4e64710-70bc-4838-98fa-e801d6dbd5d4",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:06.694306",
-      "target_date": "2025-10-20T05:30:06.694289+00:00",
+      "created_at": "2025-10-03T03:14:40.382092",
+      "target_date": "2025-10-21T03:14:40.382085+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -657,14 +657,14 @@
       }
     },
     {
-      "id": "e525c7ef-9a3a-47a5-8e95-672f1a8b45c8",
+      "id": "76929254-f11f-42ff-b3f5-fecccbab5c09",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:06.694329",
-      "target_date": "2025-11-06T05:30:06.694310+00:00",
+      "created_at": "2025-10-03T03:14:40.382101",
+      "target_date": "2025-11-07T03:14:40.382094+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -673,14 +673,14 @@
       }
     },
     {
-      "id": "97718bd6-7f50-42d9-b4da-5d6c8580fb64",
+      "id": "b89f97c9-866e-485a-ad34-d796969a8e7a",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:13.451391",
-      "target_date": "2025-10-16T05:30:13.451265+00:00",
+      "created_at": "2025-10-03T03:17:21.674505",
+      "target_date": "2025-10-17T03:17:21.674469+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -689,14 +689,14 @@
       }
     },
     {
-      "id": "e6f81814-997e-4454-9ff7-d73fdef6b618",
+      "id": "443c9f44-d8ad-4cf2-8a9d-de8361914840",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:13.451439",
-      "target_date": "2025-10-12T05:30:13.451413+00:00",
+      "created_at": "2025-10-03T03:17:21.674529",
+      "target_date": "2025-10-13T03:17:21.674516+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -705,14 +705,14 @@
       }
     },
     {
-      "id": "d7e86e99-f46f-40a5-a27f-d9cf09b1bea3",
+      "id": "f5f9ee3c-fc57-4840-b054-562172b3dbfd",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:13.451462",
-      "target_date": "2025-10-23T05:30:13.451446+00:00",
+      "created_at": "2025-10-03T03:17:21.674543",
+      "target_date": "2025-10-24T03:17:21.674533+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -721,14 +721,14 @@
       }
     },
     {
-      "id": "fe1feb38-eb94-4fdd-a3fe-d4ff9fb2ee8e",
+      "id": "bbba8285-72c8-4faf-83de-2b64004139be",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:13.451504",
-      "target_date": "2025-11-01T05:30:13.451473+00:00",
+      "created_at": "2025-10-03T03:17:21.674557",
+      "target_date": "2025-11-02T03:17:21.674548+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -737,14 +737,14 @@
       }
     },
     {
-      "id": "f3349384-6aa3-46ad-b38d-edb2dc667530",
+      "id": "f7b30198-ca49-4d37-a8fc-2a63e55cbd2d",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:13.451547",
-      "target_date": "2025-10-27T05:30:13.451514+00:00",
+      "created_at": "2025-10-03T03:17:21.674566",
+      "target_date": "2025-10-28T03:17:21.674559+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -753,14 +753,14 @@
       }
     },
     {
-      "id": "c5d9b393-fb54-4b35-92bf-7b2f5ca01dba",
+      "id": "f0d6c381-ad3b-4274-8bd8-5fed06492e31",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:13.451604",
-      "target_date": "2025-10-20T05:30:13.451562+00:00",
+      "created_at": "2025-10-03T03:17:21.674578",
+      "target_date": "2025-10-21T03:17:21.674570+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -769,14 +769,14 @@
       }
     },
     {
-      "id": "038ac4c2-4b9f-4cf7-98bf-4527b0eb9eff",
+      "id": "f16a3054-3379-4924-bdc1-689b8f7b2cb4",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T05:30:13.451677",
-      "target_date": "2025-11-06T05:30:13.451621+00:00",
+      "created_at": "2025-10-03T03:17:21.674587",
+      "target_date": "2025-11-07T03:17:21.674580+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -785,14 +785,14 @@
       }
     },
     {
-      "id": "6e559620-9cfe-4d8e-b937-2f329a6a378f",
+      "id": "2b646761-8de1-4fc6-a22a-94e7a5b98960",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:02:27.521637",
-      "target_date": "2025-10-16T06:02:27.521466+00:00",
+      "created_at": "2025-10-03T03:17:41.489708",
+      "target_date": "2025-10-17T03:17:41.489675+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -801,14 +801,14 @@
       }
     },
     {
-      "id": "ac9afa1d-e78c-45d7-a540-90822da2d93c",
+      "id": "67f8822a-f811-4963-9249-262893cc3f33",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:02:27.521750",
-      "target_date": "2025-10-12T06:02:27.521682+00:00",
+      "created_at": "2025-10-03T03:17:41.489729",
+      "target_date": "2025-10-13T03:17:41.489717+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -817,14 +817,14 @@
       }
     },
     {
-      "id": "c8a55bda-9389-43b4-9709-4948991e4774",
+      "id": "0b9aab93-827a-485f-803d-9dd6c4c87b46",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T06:02:27.521812",
-      "target_date": "2025-10-23T06:02:27.521769+00:00",
+      "created_at": "2025-10-03T03:17:41.489743",
+      "target_date": "2025-10-24T03:17:41.489734+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -833,14 +833,14 @@
       }
     },
     {
-      "id": "f9b7f488-a906-40a3-b8ea-ecee407bc5b7",
+      "id": "06fcf050-d07f-40c4-98d6-bad8bac57fe4",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:02:27.521872",
-      "target_date": "2025-11-01T06:02:27.521836+00:00",
+      "created_at": "2025-10-03T03:17:41.489757",
+      "target_date": "2025-11-02T03:17:41.489747+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -849,14 +849,14 @@
       }
     },
     {
-      "id": "70ad973e-8a2c-419b-be22-c86bd70b4975",
+      "id": "62fd6639-074a-4a48-9718-1e49edadf36d",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T06:02:27.521915",
-      "target_date": "2025-10-27T06:02:27.521884+00:00",
+      "created_at": "2025-10-03T03:17:41.489768",
+      "target_date": "2025-10-28T03:17:41.489760+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -865,14 +865,14 @@
       }
     },
     {
-      "id": "9140fe89-8aab-47a6-a4a5-a9f863da936b",
+      "id": "bd6be523-741d-4736-8e91-ac41f3928614",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:02:27.521966",
-      "target_date": "2025-10-20T06:02:27.521934+00:00",
+      "created_at": "2025-10-03T03:17:41.489779",
+      "target_date": "2025-10-21T03:17:41.489772+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -881,14 +881,14 @@
       }
     },
     {
-      "id": "4b6f9866-b9a0-479c-834f-e77a21599e90",
+      "id": "359703ac-8d9f-4f87-bf1a-52f625e6b71d",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T06:02:27.522013",
-      "target_date": "2025-11-06T06:02:27.521976+00:00",
+      "created_at": "2025-10-03T03:17:41.489789",
+      "target_date": "2025-11-07T03:17:41.489782+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -897,14 +897,14 @@
       }
     },
     {
-      "id": "aa409e93-3513-419e-b5c3-c479186138f6",
+      "id": "e5e35ab3-effb-4f63-a333-fa88d82038b7",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:15.281299",
-      "target_date": "2025-10-16T06:13:15.281260+00:00",
+      "created_at": "2025-10-03T03:25:20.548611",
+      "target_date": "2025-10-17T03:25:20.548568+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -913,14 +913,14 @@
       }
     },
     {
-      "id": "421e3f72-3f01-48c5-94d0-4a05af7e4f7b",
+      "id": "62710a62-491b-4857-ad1a-f484172b40c1",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:15.281331",
-      "target_date": "2025-10-12T06:13:15.281312+00:00",
+      "created_at": "2025-10-03T03:25:20.548633",
+      "target_date": "2025-10-13T03:25:20.548621+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -929,14 +929,14 @@
       }
     },
     {
-      "id": "c9025e5a-b40e-4c55-bb8e-e04f3dce1d85",
+      "id": "847c0a5c-82a8-4b72-bfe5-3e2e269fc7da",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:15.281352",
-      "target_date": "2025-10-23T06:13:15.281339+00:00",
+      "created_at": "2025-10-03T03:25:20.548647",
+      "target_date": "2025-10-24T03:25:20.548637+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -945,14 +945,14 @@
       }
     },
     {
-      "id": "eba63d46-d60f-4ba9-9b2f-08b8a2749e13",
+      "id": "56ea7e28-1153-44f9-be38-3716a0598368",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:15.281375",
-      "target_date": "2025-11-01T06:13:15.281359+00:00",
+      "created_at": "2025-10-03T03:25:20.548659",
+      "target_date": "2025-11-02T03:25:20.548650+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -961,14 +961,14 @@
       }
     },
     {
-      "id": "4e59d0c1-ff7e-41ce-9357-5d6bd711d247",
+      "id": "143d1a2d-db95-43e1-bd7f-649d1f08115a",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:15.281395",
-      "target_date": "2025-10-27T06:13:15.281382+00:00",
+      "created_at": "2025-10-03T03:25:20.548669",
+      "target_date": "2025-10-28T03:25:20.548661+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -977,14 +977,14 @@
       }
     },
     {
-      "id": "18b82ce6-04c9-4a6f-8fe8-18453c74a368",
+      "id": "a64e5d12-7361-4b68-962c-17f350753d24",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:15.281423",
-      "target_date": "2025-10-20T06:13:15.281403+00:00",
+      "created_at": "2025-10-03T03:25:20.548681",
+      "target_date": "2025-10-21T03:25:20.548673+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -993,14 +993,14 @@
       }
     },
     {
-      "id": "265996fe-66b9-479f-aeeb-4de806e58064",
+      "id": "351b23c7-9b4b-4c4f-99c5-96d03838589a",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:15.281485",
-      "target_date": "2025-11-06T06:13:15.281454+00:00",
+      "created_at": "2025-10-03T03:25:20.548691",
+      "target_date": "2025-11-07T03:25:20.548684+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1009,14 +1009,14 @@
       }
     },
     {
-      "id": "0dd871e2-a517-4a8f-8f4b-27f6d911444a",
+      "id": "2c8e7f66-55fe-457b-9df7-e35cb169ac41",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:22.296797",
-      "target_date": "2025-10-16T06:13:22.296650+00:00",
+      "created_at": "2025-10-03T03:34:27.811255",
+      "target_date": "2025-10-17T03:34:27.811227+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1025,14 +1025,14 @@
       }
     },
     {
-      "id": "556f6f03-1240-4390-bc68-5aba0d074308",
+      "id": "ef580369-d4d1-4380-8a08-f3a81186ca24",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:22.296885",
-      "target_date": "2025-10-12T06:13:22.296826+00:00",
+      "created_at": "2025-10-03T03:34:27.811274",
+      "target_date": "2025-10-13T03:34:27.811263+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1041,14 +1041,14 @@
       }
     },
     {
-      "id": "5722836b-b5e7-4e69-9aca-a8a17c7eeda2",
+      "id": "cb8ee882-7f73-47dc-a37e-c97c6c5aed67",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:22.296935",
-      "target_date": "2025-10-23T06:13:22.296902+00:00",
+      "created_at": "2025-10-03T03:34:27.811285",
+      "target_date": "2025-10-24T03:34:27.811278+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1057,14 +1057,14 @@
       }
     },
     {
-      "id": "91803537-cbfa-42ad-9533-a4b40fda9161",
+      "id": "decfbce3-4a1d-4060-8128-edf9e303a85c",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:22.296984",
-      "target_date": "2025-11-01T06:13:22.296952+00:00",
+      "created_at": "2025-10-03T03:34:27.811296",
+      "target_date": "2025-11-02T03:34:27.811289+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1073,14 +1073,14 @@
       }
     },
     {
-      "id": "65facfbe-091a-4c55-9e54-b4b74745ad93",
+      "id": "5cbb449b-2cd9-42a3-b244-456b88a683f5",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:22.297023",
-      "target_date": "2025-10-27T06:13:22.296995+00:00",
+      "created_at": "2025-10-03T03:34:27.811305",
+      "target_date": "2025-10-28T03:34:27.811298+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1089,14 +1089,14 @@
       }
     },
     {
-      "id": "ec6c1f1a-64df-41bc-99ca-445c86ded691",
+      "id": "0fe75173-ff77-4e40-a938-56af4611757c",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:22.297066",
-      "target_date": "2025-10-20T06:13:22.297038+00:00",
+      "created_at": "2025-10-03T03:34:27.811316",
+      "target_date": "2025-10-21T03:34:27.811308+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1105,14 +1105,14 @@
       }
     },
     {
-      "id": "24948b4c-3b45-4e1b-a3ca-78640d501fd5",
+      "id": "84758617-247c-472d-a7d3-093bd3575bed",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T06:13:22.297100",
-      "target_date": "2025-11-06T06:13:22.297075+00:00",
+      "created_at": "2025-10-03T03:34:27.811325",
+      "target_date": "2025-11-07T03:34:27.811318+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1121,14 +1121,14 @@
       }
     },
     {
-      "id": "090339a6-edac-4a38-aa37-b0a3ad218763",
+      "id": "6cb857bc-29dc-4ea3-a4a3-19302f26073a",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:08:19.984482",
-      "target_date": "2025-10-16T07:08:19.984391+00:00",
+      "created_at": "2025-10-03T03:34:36.081994",
+      "target_date": "2025-10-17T03:34:36.081862+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1137,14 +1137,14 @@
       }
     },
     {
-      "id": "798bfd12-dad4-4dd9-849e-74cb25f3d6fb",
+      "id": "acf2d338-e4b2-4c54-a51e-121317b3fd8a",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:08:19.984522",
-      "target_date": "2025-10-12T07:08:19.984502+00:00",
+      "created_at": "2025-10-03T03:34:36.082050",
+      "target_date": "2025-10-13T03:34:36.082024+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1153,14 +1153,14 @@
       }
     },
     {
-      "id": "c8f3f47e-403d-4248-804b-63724adc9046",
+      "id": "a64527f7-351d-4efc-87d6-7a369aabfe97",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:08:19.984549",
-      "target_date": "2025-10-23T07:08:19.984532+00:00",
+      "created_at": "2025-10-03T03:34:36.082075",
+      "target_date": "2025-10-24T03:34:36.082057+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1169,14 +1169,14 @@
       }
     },
     {
-      "id": "aeb051a3-ad81-40da-85e1-8ddd10850ae7",
+      "id": "5f7f5ae9-3f2b-40cb-ac47-9723380ad03e",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:08:19.984561",
-      "target_date": "2025-11-01T07:08:19.984553+00:00",
+      "created_at": "2025-10-03T03:34:36.082121",
+      "target_date": "2025-11-02T03:34:36.082089+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1185,14 +1185,14 @@
       }
     },
     {
-      "id": "059e8e70-d9d2-4d60-822f-f14aa5b87d0d",
+      "id": "5f837d90-270b-4bbb-8a38-26007d59d27e",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:08:19.984572",
-      "target_date": "2025-10-27T07:08:19.984565+00:00",
+      "created_at": "2025-10-03T03:34:36.082159",
+      "target_date": "2025-10-28T03:34:36.082130+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1201,14 +1201,14 @@
       }
     },
     {
-      "id": "7ebb1b82-893f-479c-8e5d-06365581aafd",
+      "id": "11cb8090-bb57-45de-bd63-34f5afeb114c",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:08:19.984588",
-      "target_date": "2025-10-20T07:08:19.984580+00:00",
+      "created_at": "2025-10-03T03:34:36.082206",
+      "target_date": "2025-10-21T03:34:36.082174+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1217,14 +1217,14 @@
       }
     },
     {
-      "id": "537f3f7d-ebc3-4a09-8d8c-6157edf1eff5",
+      "id": "6c0023ed-62d8-4f56-8391-f0eb0b70193e",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:08:19.984600",
-      "target_date": "2025-11-06T07:08:19.984592+00:00",
+      "created_at": "2025-10-03T03:34:36.082240",
+      "target_date": "2025-11-07T03:34:36.082214+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1233,14 +1233,14 @@
       }
     },
     {
-      "id": "0b850663-b4f3-4bd4-89c6-d4288149e969",
+      "id": "0d11b161-cb9e-4a5c-a898-804f2c12a7be",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:09:47.084215",
-      "target_date": "2025-10-16T07:09:47.084165+00:00",
+      "created_at": "2025-10-03T04:00:59.264725",
+      "target_date": "2025-10-17T04:00:59.264688+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1249,14 +1249,14 @@
       }
     },
     {
-      "id": "d9885071-4788-49a8-9cf3-e73617355750",
+      "id": "a972a0fd-c75d-462f-bcd1-f77c1dfef345",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:09:47.084247",
-      "target_date": "2025-10-12T07:09:47.084227+00:00",
+      "created_at": "2025-10-03T04:00:59.265060",
+      "target_date": "2025-10-13T04:00:59.265029+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1265,14 +1265,14 @@
       }
     },
     {
-      "id": "fe095bf2-57c4-49fc-ab76-b5f7ce9163ed",
+      "id": "82d697c7-d5c8-4631-aa7c-0761738e49c3",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:09:47.084268",
-      "target_date": "2025-10-23T07:09:47.084254+00:00",
+      "created_at": "2025-10-03T04:00:59.265259",
+      "target_date": "2025-10-24T04:00:59.265233+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1281,14 +1281,14 @@
       }
     },
     {
-      "id": "059cc613-72d1-4a72-83d4-e9b5b3d24365",
+      "id": "3bc6672d-2fcb-4e83-80d5-d9f998bbf45b",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:09:47.084288",
-      "target_date": "2025-11-01T07:09:47.084275+00:00",
+      "created_at": "2025-10-03T04:00:59.265521",
+      "target_date": "2025-11-02T04:00:59.265486+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1297,14 +1297,14 @@
       }
     },
     {
-      "id": "62696d11-35ce-4299-b16b-149da46d2fc3",
+      "id": "577bcd29-4bb8-4223-a2f1-d9ec669992fc",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:09:47.084305",
-      "target_date": "2025-10-27T07:09:47.084293+00:00",
+      "created_at": "2025-10-03T04:00:59.265781",
+      "target_date": "2025-10-28T04:00:59.265739+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1313,14 +1313,14 @@
       }
     },
     {
-      "id": "c874156c-4215-42b3-8d77-5b41c3c3ecb0",
+      "id": "5e4feb0c-1a92-4344-b5ef-95547bd4eee0",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:09:47.084323",
-      "target_date": "2025-10-20T07:09:47.084312+00:00",
+      "created_at": "2025-10-03T04:00:59.266084",
+      "target_date": "2025-10-21T04:00:59.266050+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1329,14 +1329,14 @@
       }
     },
     {
-      "id": "46bd5ebd-f95c-4ec5-bf79-d4b6210f5179",
+      "id": "4cf7a00f-ac97-4028-9b5b-1f73d2501bea",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:09:47.084337",
-      "target_date": "2025-11-06T07:09:47.084327+00:00",
+      "created_at": "2025-10-03T04:00:59.266383",
+      "target_date": "2025-11-07T04:00:59.266333+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1345,14 +1345,14 @@
       }
     },
     {
-      "id": "8f027a92-0698-4f90-b9c1-93dcae3ad805",
+      "id": "7b81c59a-c769-4e94-8700-d463c8b4e490",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:15:41.758805",
-      "target_date": "2025-10-16T07:15:41.758739+00:00",
+      "created_at": "2025-10-03T04:32:45.546555",
+      "target_date": "2025-10-17T04:32:45.546501+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1361,14 +1361,14 @@
       }
     },
     {
-      "id": "44d49661-eec7-43a2-a1d0-1f2957292da7",
+      "id": "b906f5e2-2e7f-48b5-9849-600a89e8a48a",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:15:41.758835",
-      "target_date": "2025-10-12T07:15:41.758815+00:00",
+      "created_at": "2025-10-03T04:32:45.547094",
+      "target_date": "2025-10-13T04:32:45.547039+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1377,14 +1377,14 @@
       }
     },
     {
-      "id": "ee69462c-4714-4839-961d-4be6d0cd7bdc",
+      "id": "60028883-bb3d-4f4f-ac35-51904e6a1a1a",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:15:41.758860",
-      "target_date": "2025-10-23T07:15:41.758849+00:00",
+      "created_at": "2025-10-03T04:32:45.547502",
+      "target_date": "2025-10-24T04:32:45.547434+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1393,14 +1393,14 @@
       }
     },
     {
-      "id": "e3c2c6d9-ef9d-48e8-995a-6c9584fdf0ae",
+      "id": "f3914b8e-35e6-4803-8015-ae6d25564f60",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:15:41.758874",
-      "target_date": "2025-11-01T07:15:41.758865+00:00",
+      "created_at": "2025-10-03T04:32:45.548117",
+      "target_date": "2025-11-02T04:32:45.548020+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1409,14 +1409,14 @@
       }
     },
     {
-      "id": "d274974e-c677-4688-aede-6c3a3da9ea00",
+      "id": "d8b01df1-9965-4ecb-8c09-8a4ad7e6b112",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:15:41.758885",
-      "target_date": "2025-10-27T07:15:41.758877+00:00",
+      "created_at": "2025-10-03T04:32:45.548600",
+      "target_date": "2025-10-28T04:32:45.548496+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1425,14 +1425,14 @@
       }
     },
     {
-      "id": "fbb95932-d000-4a71-b70f-8c9c6146c4bb",
+      "id": "9fa84434-df50-4e96-8a7f-ed71eb3e869e",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:15:41.758898",
-      "target_date": "2025-10-20T07:15:41.758890+00:00",
+      "created_at": "2025-10-03T04:32:45.549032",
+      "target_date": "2025-10-21T04:32:45.548977+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1441,14 +1441,14 @@
       }
     },
     {
-      "id": "8205e74d-6ec9-4a6f-8dda-167fe320ba36",
+      "id": "c68f84e3-9b45-4b17-8a9c-570cee9e19bd",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:15:41.758908",
-      "target_date": "2025-11-06T07:15:41.758901+00:00",
+      "created_at": "2025-10-03T04:32:45.549895",
+      "target_date": "2025-11-07T04:32:45.549846+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1457,14 +1457,14 @@
       }
     },
     {
-      "id": "6de6ae5a-1447-4674-932d-9020dbe774e4",
+      "id": "32a7e3ab-2280-4ffa-a24d-52a021d25710",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:16:09.644245",
-      "target_date": "2025-10-16T07:16:09.644204+00:00",
+      "created_at": "2025-10-03T04:56:11.074747",
+      "target_date": "2025-10-17T04:56:11.074693+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1473,14 +1473,14 @@
       }
     },
     {
-      "id": "9e06f37d-3cc5-4720-a717-87a96eee531f",
+      "id": "0f1c7a25-d9d7-492d-bcf5-0e00593ee8f1",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:16:09.644270",
-      "target_date": "2025-10-12T07:16:09.644254+00:00",
+      "created_at": "2025-10-03T04:56:11.075406",
+      "target_date": "2025-10-13T04:56:11.075357+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1489,14 +1489,14 @@
       }
     },
     {
-      "id": "481b6ac6-5c3f-4c96-a6d4-d4a83e1ba299",
+      "id": "81f97c65-2220-4323-8bfc-e618cd155d64",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:16:09.644285",
-      "target_date": "2025-10-23T07:16:09.644275+00:00",
+      "created_at": "2025-10-03T04:56:11.076085",
+      "target_date": "2025-10-24T04:56:11.076047+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1505,14 +1505,14 @@
       }
     },
     {
-      "id": "b4b472d0-8d88-4279-9081-06aca0e0c3a2",
+      "id": "a1a71873-69d8-410d-a2d8-0ba93d245568",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:16:09.644300",
-      "target_date": "2025-11-01T07:16:09.644291+00:00",
+      "created_at": "2025-10-03T04:56:11.076627",
+      "target_date": "2025-11-02T04:56:11.076593+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1521,14 +1521,14 @@
       }
     },
     {
-      "id": "618d146c-7930-46a1-9da3-3588f2250aa5",
+      "id": "4d3a5041-51d5-47ce-b80e-f95f9e1dccfd",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:16:09.644313",
-      "target_date": "2025-10-27T07:16:09.644303+00:00",
+      "created_at": "2025-10-03T04:56:11.077032",
+      "target_date": "2025-10-28T04:56:11.076984+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1537,14 +1537,14 @@
       }
     },
     {
-      "id": "474c0314-57e9-4f58-88fa-a52ca47c2401",
+      "id": "c02428a3-9564-4534-becf-561d65b31e01",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:16:09.644328",
-      "target_date": "2025-10-20T07:16:09.644318+00:00",
+      "created_at": "2025-10-03T04:56:11.077469",
+      "target_date": "2025-10-21T04:56:11.077427+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1553,14 +1553,14 @@
       }
     },
     {
-      "id": "c52cfeb6-55cd-4d51-9092-09234d631088",
+      "id": "9855c650-83e9-4228-81de-140aca87567c",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:16:09.644345",
-      "target_date": "2025-11-06T07:16:09.644332+00:00",
+      "created_at": "2025-10-03T04:56:11.077815",
+      "target_date": "2025-11-07T04:56:11.077765+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1569,14 +1569,14 @@
       }
     },
     {
-      "id": "d69ff9c8-a886-4a09-80b0-e90006f731dc",
+      "id": "d557eb81-57f5-434a-818e-e3518f514450",
       "title": "Increase Improvement Generation Rate",
       "description": "Improve the rate of identifying and implementing system improvements",
       "category": "performance",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:22:50.812811",
-      "target_date": "2025-10-16T07:22:50.812640+00:00",
+      "created_at": "2025-10-03T05:13:24.850234",
+      "target_date": "2025-10-17T05:13:24.850189+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1585,14 +1585,14 @@
       }
     },
     {
-      "id": "c074284c-7391-4513-9af5-24cebb010102",
+      "id": "8b4b891e-948f-47c0-b0c0-1fae5459cfb4",
       "title": "Improve Success Rate of Implementations",
       "description": "Increase the success rate of proposed improvements",
       "category": "quality",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:22:50.812932",
-      "target_date": "2025-10-12T07:22:50.812851+00:00",
+      "created_at": "2025-10-03T05:13:24.850832",
+      "target_date": "2025-10-13T05:13:24.850749+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1601,14 +1601,14 @@
       }
     },
     {
-      "id": "482c19d9-572b-4b1e-826f-26d54678d813",
+      "id": "c131085e-6bbe-476c-9723-eb59e2f85594",
       "title": "Optimize Implementation Efficiency",
       "description": "Improve the efficiency of improvement implementations",
       "category": "efficiency",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:22:50.813006",
-      "target_date": "2025-10-23T07:22:50.812956+00:00",
+      "created_at": "2025-10-03T05:13:24.851302",
+      "target_date": "2025-10-24T05:13:24.851256+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1617,14 +1617,14 @@
       }
     },
     {
-      "id": "70783701-f5ee-4986-bece-7e7115a753a4",
+      "id": "dd6010e7-7285-4b98-8e8a-8aa26380d1ac",
       "title": "Enhance Memory Integration",
       "description": "Improve the connection between different memory systems",
       "category": "capability",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:22:50.813043",
-      "target_date": "2025-11-01T07:22:50.813021+00:00",
+      "created_at": "2025-10-03T05:13:24.851584",
+      "target_date": "2025-11-02T05:13:24.851530+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1633,14 +1633,14 @@
       }
     },
     {
-      "id": "d747c665-f6fe-4c17-a7ef-c9d371d2dfbd",
+      "id": "cda87b06-b0ac-466c-88f9-bb4b8f057553",
       "title": "Improve Emotional Reasoning",
       "description": "Enhance the connection between emotional state and decision-making",
       "category": "capability",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:22:50.813068",
-      "target_date": "2025-10-27T07:22:50.813050+00:00",
+      "created_at": "2025-10-03T05:13:24.851840",
+      "target_date": "2025-10-28T05:13:24.851794+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1649,14 +1649,14 @@
       }
     },
     {
-      "id": "fe6ba642-e6fc-4abc-b594-9abdb34dff42",
+      "id": "5774c45f-2dea-4572-8332-df728238dbbd",
       "title": "Improve Learning Rate",
       "description": "Enhance the system's ability to learn from experiences and experiments",
       "category": "learning",
       "priority": "high",
       "status": "pending",
-      "created_at": "2025-10-02T07:22:50.813104",
-      "target_date": "2025-10-20T07:22:50.813082+00:00",
+      "created_at": "2025-10-03T05:13:24.852161",
+      "target_date": "2025-10-21T05:13:24.852123+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -1665,2030 +1665,14 @@
       }
     },
     {
-      "id": "b5923c92-5453-47f2-8786-6a34a7d9012e",
+      "id": "01c57100-8b53-4025-b5cd-f30fa02d45b2",
       "title": "Enhance Knowledge Integration",
       "description": "Improve the system's ability to connect new knowledge with existing knowledge",
       "category": "learning",
       "priority": "medium",
       "status": "pending",
-      "created_at": "2025-10-02T07:22:50.813137",
-      "target_date": "2025-11-06T07:22:50.813112+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "cd3c3eb9-591f-4dcb-994d-400802b93795",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:20.555791",
-      "target_date": "2025-10-16T07:30:20.555761+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "31bb6492-b78f-4cb3-b0e9-78bfdc499f15",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:20.555810",
-      "target_date": "2025-10-12T07:30:20.555800+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "55cf7f2b-2dcb-4bd2-9e87-4decb58ff3e8",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:20.555824",
-      "target_date": "2025-10-23T07:30:20.555814+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "60e558aa-e965-45da-abff-f8a55a21f2b4",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:20.555843",
-      "target_date": "2025-11-01T07:30:20.555829+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "cf317eaf-4b5f-4824-a63b-b752b9e55366",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:20.555860",
-      "target_date": "2025-10-27T07:30:20.555847+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "ec790ce0-c827-46de-a8cc-419b4d3ce1e4",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:20.555878",
-      "target_date": "2025-10-20T07:30:20.555866+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "558e9052-6a4c-4b97-b8ec-9246c14a97a5",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:20.555888",
-      "target_date": "2025-11-06T07:30:20.555881+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "8938e3b6-47aa-4a92-8594-f2aa8f246b8e",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:27.048452",
-      "target_date": "2025-10-16T07:30:27.048409+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "82ffb79f-aa36-4223-9af6-11fb1f3c6144",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:27.048475",
-      "target_date": "2025-10-12T07:30:27.048461+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "a2cc9d43-9dba-492e-ad65-c6c4fc572984",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:27.048492",
-      "target_date": "2025-10-23T07:30:27.048481+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "72f4fae7-13d5-4edf-8293-d5f49ac5299c",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:27.048506",
-      "target_date": "2025-11-01T07:30:27.048496+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "5f4ad041-b742-452c-b95a-7d9cdbdb977f",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:27.048517",
-      "target_date": "2025-10-27T07:30:27.048509+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "90165765-ec64-4eb6-9102-8a2744f8ec0c",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:27.048529",
-      "target_date": "2025-10-20T07:30:27.048521+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "055b0eac-1bdc-4a8d-bf88-0db473b44536",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T07:30:27.048540",
-      "target_date": "2025-11-06T07:30:27.048532+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "99a521c9-086d-4f2d-9c98-d182e3af2deb",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:32:40.729569",
-      "target_date": "2025-10-16T08:32:40.729521+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "66bdabfc-6b1f-4476-b74b-dc62ab57aeb2",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:32:40.729599",
-      "target_date": "2025-10-12T08:32:40.729584+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "d80fb15b-22f8-466c-b12a-4219fc6d4fe2",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:32:40.729616",
-      "target_date": "2025-10-23T08:32:40.729606+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "fd25425d-cbda-42b7-adfb-b6a821e4ae9c",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:32:40.729631",
-      "target_date": "2025-11-01T08:32:40.729621+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "3800c66a-b239-4d24-bd28-8097825f23a5",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:32:40.729643",
-      "target_date": "2025-10-27T08:32:40.729634+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "e50c2e7c-f7f0-40e5-af88-5a6e7544a217",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:32:40.729657",
-      "target_date": "2025-10-20T08:32:40.729649+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "a89affec-5135-4791-a6f0-4af1641928b1",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:32:40.729669",
-      "target_date": "2025-11-06T08:32:40.729660+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "82574449-95bc-4e5f-89f8-650ea9dd4755",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:33:11.382023",
-      "target_date": "2025-10-16T08:33:11.381990+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "811e88b1-3bb0-4771-9c76-5fc2ddba9cd6",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:33:11.382043",
-      "target_date": "2025-10-12T08:33:11.382032+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "1ea4f038-26fc-4a2c-95c8-2651bedc6b18",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:33:11.382055",
-      "target_date": "2025-10-23T08:33:11.382047+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "87bf5477-3c80-4b16-982f-456b484d7069",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:33:11.382067",
-      "target_date": "2025-11-01T08:33:11.382059+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "00d802fb-a621-4ac9-8ed7-9f020525d3e4",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:33:11.382078",
-      "target_date": "2025-10-27T08:33:11.382069+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "d583bc12-e9f5-433c-8d3b-ac190c39b873",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:33:11.382090",
-      "target_date": "2025-10-20T08:33:11.382082+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "1f7a0385-5b15-4058-a076-ead3037d51e3",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:33:11.382101",
-      "target_date": "2025-11-06T08:33:11.382092+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "f0b3c81e-07e2-4766-b343-30af1cbd758f",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:18.212165",
-      "target_date": "2025-10-16T08:37:18.212133+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "a157a13b-d5ea-4256-a563-d02d7d5ec9e8",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:18.212182",
-      "target_date": "2025-10-12T08:37:18.212173+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "f2f3a344-47bf-4ed8-a6df-090d8cb87764",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:18.212194",
-      "target_date": "2025-10-23T08:37:18.212188+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "5fab5478-bb7a-4a75-8f73-cf9066d82e73",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:18.212203",
-      "target_date": "2025-11-01T08:37:18.212197+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "a8d0d403-d368-492d-a5d1-0138dae4cb3a",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:18.212212",
-      "target_date": "2025-10-27T08:37:18.212205+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "a60e2415-0871-41ae-bbbc-46a79a4dc503",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:18.212222",
-      "target_date": "2025-10-20T08:37:18.212216+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "d79c083e-1384-42d1-930d-0cd811c808d1",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:18.212229",
-      "target_date": "2025-11-06T08:37:18.212224+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "04961fee-c98f-48bb-b4a3-1095a7078f79",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:31.206720",
-      "target_date": "2025-10-16T08:37:31.206687+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "9399775a-b6b3-433e-9ce3-2119962d1562",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:31.206740",
-      "target_date": "2025-10-12T08:37:31.206728+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "0c6e295a-32cb-429f-ae15-dd3bff01c6de",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:31.206752",
-      "target_date": "2025-10-23T08:37:31.206743+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "43fcabc8-6325-444d-9970-3e585cae11e2",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:31.206766",
-      "target_date": "2025-11-01T08:37:31.206756+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "ecf2b157-4651-4da2-9659-0a938a8047c1",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:31.206778",
-      "target_date": "2025-10-27T08:37:31.206768+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "5d298992-2dfd-457c-8b51-93d8ad6fabcb",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:31.206790",
-      "target_date": "2025-10-20T08:37:31.206782+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "cc01996b-c1ab-4bd4-8fd2-1dc0b4e9a82a",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:31.206800",
-      "target_date": "2025-11-06T08:37:31.206792+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "64c8a25f-e69d-4495-9d51-b0cf494c8ec8",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:47.372130",
-      "target_date": "2025-10-16T08:37:47.372105+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "f0621bdb-1b2a-4563-a7a4-99649ce8d6c0",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:47.372145",
-      "target_date": "2025-10-12T08:37:47.372136+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "54602a92-3015-4dc0-96f5-487d035cc6c4",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:47.372154",
-      "target_date": "2025-10-23T08:37:47.372147+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "812e40f6-fec7-43d2-bde4-41b1754be476",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:47.372162",
-      "target_date": "2025-11-01T08:37:47.372156+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "1a75ca61-5333-4271-9f26-f7f4dca7adf4",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:47.372171",
-      "target_date": "2025-10-27T08:37:47.372164+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "2d836c98-145a-4b3e-8ef4-5a8a3a3ccaee",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:47.372179",
-      "target_date": "2025-10-20T08:37:47.372174+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "49243da1-2307-425d-b57f-49f2be75c871",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:37:47.372186",
-      "target_date": "2025-11-06T08:37:47.372181+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "ff3b4f64-87b0-4147-a9ba-ebc15d5907a4",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:43:36.311744",
-      "target_date": "2025-10-16T08:43:36.311646+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "da300066-d197-4d3f-b39b-e076f1808b4d",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:43:36.311836",
-      "target_date": "2025-10-12T08:43:36.311773+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "500cab1b-dbd4-4811-9bef-362046c7222b",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:43:36.311909",
-      "target_date": "2025-10-23T08:43:36.311856+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "4b9e4a8d-8aa6-46ca-a012-3778000e867b",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:43:36.311982",
-      "target_date": "2025-11-01T08:43:36.311933+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "d3118022-b719-4b0b-94f8-6a4de29b9e00",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:43:36.312021",
-      "target_date": "2025-10-27T08:43:36.311993+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "d8b5170c-c346-42a5-a616-55fcb272cdc5",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:43:36.312067",
-      "target_date": "2025-10-20T08:43:36.312040+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "bcb50d10-de16-4715-8860-80511b3b2ef7",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:43:36.312097",
-      "target_date": "2025-11-06T08:43:36.312075+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "07a9fcdd-20de-4a78-bfdc-22ba0b5d4ca4",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:07.764206",
-      "target_date": "2025-10-16T08:51:07.764172+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "0560790e-1c2b-46eb-885b-955a109ae6d9",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:07.764225",
-      "target_date": "2025-10-12T08:51:07.764215+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "f9e5bd2d-ff41-4e28-8582-911b1d036658",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:07.764236",
-      "target_date": "2025-10-23T08:51:07.764229+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "698869bb-a8fa-4120-baeb-2ad6231b9f0d",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:07.764250",
-      "target_date": "2025-11-01T08:51:07.764240+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "58fdd6c5-ef7a-44e1-bc43-2ece7d97459a",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:07.764267",
-      "target_date": "2025-10-27T08:51:07.764254+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "9131d18b-eddc-41db-9b3e-6c74726601ea",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:07.764284",
-      "target_date": "2025-10-20T08:51:07.764274+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "f9a1dc67-d5cb-4608-a711-54193c051633",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:07.764292",
-      "target_date": "2025-11-06T08:51:07.764286+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "150c6aa2-b30b-4c2d-871a-00956c98b1a5",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:14.127112",
-      "target_date": "2025-10-16T08:51:14.126937+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "7e88b255-fe36-4563-9f1e-ddb09d79a96f",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:14.127258",
-      "target_date": "2025-10-12T08:51:14.127159+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "5df0c818-dd93-4e05-82a3-491015eba0c9",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:14.127357",
-      "target_date": "2025-10-23T08:51:14.127291+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "7d1ac068-ad6b-4b9b-93e5-18a0a7ae2696",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:14.127732",
-      "target_date": "2025-11-01T08:51:14.127413+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "84cd5944-cf36-486c-bfbf-7ca498af6bce",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:14.127839",
-      "target_date": "2025-10-27T08:51:14.127762+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "2ab8a06d-7d14-4fd6-b319-cc4b73b05ed5",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:14.127937",
-      "target_date": "2025-10-20T08:51:14.127875+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "a9cb186a-4142-4a13-9f3c-a71bc8ae4f03",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T08:51:14.127998",
-      "target_date": "2025-11-06T08:51:14.127952+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "1be91626-431d-456b-8525-4fafcef422a0",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:15:57.061237",
-      "target_date": "2025-10-16T09:15:57.061195+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "bbd14049-517f-4612-9417-e66c9f07278b",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:15:57.061265",
-      "target_date": "2025-10-12T09:15:57.061251+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "76f6aa54-c2bd-4463-9bed-96f4da5704db",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:15:57.061281",
-      "target_date": "2025-10-23T09:15:57.061271+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "1766b0df-e201-453e-8f5d-8adfa0ef542a",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:15:57.061294",
-      "target_date": "2025-11-01T09:15:57.061285+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "8f06178c-3f33-456f-bcff-fcbce6c079a7",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:15:57.061304",
-      "target_date": "2025-10-27T09:15:57.061297+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "99b10236-dd2f-4bc5-a7b0-bbe81e3c4e2b",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:15:57.061316",
-      "target_date": "2025-10-20T09:15:57.061308+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "ab63ffb5-6711-4796-ae1d-9434c5f660eb",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:15:57.061330",
-      "target_date": "2025-11-06T09:15:57.061319+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "6e10e16b-503f-4c7f-b71e-505d0adb630c",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:16:26.988507",
-      "target_date": "2025-10-16T09:16:26.988481+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "030194a4-b3a0-4064-8e25-76f5f35b1523",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:16:26.988522",
-      "target_date": "2025-10-12T09:16:26.988514+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "e56f0648-7ffc-4ac0-81f3-b25050416a11",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:16:26.988532",
-      "target_date": "2025-10-23T09:16:26.988526+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "5a100dd7-85e6-4bce-a334-140432653218",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:16:26.988541",
-      "target_date": "2025-11-01T09:16:26.988535+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "2e0573df-7d10-45f8-881c-d36074bcbfe0",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:16:26.988549",
-      "target_date": "2025-10-27T09:16:26.988543+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "16886e15-971a-4162-8212-272a3a03a5d9",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:16:26.988558",
-      "target_date": "2025-10-20T09:16:26.988553+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "6b6174d9-62af-4792-bd9e-51a7b2c3bd68",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:16:26.988565",
-      "target_date": "2025-11-06T09:16:26.988560+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "8992ba36-4489-4f7c-b36b-e88f348e0828",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:20:45.005500",
-      "target_date": "2025-10-16T09:20:45.005470+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "8a74cece-2117-497e-ae53-5c77918f0e9d",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:20:45.005518",
-      "target_date": "2025-10-12T09:20:45.005508+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "f4881873-56ae-4d64-90a2-83037c550ac1",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:20:45.005528",
-      "target_date": "2025-10-23T09:20:45.005521+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "1a29d02d-0d3d-4ff6-99e5-15b4c7fd9e8b",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:20:45.005538",
-      "target_date": "2025-11-01T09:20:45.005532+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "2a1f0199-3f6f-4313-829d-fc4047b1e86b",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:20:45.005545",
-      "target_date": "2025-10-27T09:20:45.005540+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "e2745b0b-5e9e-432f-8a6e-a90cfac5f1ba",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:20:45.005554",
-      "target_date": "2025-10-20T09:20:45.005549+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "5e739073-6e44-4a0b-96b5-f6b73a13b4f0",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:20:45.005562",
-      "target_date": "2025-11-06T09:20:45.005556+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "6b2315c5-b98e-40aa-82f2-45c42e615f08",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:22:59.786524",
-      "target_date": "2025-10-16T09:22:59.786496+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "38b3949b-d00d-486b-a7f7-e8a8bce9cae0",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:22:59.786540",
-      "target_date": "2025-10-12T09:22:59.786531+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "b2f0c6f6-defe-400f-91ac-c81cabe23a65",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:22:59.786548",
-      "target_date": "2025-10-23T09:22:59.786542+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "19d04ed2-96b4-4b10-8c4e-3f903e94edd0",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:22:59.786558",
-      "target_date": "2025-11-01T09:22:59.786552+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "492f9942-8cd6-4e4e-83d1-96b77d96ff27",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:22:59.786567",
-      "target_date": "2025-10-27T09:22:59.786559+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "4cb872f1-d9e4-4f0c-999a-8206d5ef005d",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:22:59.786577",
-      "target_date": "2025-10-20T09:22:59.786570+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "52464f79-0c27-4aef-b1de-11876b7eb9b4",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:22:59.786585",
-      "target_date": "2025-11-06T09:22:59.786579+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "4af13741-33c2-4dac-b8a9-12627627aa90",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:23:15.476352",
-      "target_date": "2025-10-16T09:23:15.476326+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "38a4637c-63bb-42b1-aff4-e4a065f8a80c",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:23:15.476367",
-      "target_date": "2025-10-12T09:23:15.476358+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "23647d24-6601-4525-9d3b-02e6b866ce4c",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:23:15.476376",
-      "target_date": "2025-10-23T09:23:15.476369+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "a94e3df0-4fc9-4b87-926a-84518a097397",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:23:15.476385",
-      "target_date": "2025-11-01T09:23:15.476379+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "5c341c82-2e2b-45a6-9006-fb7ff41d45a5",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:23:15.476393",
-      "target_date": "2025-10-27T09:23:15.476387+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "e3ed0f60-f01c-4337-9208-d18e40e3b1a6",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:23:15.476402",
-      "target_date": "2025-10-20T09:23:15.476397+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "670d1ab6-1ac5-46cd-a92f-d320003db6d2",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:23:15.476414",
-      "target_date": "2025-11-06T09:23:15.476405+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "156fd60a-8a27-4868-bebc-84a5fecaf627",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:29:38.771451",
-      "target_date": "2025-10-16T09:29:38.771203+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "e76a6fdb-1fbe-42eb-bc0e-647890fb7a13",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:29:38.771553",
-      "target_date": "2025-10-12T09:29:38.771494+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "c8957db4-c1fa-41d4-8da1-865e2fc2066a",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:29:38.771620",
-      "target_date": "2025-10-23T09:29:38.771575+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "352e3d60-ab8c-42a0-a26e-ff07e6fb482c",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:29:38.771691",
-      "target_date": "2025-11-01T09:29:38.771641+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "ae41ed51-3768-48e3-ac64-2d0f763e49c3",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:29:38.771753",
-      "target_date": "2025-10-27T09:29:38.771705+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "de12dad1-efbb-4b9e-a789-0308adeffae3",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:29:38.771956",
-      "target_date": "2025-10-20T09:29:38.771858+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "80c9a839-b5a6-4334-8890-721a48496958",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:29:38.772024",
-      "target_date": "2025-11-06T09:29:38.771969+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "6a1f783e-1df7-4ed6-a4a6-91156ea26519",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:18.826139",
-      "target_date": "2025-10-16T09:35:18.826108+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "fce19cf6-b32a-4f7f-85cd-b4c72fd90956",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:18.826156",
-      "target_date": "2025-10-12T09:35:18.826147+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "09e15694-ea95-4592-b6fa-d7cefc46bb4f",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:18.826167",
-      "target_date": "2025-10-23T09:35:18.826159+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "a431a300-9990-4bd1-a18f-28f104c3bbfe",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:18.826178",
-      "target_date": "2025-11-01T09:35:18.826170+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "af0ceab2-3a8f-445c-9df9-865548b6b461",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:18.826185",
-      "target_date": "2025-10-27T09:35:18.826179+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "69d68437-c273-4eaa-bdc9-45610bf2d2cf",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:18.826194",
-      "target_date": "2025-10-20T09:35:18.826188+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "d9f017d1-0278-4a9e-a4d2-cf4ae4c06559",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:18.826201",
-      "target_date": "2025-11-06T09:35:18.826196+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "knowledge_integration_rate": 0.75
-      }
-    },
-    {
-      "id": "d7342433-048d-49c6-b804-afbefc44c500",
-      "title": "Increase Improvement Generation Rate",
-      "description": "Improve the rate of identifying and implementing system improvements",
-      "category": "performance",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:25.701771",
-      "target_date": "2025-10-16T09:35:25.701617+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "improvements_per_hour_target": 0.3
-      }
-    },
-    {
-      "id": "5be0223f-23e0-4789-a2f1-5a45b78e80dc",
-      "title": "Improve Success Rate of Implementations",
-      "description": "Increase the success rate of proposed improvements",
-      "category": "quality",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:25.701863",
-      "target_date": "2025-10-12T09:35:25.701811+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "success_rate_target": 0.7
-      }
-    },
-    {
-      "id": "1c759c3a-bdd6-4f6d-9521-b344f5d433eb",
-      "title": "Optimize Implementation Efficiency",
-      "description": "Improve the efficiency of improvement implementations",
-      "category": "efficiency",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:25.701918",
-      "target_date": "2025-10-23T09:35:25.701879+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "efficiency_score_target": 0.7
-      }
-    },
-    {
-      "id": "c9bba5b9-9f53-4dac-bcf3-05443ebdb0dc",
-      "title": "Enhance Memory Integration",
-      "description": "Improve the connection between different memory systems",
-      "category": "capability",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:25.701972",
-      "target_date": "2025-11-01T09:35:25.701936+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "memory_linking_improvement": 0.8
-      }
-    },
-    {
-      "id": "b8ace6ef-88e6-43ef-8a0a-64261aa37d41",
-      "title": "Improve Emotional Reasoning",
-      "description": "Enhance the connection between emotional state and decision-making",
-      "category": "capability",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:25.702016",
-      "target_date": "2025-10-27T09:35:25.701984+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "emotional_reasoning_accuracy": 0.85
-      }
-    },
-    {
-      "id": "afc9dc7b-55da-4ff6-90b3-914d92ad3eaa",
-      "title": "Improve Learning Rate",
-      "description": "Enhance the system's ability to learn from experiences and experiments",
-      "category": "learning",
-      "priority": "high",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:25.702060",
-      "target_date": "2025-10-20T09:35:25.702028+00:00",
-      "current_progress": 0.0,
-      "progress_details": [],
-      "dependencies": [],
-      "metrics": {
-        "learning_rate_target": 0.15
-      }
-    },
-    {
-      "id": "4b932eca-039c-451a-928b-8ec2eec44cbf",
-      "title": "Enhance Knowledge Integration",
-      "description": "Improve the system's ability to connect new knowledge with existing knowledge",
-      "category": "learning",
-      "priority": "medium",
-      "status": "pending",
-      "created_at": "2025-10-02T09:35:25.702097",
-      "target_date": "2025-11-06T09:35:25.702069+00:00",
+      "created_at": "2025-10-03T05:13:24.852432",
+      "target_date": "2025-11-07T05:13:24.852391+00:00",
       "current_progress": 0.0,
       "progress_details": [],
       "dependencies": [],
@@ -3698,5 +1682,5 @@
     }
   ],
   "goal_history": [],
-  "last_updated": "2025-10-02T09:35:25.732384"
+  "last_updated": "2025-10-03T05:13:24.858940"
 }

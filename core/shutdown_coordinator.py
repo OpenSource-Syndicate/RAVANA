@@ -380,6 +380,9 @@ class ShutdownCoordinator:
     async def _phase_resource_cleanup(self):
         """Phase 4: Clean up system resources."""
         logger.info("Cleaning up system resources...")
+        
+        # Initialize config to access RESOURCE_CLEANUP_TIMEOUT and other settings
+        config = Config()
 
         # Execute registered cleanup handlers
         for handler in self.cleanup_handlers:

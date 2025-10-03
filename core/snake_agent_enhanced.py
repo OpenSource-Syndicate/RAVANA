@@ -6,6 +6,7 @@ to continuously improve RAVANA through concurrent analysis, experimentation, and
 """
 
 import asyncio
+import ast
 import logging
 import os
 import json
@@ -822,7 +823,7 @@ class EnhancedSnakeAgent:
                 self.threading_manager.queue_analysis_task(analysis_task)
 
             # Log file change
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "file_change_handled",
                 {
                     "event_type": file_event.event_type,
@@ -830,15 +831,15 @@ class EnhancedSnakeAgent:
                     "queued_for_analysis": file_event.file_path.endswith('.py')
                 },
                 worker_id="enhanced_snake"
-            ))
+            )
 
         except Exception as e:
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "file_change_error",
                 {"error": str(e), "event": file_event.to_dict()},
                 level="error",
                 worker_id="enhanced_snake"
-            ))
+            )
 
     def _process_file_change(self, file_event: FileChangeEvent):
         """Process file change in threading context"""
@@ -846,24 +847,20 @@ class EnhancedSnakeAgent:
             # Update file analysis count
             self.files_analyzed += 1
 
-            # Store in VLTM if enabled
-            if self.vltm_enabled and self.vltm_store:
-                asyncio.create_task(self._store_file_change_memory(file_event))
-
             # Log processing
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "file_change_processed",
                 {"file_path": file_event.file_path},
                 worker_id="file_processor"
-            ))
+            )
 
         except Exception as e:
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "file_processing_error",
                 {"error": str(e)},
                 level="error",
                 worker_id="file_processor"
-            ))
+            )
 
     def _process_analysis_task(self, analysis_task: AnalysisTask):
         """Process analysis task in threading context with enhanced self-analysis"""
@@ -888,7 +885,7 @@ class EnhancedSnakeAgent:
                 self.process_manager.distribute_task(experiment_task)
 
             # Log analysis processing
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "analysis_task_processed",
                 {
                     "task_id": analysis_task.task_id,
@@ -897,15 +894,15 @@ class EnhancedSnakeAgent:
                     "improvement_opportunities_found": len(improvement_opportunities)
                 },
                 worker_id="analysis_processor"
-            ))
+            )
 
         except Exception as e:
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "analysis_processing_error",
                 {"error": str(e), "task": analysis_task.to_dict()},
                 level="error",
                 worker_id="analysis_processor"
-            ))
+            )
 
     def _identify_improvement_opportunities(self, analysis_task: AnalysisTask) -> List[Dict[str, Any]]:
         """
@@ -1069,7 +1066,6 @@ class EnhancedSnakeAgent:
 
     def _find_duplicate_blocks(self, lines: List[str]) -> List[Dict[str, Any]]:
         """Find duplicated code blocks."""
-        import ast
         import hashlib
         from difflib import SequenceMatcher
         
@@ -1148,7 +1144,6 @@ class EnhancedSnakeAgent:
 
     def _find_complex_functions(self, lines: List[str]) -> List[Dict[str, Any]]:
         """Find functions with high cyclomatic complexity."""
-        import ast
         
         complex_functions = []
         
@@ -1286,7 +1281,7 @@ class EnhancedSnakeAgent:
             self.communications_sent += 1
 
             # Log communication
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "communication_processed",
                 {
                     "message_id": comm_message.message_id,
@@ -1294,15 +1289,15 @@ class EnhancedSnakeAgent:
                     "priority": comm_message.priority.value
                 },
                 worker_id="communication_processor"
-            ))
+            )
 
         except Exception as e:
-            asyncio.create_task(self.log_manager.log_system_event(
+            self.log_manager.log_system_event_sync(
                 "communication_error",
                 {"error": str(e)},
                 level="error",
                 worker_id="communication_processor"
-            ))
+            )
 
     async def _handle_experiment_result(self, result: Dict[str, Any]):
         """Handle experiment results from process manager with enhanced improvement proposal system"""
@@ -1653,12 +1648,13 @@ class EnhancedSnakeAgent:
         self._shutdown_event.set()
 
         try:
-            await self.log_manager.log_system_event(
-                "enhanced_snake_shutdown_start",
-                {"uptime": (datetime.now() - self.start_time).total_seconds()
-                 if self.start_time else 0},
-                worker_id="enhanced_snake"
-            )
+            if self.log_manager:
+                await self.log_manager.log_system_event(
+                    "enhanced_snake_shutdown_start",
+                    {"uptime": (datetime.now() - self.start_time).total_seconds()
+                     if self.start_time else 0},
+                    worker_id="enhanced_snake"
+                )
 
             # Stop file monitoring
             if self.file_monitor:

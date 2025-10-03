@@ -306,7 +306,7 @@ class SnakeRavanaCommunicator:
             "logging": LoggingChannel(agi_system)
         }
 
-        self.primary_channel = Config.SNAKE_COMM_CHANNEL
+        self.primary_channel = Config().SNAKE_COMM_CHANNEL
         self.message_counter = 0
         self.pending_responses: Dict[str, CommunicationMessage] = {}
 
@@ -429,7 +429,7 @@ class SnakeRavanaCommunicator:
 
         return (comm_type == "request_approval" or
                 priority == "critical" or
-                Config.SNAKE_APPROVAL_REQUIRED)
+                Config().SNAKE_APPROVAL_REQUIRED)
 
     def _get_response_timeout(self, priority: Priority) -> int:
         """Get response timeout based on priority"""
@@ -455,7 +455,7 @@ class SnakeRavanaCommunicator:
                 "message": message.to_dict(),
                 "available_channels": list(self.channels.keys()),
                 "primary_channel": self.primary_channel,
-                "priority_threshold": Config.SNAKE_COMM_PRIORITY_THRESHOLD
+                "priority_threshold": Config().SNAKE_COMM_PRIORITY_THRESHOLD
             }
 
             # Check if reasoning LLM has the required method

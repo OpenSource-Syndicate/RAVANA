@@ -485,6 +485,31 @@ class VeryLongTermMemoryStore:
             logger.error(f"Error querying strategic knowledge: {e}")
             return []
 
+    async def get_memories_by_type(self, memory_type: 'MemoryType', limit: int = 100, importance_threshold: float = 0.0) -> List[Dict[str, Any]]:
+        """Get memories by type, with optional limit and importance filtering."""
+        if not self.initialized:
+            logger.error("VLTM store not initialized")
+            return []
+
+        try:
+            # Use storage backend to retrieve memories by type
+            db_memories = await self.storage_backend.retrieve_memories_by_type(
+                memory_type, limit, importance_threshold
+            )
+
+            # Convert DB memories to dictionary format
+            results = []
+            for db_memory in db_memories:
+                memory_data = await self._convert_db_memory_to_dict(db_memory)
+                results.append(memory_data)
+
+            logger.info(f"Retrieved {len(results)} memories of type {memory_type}")
+            return results
+
+        except Exception as e:
+            logger.error(f"Error retrieving memories by type {memory_type}: {e}", exc_info=True)
+            return []
+
     async def get_memory_statistics(self) -> Dict[str, Any]:
         """Get comprehensive memory statistics"""
         if not self.initialized:
