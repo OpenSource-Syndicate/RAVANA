@@ -1105,8 +1105,19 @@ class EnhancedSnakeAgent:
         function_start_line = 0
         line_count = 0
         
+        # Pre-calculate indentation levels to avoid repeated computation
+        # Using list comprehension is more efficient than calling len() multiple times
+        indent_levels = []
+        for line in lines:
+            # Find first non-space character more efficiently
+            i = 0
+            while i < len(line) and line[i] == ' ':
+                i += 1
+            indent_levels.append(i)
+        
         for i, line in enumerate(lines):
             stripped_line = line.strip()
+            current_indent = indent_levels[i]
             
             # Check if this line starts a function definition
             if stripped_line.startswith('def ') and not stripped_line.startswith('class '):
@@ -1119,30 +1130,32 @@ class EnhancedSnakeAgent:
                     })
                 
                 # Start tracking the new function
-                current_function = stripped_line[4:stripped_line.find('(')]  # Extract function name
+                # More efficient extraction using split instead of find
+                function_name = stripped_line[4:].split('(')[0]
+                current_function = function_name
                 function_start_line = i
                 line_count = 1
             elif current_function is not None:
                 # Count lines in the current function (ignoring empty lines and comments)
                 if stripped_line and not stripped_line.startswith('#'):
                     line_count += 1
-                # Check if we've exited the function (when indentation drops to 0 or function definition level)
-                elif line_count > 0:
-                    # Check if this line has less indentation than the function definition
-                    if len(line) - len(line.lstrip()) <= len(lines[function_start_line]) - len(lines[function_start_line].lstrip()):
-                        # Check if we're at class or module level again
-                        if (stripped_line.startswith('def ') or 
-                            stripped_line.startswith('class ') or 
-                            stripped_line.startswith('@') or 
-                            not stripped_line.startswith(' ')):
-                            # This is the end of the function
-                            if line_count > 50:
-                                long_functions.append({
-                                    "name": current_function,
-                                    "line_num": function_start_line + 1,
-                                    "lines": line_count
-                                })
-                            current_function = None
+                
+                # Check if we've exited the function
+                # A function ends when we encounter a line that is not more indented than the function definition
+                func_indent = indent_levels[function_start_line]
+                if current_indent <= func_indent and stripped_line:
+                    # Additional check: if this line starts with 'def', 'class', '@', or is at module level, it's likely the end
+                    if (stripped_line.startswith('def ') or 
+                        stripped_line.startswith('class ') or 
+                        stripped_line.startswith('@')):
+                        if line_count > 50:
+                            long_functions.append({
+                                "name": current_function,
+                                "line_num": function_start_line + 1,
+                                "lines": line_count
+                            })
+                        current_function = None
+                        line_count = 0
         
         # Check the last function
         if current_function and line_count > 50:
