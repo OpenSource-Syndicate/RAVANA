@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timedelta
-from .emotional_intellegence import EmotionalIntelligence, EmotionalEvent
+from modules.emotional_intellegence.emotional_intellegence import EmotionalIntelligence, EmotionalEvent
 
 
 class TestEnhancedEmotionalIntelligence(unittest.TestCase):

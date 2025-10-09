@@ -3,7 +3,6 @@ __pycache__/
 **/__pycache__/
 *.py[cod]
 *$py.class
-
 # Virtual environments
 .venv/
 **/.venv/
@@ -11,12 +10,10 @@ env/
 **/env/
 venv/
 **/venv/
-
 # Logs and databases
 *.log
 *.db
 *.sqlite3
-
 # Environment and lock files
 .env
 .env.*
@@ -24,7 +21,6 @@ venv/
 Pipfile.lock
 poetry.lock
 uv.lock
-
 # Ignore temporary editor files
 *.swp
 *.swo
@@ -33,7 +29,6 @@ uv.lock
 .idea/
 *.sublime-project
 *.sublime-workspace
-
 # OS-specific files
 .DS_Store
 Thumbs.db
@@ -43,9 +38,9 @@ chroma_db/
 .cursorignore
 
 # PyInstaller
-build/
-dist/
-*.spec
+# build/  # Already included in Packaging section
+# dist/   # Already included in Packaging section
+# *.spec  # Already included in Packaging section
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
@@ -61,23 +56,47 @@ pytest_cache/
 .mypy_cache/
 .pyright/
 
+# Packaging
+*.egg
+*.egg-info/
+dist/
+build/
+*.spec
+
 modules/knowledge_compression/compressed_memory.json
-.qoder/quests/multi-model-memory-system.md
-shutdown_log.json
-shutdown_state.json
-.qoder/quests/graceful-shutdown.md
-.qoder/quests/experiment-rate-attribute.md
-.qoder/quests/snake-agent-system.md
-.qoder/quests/snake-ravana-threading-logs.md
+
+# RAVANA AGI specific
 .qoder/
 
-shutdown_log.json
-shutdown_state.json
 knowledge_id_map.pkl
 knowledge_index.faiss
+
 snake_agent_state.json
 shared_memory/
+
 user_data/
 
 snake_logs/
 backups/
+
+snake_vltm_storage/
+vltm_storage/
+test_snake_logs/
+
+performance_data/
+.benchmarks/
+.qwen/
+
+profiles/
+
+SNAKE_AGENT_FINAL_SUMMARY.md
+SNAKE_AGENT_SUCCESS_SUMMARY.md
+
+snake_agent_optimized_config.bat
+snake_agent_optimized_config.sh
+
+enhanced_snake_state.json
+final_demonstration.py
+optimize_code_snake.py
+self_goals.json
+.snake_index.json

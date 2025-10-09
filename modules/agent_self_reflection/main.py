@@ -1,6 +1,6 @@
-from reflection_db import save_reflection, load_reflections
-from reflection_prompts import REFLECTION_PROMPT
-from core.llm import call_llm, run_langchain_reflection
+from .reflection_db import save_reflection, load_reflections
+from .reflection_prompts import REFLECTION_PROMPT
+from core.llm import call_llm
 import os
 import sys
 import json
@@ -139,9 +139,6 @@ def main():
         '--task', type=str, required=True, help='Task summary')
     reflect_parser.add_argument(
         '--outcome', type=str, required=True, help='Outcome description')
-    reflect_parser.add_argument('--use-langchain', action='store_true',
-                                help='Use LangChain for Planning → Execution → Reflection')
-
     # Self-modification command
     modify_parser = subparsers.add_parser(
         'modify', help='Run self-modification on reflection logs')
@@ -149,13 +146,10 @@ def main():
     args = parser.parse_args()
 
     if args.command == 'reflect':
-        if args.use_langchain:
-            entry = run_langchain_reflection(args.task, args.outcome)
-        else:
-            entry = reflect_on_task(args.task, args.outcome)
+        entry = reflect_on_task(args.task, args.outcome)
         print(json.dumps(entry, indent=2))
     elif args.command == 'modify':
-        from self_modification import run_self_modification
+        from .self_modification import run_self_modification
         run_self_modification()
     else:
         parser.print_help()

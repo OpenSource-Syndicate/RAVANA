@@ -1,8 +1,8 @@
 import os
 import json
 from unittest.mock import patch
-from main import compress_knowledge, load_summaries
-from compressed_memory import COMPRESSED_FILE
+from modules.knowledge_compression.main import compress_knowledge
+from modules.knowledge_compression.compressed_memory import COMPRESSED_FILE, load_summaries
 
 
 def test_compress_knowledge():
@@ -12,7 +12,7 @@ def test_compress_knowledge():
             "task": "Task 1", "result": "Success"},
         {"timestamp": "2024-07-02T13:00:00Z", "task": "Task 2", "result": "Failure"}
     ]
-    with patch('main.call_llm', return_value="Summary: Task 1 succeeded, Task 2 failed. Next: Improve reliability."):
+    with patch('modules.knowledge_compression.main.call_llm', return_value="Summary: Task 1 succeeded, Task 2 failed. Next: Improve reliability."):
         entry = compress_knowledge(logs)
         print("Compressed Summary (mocked):", json.dumps(entry, indent=2))
         assert 'summary' in entry

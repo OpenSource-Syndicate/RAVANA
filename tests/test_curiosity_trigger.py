@@ -1,5 +1,5 @@
 import unittest
-from curiosity_trigger import CuriosityTrigger
+from modules.curiosity_trigger.curiosity_trigger import CuriosityTrigger
 
 
 class TestCuriosityTrigger(unittest.TestCase):
