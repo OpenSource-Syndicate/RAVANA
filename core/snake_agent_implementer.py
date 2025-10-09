@@ -12,6 +12,10 @@ from typing import Dict, Any, List, Optional, Tuple
 import logging
 import json
 
+# Import the new code transformation and analysis systems
+from core.code_transformer import CodeTransformer
+from core.code_analyzer import CodeAnalyzer
+
 from core.autonomous_implementation import AutonomousImplementer, ImplementationTracker
 from core.testing_environment import TestRunner
 from core.change_identification import ChangeIdentifier
@@ -33,6 +37,10 @@ class SnakeAgentImplementer:
         self.implementation_tracker = ImplementationTracker()
         self.is_implementing = False
         self.implementation_queue = asyncio.Queue()
+        
+        # Initialize the new code transformation and analysis systems
+        self.code_transformer = CodeTransformer()
+        self.code_analyzer = CodeAnalyzer()
         
     async def start_autonomous_implementation(self):
         """
@@ -83,7 +91,7 @@ class SnakeAgentImplementer:
         change_spec: Dict[str, Any]
     ) -> bool:
         """
-        Implement a specific targeted change.
+        Implement a specific targeted change using AST-based transformation.
         
         Args:
             file_path: Path to the file to modify
@@ -95,18 +103,42 @@ class SnakeAgentImplementer:
         """
         logger.info(f"Implementing targeted change: {change_description}")
         
-        # Add the change to the queue for processing
-        change_task = {
-            'file_path': file_path,
-            'change_description': change_description,
-            'change_spec': change_spec,
-            'timestamp': time.time()
-        }
-        
-        await self.implementation_queue.put(change_task)
-        
-        # Process the queue
-        return await self._process_implementation_queue()
+        try:
+            # Read the current file content
+            with open(file_path, 'r', encoding='utf-8') as f:
+                original_content = f.read()
+            
+            # Apply AST-based optimization
+            lines = original_content.split('\n')
+            
+            # Determine optimization type and apply
+            change_type = change_spec.get('type', 'generic')
+            
+            if change_type == 'performance_optimization':
+                optimized_content = await self._apply_performance_optimization(lines, change_spec)
+            elif change_type == 'code_clarity':
+                optimized_content = await self._apply_clarity_change(lines, change_spec)
+            elif change_type == 'redundancy_reduction':
+                optimized_content = await self._apply_redundancy_reduction(lines, change_spec)
+            else:
+                # Apply generic optimization
+                optimized_content = await self._apply_generic_change(lines, change_spec)
+            
+            # Validate the optimized content
+            if optimized_content and optimized_content != original_content:
+                # Write the optimized content back to file
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(optimized_content)
+                
+                logger.info(f"Successfully implemented change: {change_description}")
+                return True
+            else:
+                logger.warning(f"No changes made for: {change_description}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error implementing change '{change_description}': {e}")
+            return False
     
     async def _process_implementation_queue(self) -> bool:
         """
@@ -293,66 +325,41 @@ class SnakeAgentImplementer:
     
     def _optimize_list_building(self, lines: List[str], line_start: int, line_end: int) -> str:
         """
-        Optimize list building by replacing inefficient append() loops with list comprehensions.
+        Optimize list building using complete AST-based transformation.
         """
-        # Simplified implementation for demonstration
-        # In a real implementation, this would do proper AST parsing and transformation
-        function_lines = lines[line_start:min(line_end+1, len(lines))] if line_end >= line_start else [lines[line_start]]
+        # Convert to full code for proper AST parsing
+        original_code = '\n'.join(lines)
         
-        # Look for the pattern: result = [] followed by for loop with append
-        optimized_lines = []
-        i = 0
-        pattern_found = False
+        # Apply list comprehension optimization
+        optimized_code = self.code_transformer.optimize_code(original_code, "list_comprehension")
         
-        while i < len(function_lines):
-            line = function_lines[i]
-            
-            # Look for list initialization
-            if re.search(r'(\w+)\s*=\s*\[\s*\]', line.strip()):
-                var_name = re.search(r'(\w+)\s*=', line.strip()).group(1)
-                
-                # Look ahead for the for loop and append pattern
-                if i + 2 < len(function_lines):
-                    next_line = function_lines[i + 1].strip()
-                    third_line = function_lines[i + 2].strip()
-                    
-                    # Check if next line is a for loop and third line appends to our list
-                    if (re.match(r'for\s+\w+\s+in\s+range\s*\(', next_line) and 
-                        re.search(rf'{var_name}\s*\.\s*append\s*\(', third_line)):
-                        # Found the pattern - replace with list comprehension
-                        # This is a simplified approach
-                        loop_var = re.search(r'for\s+(\w+)\s+in', next_line).group(1)
-                        expr = re.search(rf'{var_name}\s*\.\s*append\s*\((.*)\)', third_line)
-                        if expr:
-                            expression = expr.group(1)
-                            optimized_lines.append(f"    {var_name} = [{expression} for {loop_var} in range(...)]  # TODO: Complete range expression")
-                            optimized_lines.append("    # TODO: Complete the implementation with actual range parameters")
-                            i += 3  # Skip the three lines we replaced
-                            pattern_found = True
-                            continue
-            
-            # Keep the original line
-            optimized_lines.append(line)
-            i += 1
-        
-        # If we found and optimized the pattern, replace the function lines
-        if pattern_found:
-            new_lines = lines[:line_start] + optimized_lines + lines[min(line_end+1, len(lines)):]
-            return '\n'.join(new_lines)
+        if optimized_code:
+            logger.info("Successfully applied list comprehension optimization")
+            return optimized_code
         else:
-            # If no pattern found, just add a comment to the first line
+            # Fallback approach
             if line_start < len(lines):
                 lines[line_start] += "  # TODO: Implement list comprehension optimization"
             return '\n'.join(lines)
     
     def _optimize_string_concatenation(self, lines: List[str], line_start: int, line_end: int) -> str:
         """
-        Optimize string concatenation by suggesting join() approach.
+        Optimize string concatenation using AST-based transformation.
         """
-        # Add a comment suggesting optimization
-        if line_start < len(lines):
-            lines[line_start] += "  # TODO: Consider using ''.join() for better performance"
-        return '\n'.join(lines)
+        # Convert to full code for proper AST parsing
+        original_code = '\n'.join(lines)
+        
+        # Apply string optimization
+        optimized_code = self.code_transformer.optimize_code(original_code, "string_concatenation")
+        
+        if optimized_code:
+            logger.info("Successfully applied string concatenation optimization")
+            return optimized_code
+        else:
+            # Fallback approach
+            if line_start < len(lines):
+                lines[line_start] += "  # TODO: Consider using ''.join() for better performance"
+            return '\n'.join(lines)
     
     async def _apply_clarity_change(self, lines: List[str], change: Dict[str, Any]) -> str:
         """

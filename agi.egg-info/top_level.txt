@@ -1,0 +1,4 @@
+core
+database
+modules
+services
