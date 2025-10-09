@@ -41,6 +41,9 @@ from core.vltm_data_models import (
 from services.memory_service import MemoryService
 from services.knowledge_service import KnowledgeService
 
+# Import the new autonomous implementation system
+from core.snake_agent_implementer import SnakeAgentImplementer
+
 logger = logging.getLogger(__name__)
 
 
@@ -102,6 +105,9 @@ class EnhancedSnakeAgent:
         # External memory services
         self.memory_service: Optional[MemoryService] = None
         self.knowledge_service: Optional[KnowledgeService] = None
+
+        # Autonomous implementation system
+        self.implementer: Optional[SnakeAgentImplementer] = None
 
         # VLTM state
         self.vltm_enabled = os.getenv(
@@ -335,6 +341,16 @@ class EnhancedSnakeAgent:
                     else:
                         raise Exception(
                             "Failed to initialize file monitor after retries")
+
+            # Initialize autonomous implementation system
+            try:
+                # Use the project root (parent directory of this file) as the project root
+                project_root = Path(__file__).parent.parent
+                self.implementer = SnakeAgentImplementer(project_root=str(project_root))
+                logger.info("Autonomous implementation system initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize autonomous implementation system: {e}")
+                self.implementer = None
 
             # Set up component callbacks
             await self._setup_component_callbacks()
@@ -958,21 +974,30 @@ class EnhancedSnakeAgent:
             # Perform deeper analysis of the code or file
             improvement_opportunities = self._identify_improvement_opportunities(analysis_task)
             
-            # For significant findings, create experiment task
+            # For significant findings, create experiment task or direct implementation
             if analysis_task.priority in [TaskPriority.HIGH, TaskPriority.CRITICAL] or improvement_opportunities:
-                experiment_task = {
-                    "type": "experiment",
-                    "task_id": f"exp_{uuid.uuid4().hex[:8]}",
-                    "data": {
-                        "file_path": analysis_task.file_path,
-                        "analysis_type": analysis_task.analysis_type,
-                        "priority": analysis_task.priority.value,
-                        "improvement_opportunities": improvement_opportunities
+                # Check if any of the opportunities are suitable for direct implementation
+                implementable_opportunities = self._filter_implementable_opportunities(improvement_opportunities)
+                
+                if implementable_opportunities and self.config.SNAKE_AUTONOMOUS_IMPLEMENTATION_ENABLED:
+                    # Process implementable opportunities directly
+                    for opportunity in implementable_opportunities:
+                        asyncio.create_task(self._attempt_implementation(opportunity))
+                else:
+                    # Create experiment task for more complex opportunities
+                    experiment_task = {
+                        "type": "experiment",
+                        "task_id": f"exp_{uuid.uuid4().hex[:8]}",
+                        "data": {
+                            "file_path": analysis_task.file_path,
+                            "analysis_type": analysis_task.analysis_type,
+                            "priority": analysis_task.priority.value,
+                            "improvement_opportunities": improvement_opportunities
+                        }
                     }
-                }
 
-                # Distribute to process manager
-                self.process_manager.distribute_task(experiment_task)
+                    # Distribute to process manager
+                    self.process_manager.distribute_task(experiment_task)
 
             # Log analysis processing
             self.log_manager.log_system_event_sync(
@@ -980,7 +1005,8 @@ class EnhancedSnakeAgent:
                 {
                     "task_id": analysis_task.task_id,
                     "file_path": analysis_task.file_path,
-                    "experiment_created": analysis_task.priority in [TaskPriority.HIGH, TaskPriority.CRITICAL] or bool(improvement_opportunities),
+                    "experiment_created": analysis_task.priority in [TaskPriority.HIGH, TaskPriority.CRITICAL] and not self.config.SNAKE_AUTONOMOUS_IMPLEMENTATION_ENABLED,
+                    "implementation_attempted": self.config.SNAKE_AUTONOMOUS_IMPLEMENTATION_ENABLED and bool(self._filter_implementable_opportunities(improvement_opportunities)),
                     "improvement_opportunities_found": len(improvement_opportunities)
                 },
                 worker_id="analysis_processor"
@@ -993,6 +1019,58 @@ class EnhancedSnakeAgent:
                 level="error",
                 worker_id="analysis_processor"
             )
+    
+    def _filter_implementable_opportunities(self, opportunities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter improvement opportunities that can be directly implemented."""
+        implementable = []
+        
+        for opportunity in opportunities:
+            # Only allow low-risk, small changes for autonomous implementation
+            if (opportunity.get('severity') in ['low', 'medium'] and 
+                opportunity.get('scope') in ['function', 'method', 'line'] and
+                opportunity.get('type') in ['performance_optimization', 'code_clarity']):
+                implementable.append(opportunity)
+        
+        return implementable
+    
+    async def _attempt_implementation(self, opportunity: Dict[str, Any]):
+        """Attempt to implement an improvement opportunity."""
+        if not self.implementer:
+            logger.warning("Autonomous implementer not available")
+            return
+        
+        try:
+            file_path = opportunity.get('file_path', opportunity.get('location', 'unknown'))
+            change_description = opportunity.get('description', 'Autonomous improvement')
+            
+            # Create a change specification for the implementer
+            change_spec = {
+                'type': opportunity.get('type', 'general'),
+                'subtype': opportunity.get('category', 'general'),
+                'line_start': opportunity.get('line_num', 1),
+                'line_end': opportunity.get('line_num', 1) + 10,  # Estimate range
+                'description': opportunity.get('description', ''),
+                'recommendation': opportunity.get('suggestion', ''),
+                'severity': opportunity.get('severity', 'medium'),
+                'scope': opportunity.get('scope', 'function')
+            }
+            
+            # Attempt implementation through the autonomous implementer
+            success = await self.implementer.implement_targeted_change(
+                file_path=file_path,
+                change_description=change_description,
+                change_spec=change_spec
+            )
+            
+            if success:
+                logger.info(f"Successfully implemented change: {change_description}")
+                # Update metrics
+                self.improvements_applied += 1
+            else:
+                logger.warning(f"Failed to implement change: {change_description}")
+                
+        except Exception as e:
+            logger.error(f"Error attempting implementation: {e}")
 
     def _identify_improvement_opportunities(self, analysis_task: AnalysisTask) -> List[Dict[str, Any]]:
         """
@@ -1013,7 +1091,13 @@ class EnhancedSnakeAgent:
                     content = f.read()
                 
                 # Analyze for common improvement opportunities
-                opportunities.extend(self._analyze_code_for_improvements(content, analysis_task.file_path))
+                raw_opportunities = self._analyze_code_for_improvements(content, analysis_task.file_path)
+                
+                # Add file path to each opportunity for later use
+                for opportunity in raw_opportunities:
+                    opportunity['file_path'] = analysis_task.file_path
+                
+                opportunities.extend(raw_opportunities)
             
         except Exception as e:
             logger.warning(f"Could not analyze file for improvements: {e}")
@@ -1044,7 +1128,9 @@ class EnhancedSnakeAgent:
                 "category": "function_length",
                 "description": f"Function '{func_info['name']}' is too long ({func_info['lines']} lines) and should be split",
                 "location": f"{file_path}:{func_info['line_num']}",
+                "line_num": func_info['line_num'],
                 "severity": "medium",
+                "scope": "function",
                 "suggestion": "Break down the function into smaller, more manageable functions"
             })
         
@@ -1056,7 +1142,9 @@ class EnhancedSnakeAgent:
                 "category": "code_duplication",
                 "description": f"Code block duplicated {block_info['count']} times",
                 "location": f"{file_path}:{block_info['line_num']}",
+                "line_num": block_info['line_num'],
                 "severity": "high",
+                "scope": "function",
                 "suggestion": "Extract duplicated code into a reusable function"
             })
         
@@ -1068,7 +1156,9 @@ class EnhancedSnakeAgent:
                 "category": "complexity",
                 "description": f"Function '{func_info['name']}' has high cyclomatic complexity ({func_info['complexity']})",
                 "location": f"{file_path}:{func_info['line_num']}",
+                "line_num": func_info['line_num'],
                 "severity": "medium",
+                "scope": "function",
                 "suggestion": "Simplify the function logic or split into smaller functions"
             })
         
@@ -1080,7 +1170,9 @@ class EnhancedSnakeAgent:
                 "category": "performance",
                 "description": issue_info['description'],
                 "location": f"{file_path}:{issue_info['line_num']}",
+                "line_num": issue_info['line_num'],
                 "severity": issue_info['severity'],
+                "scope": "line",
                 "suggestion": issue_info['suggestion']
             })
         
@@ -1092,7 +1184,9 @@ class EnhancedSnakeAgent:
                 "category": "potential_bug",
                 "description": bug_info['description'],
                 "location": f"{file_path}:{bug_info['line_num']}",
+                "line_num": bug_info['line_num'],
                 "severity": bug_info['severity'],
+                "scope": "line",
                 "suggestion": bug_info['suggestion']
             })
         

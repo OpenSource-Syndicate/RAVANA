@@ -126,6 +126,7 @@ class Config:
 
         # Snake Agent Configuration - Enhanced performance settings
         self.SNAKE_AGENT_ENABLED = self._str_to_bool(os.environ.get("SNAKE_AGENT_ENABLED", "True"))
+        self.SNAKE_AUTONOMOUS_IMPLEMENTATION_ENABLED = self._str_to_bool(os.environ.get("SNAKE_AUTONOMOUS_IMPLEMENTATION_ENABLED", "False"))
         # 3 minutes default for better responsiveness
         self.SNAKE_AGENT_INTERVAL = int(os.environ.get("SNAKE_AGENT_INTERVAL", 180))
         self.SNAKE_OLLAMA_BASE_URL = os.environ.get(
