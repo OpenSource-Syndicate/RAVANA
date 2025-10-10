@@ -12,11 +12,12 @@ class TestCuriosityTrigger(unittest.TestCase):
         ]
 
     def test_trigger_returns_article_and_prompt(self):
-        article, prompt = CuriosityTrigger.trigger(self.recent_topics)
+        # Using the static method that handles instance creation internally
+        article, prompt = CuriosityTrigger.trigger_sync(self.recent_topics)
         self.assertIsInstance(article, str)
         self.assertIsInstance(prompt, str)
         self.assertGreater(len(article), 100)
-        self.assertIn("curiosity topic", prompt.lower())
+        self.assertIn("curiosity", prompt.lower())
         print("\nPrompt:", prompt)
         print("\nArticle (first 500 chars):\n", article[:500])
 

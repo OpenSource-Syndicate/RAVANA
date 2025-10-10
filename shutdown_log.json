@@ -1,7 +1,7 @@
 {
   "shutdown_summary": {
     "phase": "ShutdownPhase.SHUTDOWN_COMPLETE",
-    "start_time": "2025-10-03T10:08:31.190848",
+    "start_time": "2025-10-10T01:52:19.360802",
     "completed_phases": [
       "pre_shutdown_validation",
       "signal_received",
@@ -15,12 +15,12 @@
     ],
     "errors": [],
     "component_metrics": {},
-    "reason": "global_shutdown_event",
+    "reason": "test_completed",
     "timeout_config": {
       "graceful_timeout": 30,
       "force_timeout": 60
     }
   },
-  "duration_seconds": 19.823109,
-  "timestamp": "2025-10-03T10:08:51.014729"
+  "duration_seconds": 0.004228,
+  "timestamp": "2025-10-10T01:52:19.365037"
 }
