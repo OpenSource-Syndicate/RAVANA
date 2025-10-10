@@ -1,86 +1,84 @@
-"""Pytest configuration and shared fixtures for RAVANA AGI tests."""
-
+"""Configuration for pytest in RAVANA AGI system."""
+import sys
+import os
 import pytest
 import asyncio
-import os
-import sys
-from pathlib import Path
-from sqlmodel import create_engine, SQLModel, Session
-from datetime import datetime
+from unittest.mock import patch
 
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-# Test database URL
-TEST_DATABASE_URL = "sqlite:///test_ravana.db"
+# Add the project root to the Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, project_root)
 
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """Create event loop for async tests."""
+    """Create an instance of the event loop for all async tests."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
 
 
-@pytest.fixture(scope="session")
-def test_engine():
-    """Create test database engine."""
-    engine = create_engine(TEST_DATABASE_URL, echo=False)
-    SQLModel.metadata.create_all(engine)
-    yield engine
-    engine.dispose()
-    # Cleanup test database
-    if os.path.exists("test_ravana.db"):
-        os.remove("test_ravana.db")
-
-
 @pytest.fixture
-def test_session(test_engine):
-    """Create test database session."""
-    with Session(test_engine) as session:
-        yield session
-        session.rollback()
+def mock_llm_responses():
+    """Mock LLM responses to prevent actual API calls during testing."""
+    async def mock_async_safe_call_llm(prompt: str, timeout: int = 30, retries: int = 3, backoff_factor: float = 1.0, **kwargs) -> str:
+        """Async mock implementation that returns predictable responses for faster testing."""
+        if "impossible project" in prompt.lower() or "generate a specific" in prompt.lower():
+            return """
+            {
+                "name": "Test Impossible Project",
+                "description": "A project that tests core functionality",
+                "impossibility_reason": "Based on current limitations",
+                "initial_approach": "Use mock implementation",
+                "risk_level": 0.5
+            }
+            """
+        elif "design a detailed implementation plan" in prompt.lower():
+            return """
+            {
+                "steps": ["Step 1: Initialize", "Step 2: Process", "Step 3: Complete"],
+                "expected_failures": ["Resource constraints"],
+                "potential_alternatives": ["Optimize resource usage", "Reduce scope"],
+                "required_resources": ["Computation", "Knowledge"]
+            }
+            """
+        elif "simulate the execution of this step" in prompt.lower():
+            return """
+            {
+                "success": false,
+                "result": "Step executed with partial success",
+                "failure_reason": "Mock implementation limitation",
+                "unexpected_insights": ["Consider alternative approach"]
+            }
+            """
+        elif "analyze the failure of this impossible project" in prompt.lower():
+            return """
+            {
+                "failure_summary": "Project failed due to fundamental limitations",
+                "insights_gained": ["Learned about limitations", "Discovered alternative paths"],
+                "new_impossibility_understanding": "Confirmed core assumptions",
+                "alternative_approaches_hinted": ["Modify constraints", "Change approach"],
+                "related_applications": ["Other AGI projects"]
+            }
+            """
+        elif "identify alternative approaches" in prompt.lower():
+            return "1. Change the approach entirely\\n2. Reduce scope\\n3. Use different resources"
+        elif "assess the importance and publishability" in prompt.lower():
+            return """
+            {
+                "importance": 0.8,
+                "title": "Test Discovery",
+                "summary": "A discovery made during testing",
+                "tags": ["test", "discovery", "agi"]
+            }
+            """
+        elif "create detailed, publication-ready content" in prompt.lower():
+            return "# Test Publication\\n\\nThis is detailed content for testing."
+        else:
+            # Default response for any other prompts
+            return "Mock response for: " + prompt[:100] + "..."
 
-
-@pytest.fixture
-def mock_config():
-    """Mock configuration for testing."""
-    from core.config import Config
-    config = Config()
-    # Ensure config is properly initialized for tests
-    return config
-
-
-@pytest.fixture
-def sample_mood_vector():
-    """Sample mood vector for testing."""
-    return {
-        "Confident": 0.5,
-        "Curious": 0.7,
-        "Frustrated": 0.2,
-        "Excited": 0.6
-    }
-
-
-@pytest.fixture
-def sample_memory_data():
-    """Sample memory data for testing."""
-    return [
-        "User prefers technical explanations",
-        "System learned about quantum computing",
-        "Important deadline on Friday"
-    ]
-
-
-@pytest.fixture
-def sample_action_output():
-    """Sample action output for testing."""
-    return {
-        "task_completed": True,
-        "status": "success",
-        "action": "test_action",
-        "result": "Action completed successfully",
-        "timestamp": datetime.now().isoformat()
-    }
+    with patch('modules.mad_scientist_impossible_projects.async_safe_call_llm', mock_async_safe_call_llm), \
+         patch('modules.innovation_publishing_system.async_safe_call_llm', mock_async_safe_call_llm), \
+         patch('core.llm.async_safe_call_llm', mock_async_safe_call_llm):
+        yield mock_async_safe_call_llm
