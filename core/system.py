@@ -205,6 +205,15 @@ class AGISystem:
                     f"Failed to initialize Conversational AI module: {e}")
                 self.conversational_ai = None
 
+        # Initialize Physics Prototyping System
+        try:
+            from modules.physics_prototyping_system import PhysicsPrototypingSystem
+            self.physics_prototyping_system = PhysicsPrototypingSystem(self, self.blog_scheduler)
+            logger.info("Physics Prototyping System initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize Physics Prototyping System: {e}")
+            self.physics_prototyping_system = None
+
         # Initialize Mad Scientist System
         try:
             from modules.mad_scientist_system import MadScientistSystem
@@ -258,6 +267,11 @@ class AGISystem:
         if self.conversational_ai:
             self.shutdown_coordinator.register_component(
                 self.conversational_ai, ShutdownPriority.MEDIUM, is_async=True)
+
+        # Register Physics Prototyping System if available
+        if hasattr(self, 'physics_prototyping_system') and self.physics_prototyping_system:
+            self.shutdown_coordinator.register_component(
+                self.physics_prototyping_system, ShutdownPriority.MEDIUM, is_async=True)
 
         # Register Mad Scientist System if available
         if hasattr(self, 'mad_scientist_system') and self.mad_scientist_system:

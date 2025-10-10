@@ -2,7 +2,8 @@
 Mad Scientist System for RAVANA AGI
 
 This module integrates all mad scientist components: impossible projects,
-failure analysis, alternative pathways discovery, and innovation publishing.
+failure analysis, alternative pathways discovery, innovation publishing,
+and physics/program prototyping.
 """
 import logging
 import asyncio
@@ -12,6 +13,7 @@ from typing import Dict, List, Any, Optional
 from core.config import Config
 from modules.mad_scientist_impossible_projects import MadScientistModule
 from modules.innovation_publishing_system import InnovationPublishingSystem
+from modules.physics_prototyping_system import PhysicsPrototypingSystem
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,7 @@ class MadScientistSystem:
     - Failure analysis and learning
     - Alternative pathway discovery
     - Innovation publishing
+    - Physics and program prototyping
     """
     
     def __init__(self, agi_system, blog_scheduler=None):
@@ -33,6 +36,14 @@ class MadScientistSystem:
         # Initialize all mad scientist components
         self.impossible_projects_module = MadScientistModule(agi_system, blog_scheduler)
         self.innovation_publisher = InnovationPublishingSystem(agi_system, blog_scheduler)
+        
+        # Use the AGI system's physics prototyping system if available
+        if hasattr(agi_system, 'physics_prototyping_system'):
+            self.physics_prototyper = agi_system.physics_prototyping_system
+        else:
+            # Fallback: create our own instance (though this isn't ideal for shutdown)
+            from modules.physics_prototyping_system import PhysicsPrototypingSystem
+            self.physics_prototyper = PhysicsPrototypingSystem(agi_system, blog_scheduler)
         
         # Reference to the main experimentation module if available
         self.experimentation_module = getattr(agi_system, 'experimentation_module', None)
@@ -180,7 +191,32 @@ class MadScientistSystem:
                     except Exception as e:
                         logger.error(f"Error creating experiment from alternative: {e}")
             
-            # Step 7: Update success metrics
+            # Step 7: If the project is physics-related, use the physics prototyping system
+            if "physics" in domain.lower() or "physics" in focus_area.lower() if focus_area else False:
+                try:
+                    # Prototype the physics experiment based on the impossible project
+                    physics_result = await self.physics_prototyper.prototype_physics_experiment(
+                        project.description,
+                        focus_area=focus_area
+                    )
+                    
+                    # Add physics prototyping results to cycle result
+                    cycle_result["physics_prototyping"] = {
+                        "simulation_id": physics_result.id,
+                        "simulation_type": physics_result.simulation_type.value,
+                        "success": physics_result.success,
+                        "analysis": physics_result.analysis
+                    }
+                    
+                    # Update metrics
+                    self.publications_generated += len(physics_result.analysis.get("publications_created", []))
+                    
+                    logger.info(f"Physics prototyping completed for project: {project.name}")
+                except Exception as e:
+                    logger.error(f"Error in physics prototyping: {e}")
+                    cycle_result["physics_prototyping_error"] = str(e)
+
+            # Step 8: Update success metrics
             cycle_result["success_metrics"] = self.get_mad_scientist_metrics()
             
             logger.info(f"Completed mad scientist cycle: {cycle_result['cycle_id']}")
@@ -240,13 +276,14 @@ class MadScientistSystem:
         
         return await self.innovation_publisher.retry_pending_publications()
     
-    def get_mad_scientist_metrics(self) -> Dict[str, Any]:
+    async def get_mad_scientist_metrics(self) -> Dict[str, Any]:
         """
         Get metrics about mad scientist activities.
         """
         # Get metrics from all components
         impossible_metrics = self.impossible_projects_module.get_impossible_project_metrics()
         innovation_metrics = self.innovation_publisher.get_publication_metrics()
+        physics_prototyping_metrics = await self.physics_prototyper.get_prototyping_metrics()
         
         # Combine with our own metrics
         return {
@@ -256,11 +293,13 @@ class MadScientistSystem:
             "publications_generated": self.publications_generated,
             "impossible_project_metrics": impossible_metrics,
             "innovation_publication_metrics": innovation_metrics,
+            "physics_prototyping_metrics": physics_prototyping_metrics,
             "system_integration_status": {
                 "blog_scheduler_available": self.blog_scheduler is not None,
                 "experimentation_module_available": self.experimentation_module is not None,
                 "impossible_projects_module_ready": self.impossible_projects_module is not None,
-                "innovation_publisher_ready": self.innovation_publisher is not None
+                "innovation_publisher_ready": self.innovation_publisher is not None,
+                "physics_prototyper_ready": self.physics_prototyper is not None
             }
         }
     
@@ -268,7 +307,7 @@ class MadScientistSystem:
         """
         Generate a comprehensive report of mad scientist activities.
         """
-        metrics = self.get_mad_scientist_metrics()
+        metrics = await self.get_mad_scientist_metrics()
         
         report = f"""
 # Mad Scientist System Report
@@ -294,11 +333,19 @@ Generated at: {datetime.now().isoformat()}
 - Success Rate: {metrics['innovation_publication_metrics']['publication_success_rate']:.2%}
 - Avg Importance: {metrics['innovation_publication_metrics']['avg_importance_score']:.2f}
 
+## Physics Prototyping Metrics
+- Total Simulations: {metrics['physics_prototyping_metrics']['total_simulations']}
+- Successful: {metrics['physics_prototyping_metrics']['successful_simulations']}
+- Failed: {metrics['physics_prototyping_metrics']['failed_simulations']}
+- Success Rate: {metrics['physics_prototyping_metrics']['success_rate']:.2%}
+- Simulation Types: {dict(metrics['physics_prototyping_metrics']['simulation_types'])}
+
 ## System Integration Status
 - Blog Scheduler: {'Available' if metrics['system_integration_status']['blog_scheduler_available'] else 'Not Available'}
 - Experimentation Module: {'Available' if metrics['system_integration_status']['experimentation_module_available'] else 'Not Available'}
 - Impossible Projects Module: {'Ready' if metrics['system_integration_status']['impossible_projects_module_ready'] else 'Not Ready'}
 - Innovation Publisher: {'Ready' if metrics['system_integration_status']['innovation_publisher_ready'] else 'Not Ready'}
+- Physics Prototyper: {'Ready' if metrics['system_integration_status']['physics_prototyper_ready'] else 'Not Ready'}
 
 ## Summary
 The Mad Scientist System has been actively exploring impossible projects, learning from failures, discovering alternative approaches, and publishing innovations. This systematic approach to challenging the impossible has yielded valuable insights and alternative pathways that advance the RAVANA AGI system's capabilities.
