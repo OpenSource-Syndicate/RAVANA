@@ -1,6 +1,8 @@
 """
 Test script for the new Physics Prototyping System integration with Mad Scientist.
 """
+import pytest
+import pytest_asyncio
 import asyncio
 import sys
 import os
@@ -8,29 +10,29 @@ import os
 # Add the project root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
-from core.system import AGISystem
-from core.config import Config
 from modules.physics_prototyping_system import PhysicsPrototypingSystem
 from modules.physics_analysis_system import PhysicsDomain
+from modules.mad_scientist_system import MadScientistSystem
 
 
-async def test_physics_prototyping():
-    """Test the physics prototyping system directly."""
-    print("Testing Physics Prototyping System...")
-    
-    # Create a mock AGI system (simplified version for testing)
-    class MockBlogScheduler:
-        async def register_learning_event(self, **kwargs):
-            print(f"Blog event registered: {kwargs.get('topic', 'Unknown topic')}")
-            return True
-    
-    mock_blog_scheduler = MockBlogScheduler()
-    
-    # Initialize the physics prototyping system
-    agi_system = None  # Will be set after initialization
+class MockBlogScheduler:
+    async def register_learning_event(self, **kwargs):
+        print(f"Blog event registered: {kwargs.get('topic', 'Unknown topic')}")
+        return True
+
+
+@pytest_asyncio.fixture
+async def mock_blog_scheduler():
+    """Create a mock blog scheduler for testing."""
+    return MockBlogScheduler()
+
+
+@pytest_asyncio.fixture
+async def physics_prototyper(mock_blog_scheduler):
+    """Create a physics prototyper instance with mock dependencies."""
     prototyper = PhysicsPrototypingSystem(None, mock_blog_scheduler)
     
-    # For this test, we'll set the agi_system after creation to avoid circular dependencies
+    # Set up a mock AGI system
     prototyper.agi_system = type('MockAGISystem', (), {
         'memory_service': type('MockMemoryService', (), {
             'retrieve_relevant_memories': lambda query, top_k=5: []
@@ -40,165 +42,111 @@ async def test_physics_prototyping():
         })()
     })()
     
-    print("\n1. Testing basic physics simulation...")
-    try:
-        # Test with a simple hypothesis
-        result = await prototyper.prototype_physics_experiment(
-            "Test hypothesis: How does a ball fall under gravity?",
-            PhysicsDomain.MECHANICS
-        )
-        print(f"   Success: {result.success}")
-        print(f"   Analysis: {result.analysis.get('conclusion', 'No conclusion')[:100]}...")
-        print(f"   Data points: {len(result.data)}")
-        print("   [PASS] Physics prototyping test passed")
-    except Exception as e:
-        print(f"   [FAIL] Physics prototyping test failed: {e}")
-        return False
-    
-    print("\n2. Testing with a quantum mechanics hypothesis...")
-    try:
-        result = await prototyper.prototype_physics_experiment(
-            "Quantum tunneling through a potential barrier",
-            PhysicsDomain.QUANTUM_MECHANICS
-        )
-        print(f"   Success: {result.success}")
-        print(f"   Simulation type: {result.simulation_type.value}")
-        print(f"   Data points: {len(result.data)}")
-        print("   [PASS] Quantum mechanics test passed")
-    except Exception as e:
-        print(f"   [FAIL] Quantum mechanics test failed: {e}")
-        return False
-    
-    print("\n3. Testing with an impossible physics hypothesis...")
-    try:
-        result = await prototyper.prototype_physics_experiment(
-            "Perpetual motion machine that violates conservation of energy",
-            PhysicsDomain.THERMODYNAMICS
-        )
-        print(f"   Success: {result.success}")
-        print(f"   Analysis support: {result.analysis.get('support', 'Unknown')}")
-        print(f"   Key observations: {result.analysis.get('key_observations', [])[:2]}")
-        print("   [PASS] Impossible physics test passed")
-    except Exception as e:
-        print(f"   [FAIL] Impossible physics test failed: {e}")
-        return False
-    
-    print("\n4. Testing metrics...")
-    try:
-        metrics = await prototyper.get_prototyping_metrics()
-        print(f"   Total simulations: {metrics['total_simulations']}")
-        print(f"   Success rate: {metrics['success_rate']:.2%}")
-        print("   [PASS] Metrics test passed")
-    except Exception as e:
-        print(f"   [FAIL] Metrics test failed: {e}")
-        return False
-    
-    return True
+    return prototyper
 
 
-async def test_mad_scientist_integration():
+@pytest.mark.asyncio
+async def test_basic_physics_simulation(physics_prototyper):
+    """Test the basic physics simulation functionality."""
+    result = await physics_prototyper.prototype_physics_experiment(
+        "Test hypothesis: How does a ball fall under gravity?",
+        PhysicsDomain.MECHANICS
+    )
+    
+    assert result.success is True
+    assert len(result.data) > 0
+    assert result.simulation_type is not None
+    assert result.analysis is not None
+
+
+@pytest.mark.asyncio
+async def test_quantum_mechanics_simulation(physics_prototyper):
+    """Test quantum mechanics simulation."""
+    from modules.physics_prototyping_system import SimulationType
+    
+    result = await physics_prototyper.prototype_physics_experiment(
+        "Quantum tunneling through a potential barrier",
+        PhysicsDomain.QUANTUM_MECHANICS
+    )
+    
+    assert result.success is True
+    assert len(result.data) > 0
+    # Quantum mechanics experiments often default to theoretical physics
+    assert result.simulation_type in [SimulationType.QUANTUM_SIMULATION, 
+                                    SimulationType.THEORETICAL_PHYSICS]
+
+
+@pytest.mark.asyncio
+async def test_impossible_physics_simulation(physics_prototyper):
+    """Test simulation of impossible physics concepts."""
+    result = await physics_prototyper.prototype_physics_experiment(
+        "Perpetual motion machine that violates conservation of energy",
+        PhysicsDomain.THERMODYNAMICS
+    )
+    
+    assert result.success is True
+    # Impossible physics experiments should typically be refuted or inconclusive
+    assert result.analysis.get('support') in ['refute', 'inconclusive', 'impossible']
+
+
+@pytest.mark.asyncio
+async def test_prototyping_metrics(physics_prototyper):
+    """Test that metrics are properly calculated."""
+    # First run a simulation to generate data
+    await physics_prototyper.prototype_physics_experiment(
+        "Test hypothesis: How does a ball fall under gravity?",
+        PhysicsDomain.MECHANICS
+    )
+    
+    metrics = await physics_prototyper.get_prototyping_metrics()
+    
+    assert 'total_simulations' in metrics
+    assert 'success_rate' in metrics
+    assert metrics['total_simulations'] >= 1
+    assert 0.0 <= metrics['success_rate'] <= 1.0
+
+
+@pytest.mark.asyncio
+async def test_mad_scientist_integration(mock_blog_scheduler):
     """Test the integration with the mad scientist system."""
-    print("\n\nTesting Mad Scientist System Integration...")
+    # Create the physics prototyping system that would be part of the AGI system
+    physics_prototyper = PhysicsPrototypingSystem(None, mock_blog_scheduler)
     
-    class MockBlogScheduler:
-        async def register_learning_event(self, **kwargs):
-            print(f"Blog event registered: {kwargs.get('topic', 'Unknown topic')}")
-            return True
+    # Set up a mock AGI system with the prototyper
+    agi_system = type('MockAGISystem', (), {
+        'blog_scheduler': mock_blog_scheduler,
+        'memory_service': type('MockMemoryService', (), {
+            'retrieve_relevant_memories': lambda query, top_k=5: []
+        })(),
+        'knowledge_service': type('MockKnowledgeService', (), {
+            'add_knowledge': lambda content, source, category: None
+        })(),
+        # Add the physics prototyping system that we'll test integration with
+        'physics_prototyping_system': physics_prototyper
+    })()
     
-    mock_blog_scheduler = MockBlogScheduler()
+    # Set the agi_system reference in the physics prototyper
+    physics_prototyper.agi_system = agi_system
     
-    try:
-        # Create the physics prototyping system that would be part of the AGI system
-        from modules.physics_prototyping_system import PhysicsPrototypingSystem
-        physics_prototyper = PhysicsPrototypingSystem(None, mock_blog_scheduler)
-        
-        # Since we're not running in full AGI context, set up a mock AGI system with the prototyper
-        agi_system = type('MockAGISystem', (), {
-            'blog_scheduler': mock_blog_scheduler,
-            'memory_service': type('MockMemoryService', (), {
-                'retrieve_relevant_memories': lambda query, top_k=5: []
-            })(),
-            'knowledge_service': type('MockKnowledgeService', (), {
-                'add_knowledge': lambda content, source, category: None
-            })(),
-            # Add the physics prototyping system that we'll test integration with
-            'physics_prototyping_system': physics_prototyper
-        })()
-        
-        # Set the agi_system reference in the physics prototyper
-        physics_prototyper.agi_system = agi_system
-        
-        # Initialize just the mad scientist system
-        from modules.mad_scientist_system import MadScientistSystem
-        mad_scientist = MadScientistSystem(agi_system, mock_blog_scheduler)
-        
-        # Check if physics prototyper is properly set to the same instance as the AGI system
-        if hasattr(mad_scientist, 'physics_prototyper'):
-            print("   [PASS] Mad Scientist system has physics prototyper")
-            
-            # Verify it's the same instance as the AGI system
-            if mad_scientist.physics_prototyper is physics_prototyper:
-                print("   [PASS] Mad Scientist system is using the same physics prototyper instance as AGI system")
-            else:
-                print("   [FAIL] Mad Scientist system is not using the same physics prototyper instance")
-                return False
-            
-            # Test that it can call the physics prototyping system
-            try:
-                result = await mad_scientist.physics_prototyper.prototype_physics_experiment(
-                    "Simple test: object falling under gravity",
-                    PhysicsDomain.MECHANICS
-                )
-                print(f"   [PASS] Integration test successful: {result.success}")
-                print(f"   Simulation type: {result.simulation_type.value}")
-            except Exception as e:
-                print(f"   [FAIL] Integration test failed: {e}")
-                return False
-        else:
-            print("   [FAIL] Mad Scientist system missing physics prototyper")
-            return False
-            
-        # Test metrics integration (async method)
-        try:
-            metrics = await mad_scientist.get_mad_scientist_metrics()
-            if 'physics_prototyping_metrics' in metrics:
-                print("   [PASS] Physics prototyping metrics integrated in mad scientist system")
-            else:
-                print("   [FAIL] Physics prototyping metrics not found in mad scientist system")
-                return False
-        except Exception as e:
-            print(f"   [FAIL] Metrics integration test failed: {e}")
-            return False
-            
-    except Exception as e:
-        print(f"   [FAIL] Mad Scientist integration test failed: {e}")
-        return False
+    # Initialize the mad scientist system
+    mad_scientist = MadScientistSystem(agi_system, mock_blog_scheduler)
     
-    return True
-
-
-async def main():
-    """Run all tests."""
-    print("Starting Physics Prototyping System Tests...")
+    # Verify the mad scientist system has a reference to the physics prototyper
+    assert hasattr(mad_scientist, 'physics_prototyper')
     
-    # Test the physics prototyping system
-    physics_test_passed = await test_physics_prototyping()
+    # Verify it's the same instance as the AGI system
+    assert mad_scientist.physics_prototyper is physics_prototyper
     
-    # Test integration with mad scientist system
-    mad_scientist_test_passed = await test_mad_scientist_integration()
+    # Test that it can call the physics prototyping system
+    result = await mad_scientist.physics_prototyper.prototype_physics_experiment(
+        "Simple test: object falling under gravity",
+        PhysicsDomain.MECHANICS
+    )
     
-    print(f"\n\nTest Results:")
-    print(f"Physics Prototyping: {'[PASS]' if physics_test_passed else '[FAIL]'}")
-    print(f"Mad Scientist Integration: {'[PASS]' if mad_scientist_test_passed else '[FAIL]'}")
+    assert result.success is True
+    assert result.simulation_type is not None
     
-    if physics_test_passed and mad_scientist_test_passed:
-        print("\n[SUCCESS] All tests passed! The physics prototyping system is working correctly.")
-        return True
-    else:
-        print("\n[ERROR] Some tests failed. Please check the implementation.")
-        return False
-
-
-if __name__ == "__main__":
-    success = asyncio.run(main())
-    sys.exit(0 if success else 1)
+    # Test metrics integration
+    metrics = await mad_scientist.get_mad_scientist_metrics()
+    assert 'physics_prototyping_metrics' in metrics
+    assert metrics['physics_prototyping_metrics'] is not None
