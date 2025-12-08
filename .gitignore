@@ -1,102 +1,72 @@
-# Byte-compiled / optimized / DLL files
+```
+# Compiled and build artifacts
+*.pyc
 __pycache__/
-**/__pycache__/
-*.py[cod]
-*$py.class
-# Virtual environments
-.venv/
-**/.venv/
-env/
-**/env/
-venv/
-**/venv/
-# Logs and databases
-*.log
-*.db
-*.sqlite3
-# Environment and lock files
-.env
-.env.*
-.venv
-Pipfile.lock
-poetry.lock
-uv.lock
-# Ignore temporary editor files
-*.swp
-*.swo
-*~
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-# OS-specific files
-.DS_Store
-Thumbs.db
-chroma_db/
-
-# Custom
-.cursorignore
-
-# PyInstaller
-# build/  # Already included in Packaging section
-# dist/   # Already included in Packaging section
-# *.spec  # Already included in Packaging section
-
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints/
-
-# Coverage and testing
-htmlcov/
-.coverage
-.cache/
-pytest_cache/
-.tox/
-
-# Mypy and Pyright
-.mypy_cache/
-.pyright/
-
-# Packaging
-*.egg
-*.egg-info/
+*.o
+*.obj
 dist/
 build/
-*.spec
+*.so
+*.dll
+*.exe
+*.class
 
-modules/knowledge_compression/compressed_memory.json
+# Dependencies
+.venv/
+venv/
+node_modules/
+.mypy_cache/
+.pytest_cache/
+target/
+.gradle/
 
-# RAVANA AGI specific
-.qoder/
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
 
-knowledge_id_map.pkl
-knowledge_index.faiss
+# Environment
+.env
+.env.local
+*.env.*
 
-snake_agent_state.json
-shared_memory/
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
 
-user_data/
+# System files
+.DS_Store
+Thumbs.db
 
-snake_logs/
-backups/
+# Coverage
+coverage/
+htmlcov/
+.coverage
 
-snake_vltm_storage/
-vltm_storage/
-test_snake_logs/
-
-performance_data/
-.benchmarks/
-.qwen/
-
-profiles/
-
-SNAKE_AGENT_FINAL_SUMMARY.md
-SNAKE_AGENT_SUCCESS_SUMMARY.md
-
-snake_agent_optimized_config.bat
-snake_agent_optimized_config.sh
-
-enhanced_snake_state.json
-final_demonstration.py
-optimize_code_snake.py
-self_goals.json
-.snake_index.json
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```
