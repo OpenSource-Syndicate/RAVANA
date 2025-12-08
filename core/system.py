@@ -395,6 +395,7 @@ class AGISystem:
             ("Resource Manager", self._initialize_resource_manager),
             ("Snake Agent", self._initialize_snake_agent),
             ("Conversational AI", self._initialize_conversational_ai),
+            ("Consciousness System", self._initialize_consciousness_system),
             ("Shutdown Coordinator", self._initialize_shutdown_coordinator)
         ]
 
@@ -626,6 +627,51 @@ class AGISystem:
         except Exception as e:
             logger.error(f"Error in Conversational AI initialization: {e}")
             self.conversational_ai = None
+
+    def _initialize_consciousness_system(self):
+        """Initialize consciousness system with awareness and self-model capabilities."""
+        try:
+            from modules.consciousness_integration import ConsciousnessIntegration
+            self.consciousness_integration = ConsciousnessIntegration(self)
+            logger.info("Consciousness integration module initialized")
+        except ImportError as e:
+            logger.warning(f"Consciousness integration module not available: {e}")
+            # Create a mock consciousness integration that does nothing
+            class MockConsciousnessIntegration:
+                def __init__(self, agi_system):
+                    self.enabled = False
+                    self.agi_system = agi_system
+
+                async def process_with_consciousness(self, inputs):
+                    return inputs  # Return inputs unchanged
+
+                async def reflect_on_experience(self, experience):
+                    return {}
+
+                async def get_consciousness_state(self):
+                    return {}
+
+            self.consciousness_integration = MockConsciousnessIntegration(self)
+            logger.info("Initialized mock consciousness integration (consciousness features disabled)")
+        except Exception as e:
+            logger.error(f"Failed to initialize consciousness system: {e}")
+            # Create a mock consciousness integration that does nothing
+            class MockConsciousnessIntegration:
+                def __init__(self, agi_system):
+                    self.enabled = False
+                    self.agi_system = agi_system
+
+                async def process_with_consciousness(self, inputs):
+                    return inputs  # Return inputs unchanged
+
+                async def reflect_on_experience(self, experience):
+                    return {}
+
+                async def get_consciousness_state(self):
+                    return {}
+
+            self.consciousness_integration = MockConsciousnessIntegration(self)
+            logger.info("Initialized mock consciousness integration due to error")
 
     def _initialize_shutdown_coordinator(self):
         """Initialize shutdown coordinator."""
@@ -1775,6 +1821,18 @@ class AGISystem:
     async def _make_decision(self, situation: dict):
         logger.info("Making enhanced decision with adaptive learning, self-improvement goals, and advanced analysis systems.")
 
+        # Apply consciousness processing to the situation if available
+        consciousness_processed_inputs = {
+            'situation': situation,
+            'mood': self.shared_state.mood,
+            'memory': self.shared_state.recent_memories,
+            'rag_context': getattr(self.shared_state, 'search_results', []),
+            'self_improvement_goals': self._get_active_improvement_goals()
+        }
+
+        # Process inputs through consciousness architecture
+        consciousness_outputs = await self.consciousness_integration.process_with_consciousness(consciousness_processed_inputs)
+
         # Get available actions from the action manager's registry
         available_actions = self.action_manager.action_registry.get_action_definitions()
 
@@ -1782,9 +1840,10 @@ class AGISystem:
         decision_context = {
             'situation': situation,
             'mood': self.shared_state.mood,
-            'memory': self.shared_state.recent_memories,
-            'rag_context': getattr(self.shared_state, 'search_results', []),
-            'self_improvement_goals': self._get_active_improvement_goals()
+            'memory': consciousness_outputs.get('memory', self.shared_state.recent_memories),  # Use consciousness-processed memories if available
+            'rag_context': consciousness_outputs.get('rag_context', getattr(self.shared_state, 'search_results', [])),
+            'self_improvement_goals': consciousness_outputs.get('self_improvement_goals', self._get_active_improvement_goals()),
+            'consciousness_state': await self.consciousness_integration.get_consciousness_state()  # Add consciousness state to context
         }
 
         learning_adaptations = await self.learning_engine.apply_learning_to_decision(decision_context)
@@ -1795,7 +1854,7 @@ class AGISystem:
         try:
             # Check if the situation might involve physics
             situation_text = str(situation.get('prompt', '')) + ' ' + str(situation)
-            if any(keyword in situation_text.lower() for keyword in 
+            if any(keyword in situation_text.lower() for keyword in
                    ['physics', 'motion', 'force', 'energy', 'quantum', 'relativity', 'mechanics', 'thermodynamics']):
                 physics_analysis = await self.physics_analysis_system.analyze_physics_problem(
                     problem_description=situation_text
@@ -1826,17 +1885,18 @@ class AGISystem:
         # Use advanced reasoning engine for enhanced decision making
         reasoning_context = {
             'situation': situation,
-            'memory_context': self.shared_state.recent_memories,
-            'goal_context': self._get_active_improvement_goals(),
+            'memory_context': consciousness_outputs.get('memory', self.shared_state.recent_memories),
+            'goal_context': consciousness_outputs.get('self_improvement_goals', self._get_active_improvement_goals()),
             'physics_analysis': physics_analysis,
-            'failure_lessons': failure_lessons
+            'failure_lessons': failure_lessons,
+            'consciousness_state': await self.consciousness_integration.get_consciousness_state()  # Include consciousness state in reasoning
         }
-        
+
         reasoning_result = await self.reasoning_engine.reason(**reasoning_context)
-        
+
         # Convert reasoning result to decision format compatible with existing code
         decision = await self._convert_reasoning_to_decision(
-            reasoning_result, 
+            reasoning_result,
             available_actions
         )
 
@@ -2196,9 +2256,25 @@ class AGISystem:
 
         if not mood_changed_for_better and random.random() < self.config.REFLECTION_CHANCE:
             logger.info("Mood has not improved. Initiating reflection.")
-            # This is where you can trigger a reflection process
-            # For now, we'll just log it.
-            await self.reflection_module.reflect(self.shared_state)
+
+            # Create experience data for consciousness-aware reflection
+            experience_data = {
+                'action_output': action_output,
+                'situation_context': getattr(self.shared_state, 'current_situation', {}),
+                'decision_context': getattr(self, 'current_decision', {}),
+                'mood_before': old_mood,
+                'mood_after': new_mood,
+                'timestamp': datetime.now()
+            }
+
+            # Perform consciousness-aware reflection
+            consciousness_reflection = await self.consciousness_integration.reflect_on_experience(experience_data)
+
+            # Perform regular reflection if consciousness reflection wasn't comprehensive
+            if not consciousness_reflection or len(consciousness_reflection.get('learning_extracted', [])) < 2:
+                await self.reflection_module.reflect(self.shared_state)
+            else:
+                logger.info(f"Consciousness-aware reflection completed with {len(consciousness_reflection.get('learning_extracted', []))} insights extracted")
         else:
             logger.info(
                 "Mood improved or stayed the same, skipping reflection.")
